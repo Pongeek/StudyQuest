@@ -32,11 +32,19 @@ import {
  * the AudioContext on first use (which is also the first user gesture).
  */
 export function useSound() {
-  // Initialize to the SSR default; the effect below hydrates the real value.
-  const [muted, setMutedState] = useState<boolean>(() => readMuted());
+  // CRITICAL — must match the SSR default exactly. The useState initializer
+  // runs during the client's hydration pass too; if it returned anything
+  // different from the server's render (e.g. a localStorage-derived value
+  // when the user has toggled sound on), React throws a hydration mismatch
+  // because the initial DOM disagrees with what the client wants to render.
+  // We always start `muted = true` (the SSR default) and sync to the real
+  // localStorage value in the useEffect below, AFTER hydration completes.
+  const [muted, setMutedState] = useState<boolean>(true);
 
   useEffect(() => {
-    // Re-read once on mount (in case the SSR default disagrees with localStorage).
+    // Hydrate the real value from localStorage. This causes a re-render
+    // (not a mismatch — it happens AFTER React has reconciled with the
+    // server HTML, so it's a normal state update).
     setMutedState(readMuted());
     const unsub = subscribeMute(() => setMutedState(readMuted()));
     return unsub;

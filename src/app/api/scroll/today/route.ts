@@ -56,7 +56,8 @@ export async function GET() {
           id,
           title,
           user_id,
-          status
+          status,
+          output_language
         )
       )
     `)
@@ -72,12 +73,16 @@ export async function GET() {
 
   // Pick a random topic
   const topic = topics[Math.floor(Math.random() * topics.length)];
-  const courseTitle =
-    (topic.episodes as any)?.courses?.title ??
-    (Array.isArray(topic.episodes)
-      ? (topic.episodes[0] as any)?.courses?.title
-      : null) ??
-    "Your Course";
+  const courseRow =
+    (topic.episodes as any)?.courses ??
+    (Array.isArray(topic.episodes) ? (topic.episodes[0] as any)?.courses : null) ??
+    null;
+  const courseTitle = courseRow?.title ?? "Your Course";
+  // Use the course's output_language override so scrolls stay consistent with
+  // the rest of the course's generated content.
+  const rawLang = courseRow?.output_language;
+  const outputLanguage: "auto" | "en" | "he" =
+    rawLang === "en" || rawLang === "he" ? rawLang : "auto";
 
   let insight = "";
   try {
@@ -86,6 +91,7 @@ export async function GET() {
       summary: topic.summary || "",
       keyConcepts: Array.isArray(topic.key_concepts) ? topic.key_concepts : [],
       courseTitle,
+      outputLanguage,
     });
   } catch {
     // If AI fails, skip gracefully — don't break the dashboard

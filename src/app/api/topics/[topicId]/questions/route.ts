@@ -17,7 +17,7 @@ export async function POST(
 
   const { data: topic } = await supabase
     .from("topics")
-    .select("*, episodes!inner(title, course_id, courses!inner(subject))")
+    .select("*, episodes!inner(title, course_id, courses!inner(subject, output_language))")
     .eq("id", topicId)
     .single();
 
@@ -54,6 +54,12 @@ export async function POST(
   const sourcePages = topic.source_pages as { start: number; end: number } | null;
   const pageCount = sourcePages ? (sourcePages.end - sourcePages.start + 1) : undefined;
 
+  // Read the course's output_language so question text stays consistent
+  // with the rest of the course content (episode titles, topic summaries).
+  const rawLang = course?.output_language;
+  const outputLanguage: "auto" | "en" | "he" =
+    rawLang === "en" || rawLang === "he" ? rawLang : "auto";
+
   const questions = await generateTopicQuestions({
     topicTitle: topic.title,
     topicSummary: topic.summary,
@@ -62,6 +68,7 @@ export async function POST(
     courseSubject: course?.subject || "Academic",
     difficulty: topic.difficulty,
     pageCount,
+    outputLanguage,
   });
 
   const toInsert = questions.map((q) => ({

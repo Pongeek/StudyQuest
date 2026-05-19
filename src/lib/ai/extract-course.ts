@@ -22,9 +22,29 @@ export interface CourseStructure {
   episodes: EpisodeStructure[];
 }
 
+export type OutputLanguage = "auto" | "en" | "he";
+
+/**
+ * Builds the language-rule paragraph injected into the prompt. When 'auto',
+ * we keep the existing behavior of mirroring the source material's language.
+ * When 'en' or 'he', we explicitly tell the model to override the source
+ * language and emit everything in the chosen language.
+ */
+function buildLanguageRule(lang: OutputLanguage): string {
+  if (lang === "en") {
+    return "- CRITICAL LANGUAGE RULE: Write ALL output text (theme_name, subject, titles, descriptions, summaries, key_concepts) in ENGLISH, EVEN IF the source material is in a different language. The student wants the course content in English regardless of the PDF's language. This overrides any other language instruction.";
+  }
+  if (lang === "he") {
+    return "- CRITICAL LANGUAGE RULE: Write ALL output text (theme_name, subject, titles, descriptions, summaries, key_concepts) in HEBREW, EVEN IF the source material is in a different language. The student wants the course content in Hebrew regardless of the PDF's language. This overrides any other language instruction.";
+  }
+  // auto
+  return "- IMPORTANT: All text content (theme_name, subject, titles, descriptions, summaries, key_concepts) MUST be in the SAME LANGUAGE as the source material. If the material is in Hebrew, write everything in Hebrew. If in English, write in English.";
+}
+
 export async function extractCourseStructure(
   pdfText: string,
-  fileName: string
+  fileName: string,
+  outputLanguage: OutputLanguage = "auto"
 ): Promise<CourseStructure> {
   const truncatedText = pdfText.slice(0, 80000);
   const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
@@ -106,7 +126,7 @@ Return ONLY this JSON (no markdown, no explanation, no code blocks):
 - prerequisite is null OR the exact title of a previous topic in the same episode that should be understood first
 - key_concepts should list 4-8 specific terms, algorithms, or ideas from the section (include sub-section topics as concepts)
 - Topics should appear in the same order as in the document
-- IMPORTANT: All text content (theme_name, subject, titles, descriptions, summaries, key_concepts) MUST be in the SAME LANGUAGE as the source material. If the material is in Hebrew, write everything in Hebrew. If in English, write in English.
+${buildLanguageRule(outputLanguage)}
 - Return ONLY valid JSON, absolutely no markdown code blocks or extra text
 
 ### Common mistakes to AVOID

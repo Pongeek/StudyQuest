@@ -2,6 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
+export type OutputLanguage = "auto" | "en" | "he";
+
+function languageInstruction(lang: OutputLanguage): string {
+  if (lang === "en") return "Write in ENGLISH regardless of the topic/summary language.";
+  if (lang === "he") return "Write in HEBREW regardless of the topic/summary language.";
+  return "Write in the same language as the topic/summary (Hebrew or English).";
+}
+
 /**
  * Generates a single surprising / real-world insight from a topic for the
  * Daily Scroll of Wisdom. Returns plain text — 2-3 sentences max.
@@ -11,8 +19,10 @@ export async function generateScrollInsight(params: {
   summary: string;
   keyConcepts: string[];
   courseTitle: string;
+  outputLanguage?: OutputLanguage;
 }): Promise<string> {
   const { topicTitle, summary, keyConcepts, courseTitle } = params;
+  const outputLanguage = params.outputLanguage ?? "auto";
 
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
@@ -32,7 +42,7 @@ Write ONE single fascinating insight about this topic — something surprising, 
 Rules:
 - Exactly 2-3 sentences. No more.
 - Must feel like a genuine revelation, not a summary.
-- Write in the same language as the topic/summary (Hebrew or English).
+- ${languageInstruction(outputLanguage)}
 - Do NOT use bullet points, headers, or markdown — plain prose only.
 - Do NOT start with "Did you know" — be more creative.
 

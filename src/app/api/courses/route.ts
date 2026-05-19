@@ -33,6 +33,13 @@ export async function POST(request: NextRequest) {
   const title = formData.get("title") as string;
   const fileCount = parseInt(formData.get("fileCount") as string, 10);
 
+  // Output language override — defaults to 'auto' (match source PDF).
+  // Validated against the same set the DB CHECK constraint enforces so a
+  // malformed client request can't get past the type system.
+  const rawLang = formData.get("outputLanguage");
+  const outputLanguage: "auto" | "en" | "he" =
+    rawLang === "en" || rawLang === "he" ? rawLang : "auto";
+
   // Create course record first
   const { data: course, error: courseError } = await supabase
     .from("courses")
@@ -40,6 +47,7 @@ export async function POST(request: NextRequest) {
       user_id: dbUser.id,
       title: title || "Untitled Course",
       status: "processing",
+      output_language: outputLanguage,
     })
     .select()
     .single();
@@ -85,8 +93,16 @@ export async function POST(request: NextRequest) {
   }
 
   // Start async AI processing (fire and forget pattern)
-  processCoursesAsync(course.id, filesData).catch(async (err) => {
-    console.error("Course processing error:", err);
+  processCoursesAsync(course.id, filesData, outputLanguage).catch(async (err) => {
+    // Detailed structured logging — surfaces in `npm run dev` terminal locally
+    // and in Vercel Function Logs in production. Includes the courseId so the
+    // failure can be traced back to a specific row in the DB.
+    console.error("=== Course processing error ===");
+    console.error("Course ID:", course.id);
+    console.error("Error type:", err?.constructor?.name);
+    console.error("Error message:", err instanceof Error ? err.message : String(err));
+    console.error("Stack:", err instanceof Error ? err.stack : "(no stack)");
+    console.error("================================");
     await supabase.from("courses").update({ status: "error" }).eq("id", course.id);
   });
 
@@ -95,7 +111,8 @@ export async function POST(request: NextRequest) {
 
 async function processCoursesAsync(
   courseId: string,
-  files: Array<{ buffer: Buffer; name: string; type: string }>
+  files: Array<{ buffer: Buffer; name: string; type: string }>,
+  outputLanguage: "auto" | "en" | "he"
 ) {
   const supabase = createServiceClient();
 
@@ -145,7 +162,7 @@ async function processCoursesAsync(
   }
 
   // Ask Claude to build the course structure
-  const structure = await extractCourseStructure(allText, primaryFileName);
+  const structure = await extractCourseStructure(allText, primaryFileName, outputLanguage);
 
   // Persist course metadata
   await supabase

@@ -9,6 +9,18 @@ export interface GeneratedQuestion {
   difficulty: number;
 }
 
+export type OutputLanguage = "auto" | "en" | "he";
+
+function buildLanguageRule(lang: OutputLanguage): string {
+  if (lang === "en") {
+    return "- CRITICAL LANGUAGE RULE: Write ALL output text (questions, options, answers, explanations) in ENGLISH, EVEN IF the topic/summary is in a different language. The student chose English course content. This overrides any other language instruction.";
+  }
+  if (lang === "he") {
+    return "- CRITICAL LANGUAGE RULE: Write ALL output text (questions, options, answers, explanations) in HEBREW, EVEN IF the topic/summary is in a different language. The student chose Hebrew course content. This overrides any other language instruction.";
+  }
+  return "- IMPORTANT: All text (questions, options, answers, explanations) MUST be in the SAME LANGUAGE as the topic/summary provided. If the topic is in Hebrew, write everything in Hebrew. If in English, write in English.";
+}
+
 export async function generateTopicQuestions(params: {
   topicTitle: string;
   topicSummary: string;
@@ -18,8 +30,11 @@ export async function generateTopicQuestions(params: {
   difficulty: number;
   /** Number of pages this topic covers (used to scale question count) */
   pageCount?: number;
+  /** Output language override — defaults to 'auto' (match source) */
+  outputLanguage?: OutputLanguage;
 }): Promise<GeneratedQuestion[]> {
   const { topicTitle, topicSummary, keyConcepts, episodeTitle, courseSubject, difficulty, pageCount } = params;
+  const outputLanguage = params.outputLanguage ?? "auto";
   const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
   // Scale question count based on content size:
@@ -84,7 +99,7 @@ Critical rules:
 - Spread questions across ALL key concepts — do not cluster questions on a single concept
 - Vary difficulty: include a mix of easier (1-2) and harder (4-5) questions
 - difficulty is 1-5 per question
-- IMPORTANT: All text (questions, options, answers, explanations) MUST be in the SAME LANGUAGE as the topic/summary provided. If the topic is in Hebrew, write everything in Hebrew. If in English, write in English.
+${buildLanguageRule(outputLanguage)}
 
 FORMATTING RULES (CRITICAL — questions often contain pseudocode):
 - Format the "content" / "options" / "correct_answer" / "explanation" fields as **Markdown**.

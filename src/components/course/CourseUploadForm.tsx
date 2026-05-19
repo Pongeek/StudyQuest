@@ -15,10 +15,17 @@ interface UploadedFile {
   type: "lecture" | "notes" | "past_exam";
 }
 
+type OutputLanguage = "auto" | "en" | "he";
+
 export default function CourseUploadForm() {
   const router = useRouter();
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [courseTitle, setCourseTitle] = useState("");
+  // Output language for AI-generated content (topics, quizzes, debriefs,
+  // scrolls). 'auto' matches the source PDF's language — current behavior
+  // and the safe default. Choosing 'en' or 'he' explicitly forces that
+  // language regardless of the source.
+  const [outputLanguage, setOutputLanguage] = useState<OutputLanguage>("auto");
   const [isUploading, setIsUploading] = useState(false);
 
   const onDrop = useCallback((accepted: File[]) => {
@@ -56,6 +63,7 @@ export default function CourseUploadForm() {
         formData.append(`type_${i}`, type);
       });
       formData.append("fileCount", String(files.length));
+      formData.append("outputLanguage", outputLanguage);
 
       const response = await fetch("/api/courses", {
         method: "POST",
@@ -169,6 +177,31 @@ export default function CourseUploadForm() {
           ))}
         </div>
       )}
+
+      {/* Output language picker — controls the language the AI will use
+          when generating topics, quiz questions, debriefs, and daily scrolls.
+          Default 'auto' = match the source PDF (current behavior). Set
+          explicitly to translate the experience even when the source is
+          in a different language. */}
+      <div className="space-y-2">
+        <Label htmlFor="outputLanguage" className="text-slate-300">
+          Course language
+        </Label>
+        <select
+          id="outputLanguage"
+          value={outputLanguage}
+          onChange={(e) => setOutputLanguage(e.target.value as OutputLanguage)}
+          className="w-full bg-slate-800/50 border border-slate-700/50 text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50"
+        >
+          <option value="auto">Auto — match the PDF&apos;s language</option>
+          <option value="en">English</option>
+          <option value="he">עברית (Hebrew)</option>
+        </select>
+        <p className="text-xs text-slate-600">
+          AI-generated content (topics, quizzes, debriefs) will be written in this language.
+          Pick &quot;Auto&quot; to match the source PDF.
+        </p>
+      </div>
 
       <Button
         type="submit"
