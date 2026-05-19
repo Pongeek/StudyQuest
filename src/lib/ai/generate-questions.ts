@@ -129,12 +129,53 @@ FORMATTING RULES (CRITICAL — questions often contain pseudocode):
   const content = message.content[0];
   if (content.type !== "text") throw new Error("Unexpected response type");
 
-  const jsonText = content.text.trim();
+  return parseQuestionsArray(content.text.trim());
+}
+
+/**
+ * 4-stage defensive JSON parser for the questions array. Same approach as
+ * the course-extraction parser — handles code fences, surrounding prose,
+ * smart quotes, and trailing commas before giving up.
+ */
+function parseQuestionsArray(raw: string): GeneratedQuestion[] {
+  // Stage 1 — direct parse
   try {
-    return JSON.parse(jsonText) as GeneratedQuestion[];
-  } catch {
-    const match = jsonText.match(/\[[\s\S]*\]/);
-    if (!match) throw new Error("Could not extract JSON from questions response");
-    return JSON.parse(match[0]) as GeneratedQuestion[];
+    return JSON.parse(raw) as GeneratedQuestion[];
+  } catch { /* fall through */ }
+
+  // Stage 2 — strip Markdown code fences
+  let cleaned = raw
+    .replace(/^\s*```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
+  try {
+    return JSON.parse(cleaned) as GeneratedQuestion[];
+  } catch { /* fall through */ }
+
+  // Stage 3 — bracket-slice between the first `[` and last `]`
+  const firstBracket = cleaned.indexOf("[");
+  const lastBracket = cleaned.lastIndexOf("]");
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    cleaned = cleaned.slice(firstBracket, lastBracket + 1);
+    try {
+      return JSON.parse(cleaned) as GeneratedQuestion[];
+    } catch { /* fall through */ }
+  }
+
+  // Stage 4 — repair common malformations
+  const repaired = cleaned
+    .replace(/[“”„]/g, '"')
+    .replace(/[‘’‚]/g, "'")
+    .replace(/,\s*([}\]])/g, "$1");
+
+  try {
+    return JSON.parse(repaired) as GeneratedQuestion[];
+  } catch (err) {
+    const preview = raw.slice(0, 400).replace(/\s+/g, " ");
+    throw new Error(
+      `Could not parse questions JSON after 4 repair stages. ` +
+      `First 400 chars: ${preview}... ` +
+      `(original error: ${err instanceof Error ? err.message : String(err)})`
+    );
   }
 }

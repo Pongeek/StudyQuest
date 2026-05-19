@@ -142,12 +142,61 @@ ${buildLanguageRule(outputLanguage)}
   const content = message.content[0];
   if (content.type !== "text") throw new Error("Unexpected response type from Claude");
 
-  const jsonText = content.text.trim();
+  // 4-stage defensive JSON parser. Mirrors the approach used by the exam
+  // extractor (see CLAUDE.md). Claude usually returns valid JSON, but with
+  // non-Latin output (Hebrew, Arabic) or longer responses the model
+  // occasionally adds code fences, prose, smart quotes, or stray trailing
+  // commas. Each stage handles one common failure mode before re-trying.
+  const raw = content.text.trim();
+  return parseCourseStructure(raw);
+}
+
+function parseCourseStructure(raw: string): CourseStructure {
+  // Stage 1 — direct parse
   try {
-    return JSON.parse(jsonText) as CourseStructure;
-  } catch {
-    const match = jsonText.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("Could not extract JSON from Claude response");
-    return JSON.parse(match[0]) as CourseStructure;
+    return JSON.parse(raw) as CourseStructure;
+  } catch { /* fall through */ }
+
+  // Stage 2 — strip Markdown code fences (```json ... ``` or ``` ... ```)
+  let cleaned = raw
+    .replace(/^\s*```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
+  try {
+    return JSON.parse(cleaned) as CourseStructure;
+  } catch { /* fall through */ }
+
+  // Stage 3 — bracket-slice: take everything between the FIRST `{` and the
+  // LAST `}`. Drops any pre/post prose the model may have added.
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(cleaned) as CourseStructure;
+    } catch { /* fall through */ }
+  }
+
+  // Stage 4 — repair common malformations:
+  //   - Smart/curly quotes → straight quotes (Hebrew text frequently
+  //     triggers " " ' ' which break JSON)
+  //   - Trailing commas before `}` or `]`
+  const repaired = cleaned
+    .replace(/[“”„]/g, '"')  // “ ” „ → "
+    .replace(/[‘’‚]/g, "'")  // ‘ ’ ‚ → '
+    .replace(/,\s*([}\]])/g, "$1");          // trailing commas
+
+  try {
+    return JSON.parse(repaired) as CourseStructure;
+  } catch (err) {
+    // Surface a snippet of what failed to parse so the terminal log shows
+    // the actual content Claude returned — far easier to debug than just
+    // "SyntaxError at position 727" with no context.
+    const preview = raw.slice(0, 400).replace(/\s+/g, " ");
+    throw new Error(
+      `Could not parse Claude response as JSON after 4 repair stages. ` +
+      `First 400 chars of response: ${preview}... ` +
+      `(original error: ${err instanceof Error ? err.message : String(err)})`
+    );
   }
 }
