@@ -86,9 +86,14 @@ export default function ExamDebrief({
   // Exam-mode total points — sum of (score × marks) across all questions.
   // Shown alongside the predicted-score percentage because for an exam, the
   // absolute point count (47/65) often matters as much as the percentage.
+  // Per-question values get rounded to the nearest integer (0.5 → 1, 0.4 → 0)
+  // so totals read cleanly without decimals.
   const totalMarks = safeResults.reduce((sum, r) => sum + (r.marks ?? 0), 0);
-  const earnedMarks = safeResults.reduce((sum, r) => sum + r.score * (r.marks ?? 0), 0);
-  const earnedMarksDisplay = earnedMarks.toFixed(1).replace(/\.0$/, "");
+  const earnedMarks = safeResults.reduce(
+    (sum, r) => sum + Math.round(r.score * (r.marks ?? 0)),
+    0
+  );
+  const earnedMarksDisplay = String(earnedMarks);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6" dir={rtl ? "rtl" : "ltr"}>
@@ -245,7 +250,7 @@ export default function ExamDebrief({
                   )}
                 </div>
                 <span className={cn("text-xs font-bold tabular-nums", scoreColor)}>
-                  {(r.score * (r.marks ?? 0)).toFixed(1).replace(/\.0$/, "")}/{r.marks ?? 0} pts &middot; {Math.round(r.score * 100)}%
+                  {Math.round(r.score * (r.marks ?? 0))}/{r.marks ?? 0} pts &middot; {Math.round(r.score * 100)}%
                 </span>
               </div>
 

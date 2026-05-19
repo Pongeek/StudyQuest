@@ -35,6 +35,7 @@ import AchievementUnlockOverlay, {
   type UnlockedAchievement,
 } from "@/components/effects/AchievementUnlockOverlay";
 import GradingOverlay from "@/components/effects/GradingOverlay";
+import AutoRecoverBoundary from "@/components/effects/AutoRecoverBoundary";
 import { calculateLevel, getLevelTitle, XP_REWARDS } from "@/lib/xp";
 
 function isRTL(text: string): boolean {
@@ -425,22 +426,31 @@ function ExamEngineInner({
   };
 
   // --- Debrief screen ---
+  // Wrapped in AutoRecoverBoundary: if the inline debrief render hits any
+  // edge case (e.g. malformed debriefData, KaTeX failure on weird markup),
+  // it auto-falls-back to router.refresh() which re-fetches the page from
+  // the server — at which point completed_at is set in the DB and the page
+  // renders the standalone <ExamDebrief> directly. Same outcome the user
+  // currently gets by hitting "Reload" manually, but without the scary
+  // browser error page in between.
   if (completionPhase === "debrief" && debriefData) {
     return (
-      <ExamDebrief
-        courseId={courseId}
-        examTitle={examTitle}
-        predictedScore={debriefData.predictedScore}
-        examReadiness={debriefData.examReadiness}
-        strongestAreas={debriefData.strongestAreas}
-        criticalGaps={debriefData.criticalGaps}
-        recommendedTopics={debriefData.recommendedTopics}
-        summary={debriefData.summary}
-        xpEarned={debriefData.xpEarned}
-        results={buildResultsArray()}
-        elapsedSeconds={elapsedSeconds}
-        mode={mode}
-      />
+      <AutoRecoverBoundary label="ExamDebrief">
+        <ExamDebrief
+          courseId={courseId}
+          examTitle={examTitle}
+          predictedScore={debriefData.predictedScore}
+          examReadiness={debriefData.examReadiness}
+          strongestAreas={debriefData.strongestAreas}
+          criticalGaps={debriefData.criticalGaps}
+          recommendedTopics={debriefData.recommendedTopics}
+          summary={debriefData.summary}
+          xpEarned={debriefData.xpEarned}
+          results={buildResultsArray()}
+          elapsedSeconds={elapsedSeconds}
+          mode={mode}
+        />
+      </AutoRecoverBoundary>
     );
   }
 
