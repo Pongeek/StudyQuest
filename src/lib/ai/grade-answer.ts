@@ -13,6 +13,16 @@ export async function gradeOpenAnswer(params: {
   topicTitle: string;
 }): Promise<GradingResult> {
   const { question, modelAnswer, explanation, studentAnswer, topicTitle } = params;
+
+  // Surface a clear, actionable error during deploys / first run when the
+  // CLAUDE_API_KEY env var isn't set — without this, the SDK throws a
+  // cryptic "401 invalid API key" that's hard to trace from the UI.
+  if (!process.env.CLAUDE_API_KEY) {
+    throw new Error(
+      "CLAUDE_API_KEY is not set. Add it to your Vercel project environment variables (Settings → Environment Variables) and redeploy."
+    );
+  }
+
   const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
   if (!studentAnswer.trim() || studentAnswer.trim().length < 5) {
