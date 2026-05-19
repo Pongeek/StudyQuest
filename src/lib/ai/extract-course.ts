@@ -46,7 +46,13 @@ export async function extractCourseStructure(
   fileName: string,
   outputLanguage: OutputLanguage = "auto"
 ): Promise<CourseStructure> {
-  const truncatedText = pdfText.slice(0, 80000);
+  // Claude Sonnet 4.6 supports 200k+ tokens of context. Earlier code clipped
+  // to 80k chars (~20k tokens), which truncated longer PDFs mid-document and
+  // caused Claude to assign too-narrow page ranges (a topic's true end page
+  // was in the cut-off region, so page_end was set to the last page Claude
+  // could see). 280k chars ≈ 70k tokens, comfortably fits a 100-page text
+  // while leaving room for the prompt and response.
+  const truncatedText = pdfText.slice(0, 280000);
   const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
   const message = await client.messages.create({
@@ -85,12 +91,14 @@ CRITICAL — follow these rules exactly:
    - NEVER create a topic for a sub-section (like 6.1.1 or 6.3.2). Sub-sections are part of their parent topic.
    - The key_concepts field should list the important sub-topics and terms covered within that section.
 
-4. **Page ranges MUST cover the ENTIRE section.**
+4. **Page ranges MUST cover the ENTIRE section, including ALL sub-sections.**
    - page_start = the [PAGE N] where the section heading first appears.
    - page_end = the LAST [PAGE N] before the NEXT major section begins.
-   - Example: if section 6.1 starts on [PAGE 3] and section 6.2 starts on [PAGE 5], then 6.1 has page_start=3, page_end=4 (it covers pages 3 AND 4 completely).
-   - The page_end of one topic should be the page just before the page_start of the next topic (or overlap by 1 page if the next section starts mid-page).
-   - NEVER give a topic only 1 page if the section clearly spans multiple pages.
+   - **CRITICAL:** If section 1.3 contains sub-sections 1.3.1, 1.3.2, 1.3.3 — all of those sub-section pages belong INSIDE topic 1.3. page_end must reach the page just before section 1.4 starts, not the end of the 1.3 intro paragraph.
+   - Example: if section 1.3 starts on [PAGE 33] and section 1.4 starts on [PAGE 50], then 1.3 has page_start=33, page_end=49. Even if pages 37-49 are sub-sections 1.3.1, 1.3.2, etc., they all belong to topic 1.3.
+   - Before finalizing a topic's page_end, look ahead in the document for sub-section headings (e.g., 1.3.1) — those pages MUST be included in the parent topic's range.
+   - If you cannot find the next major section heading, set page_end to the last page where related content appears.
+   - NEVER give a topic only 1-2 pages if the section clearly continues with sub-sections or more content.
 
 5. **Summary sections, exercise sections, and glossary sections** (like "סיכום", "שאלות לחזרה", "בעיות פתורות", "רשימת מושגים", "Summary", "Review Questions") should NOT be created as topics. Skip them entirely.
 
