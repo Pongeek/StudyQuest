@@ -10,6 +10,8 @@ import { calculateLevel, getLevelTitle } from "@/lib/xp";
 import { awardAchievementIfNew } from "@/lib/achievements";
 import { getGrimoireDemons } from "@/app/api/grimoire/route";
 
+export const maxDuration = 60;
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }

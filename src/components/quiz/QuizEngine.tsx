@@ -276,7 +276,10 @@ function QuizEngineInner({
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to grade answer");
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`Grade failed (${res.status}): ${body || res.statusText}`);
+      }
       const { score, feedback } = await res.json();
 
       updateQState(currentQuestion.id, {
@@ -321,7 +324,8 @@ function QuizEngineInner({
         setCombo(0);
         playSfx("wrong");
       }
-    } catch {
+    } catch (err) {
+      console.error("[QuizEngine] answer grading failed:", err);
       toast.error("Failed to grade your answer. Please try again.");
     } finally {
       setIsGrading(false);

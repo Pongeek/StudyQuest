@@ -7,6 +7,8 @@ import { awardAchievementsIfNew, applyAchievementXP } from "@/lib/achievements";
 // GET /api/scroll/today
 // Returns today's scroll for the authenticated user.
 // Generates one on first call of the day, then caches it in the DB.
+export const maxDuration = 60;
+
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

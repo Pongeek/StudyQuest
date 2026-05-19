@@ -222,7 +222,8 @@ function ReviewEngineInner({
       } else {
         playSfx("wrong");
       }
-    } catch {
+    } catch (err) {
+      console.error("[ReviewEngine] answer grading failed:", err);
       toast.error("Failed to grade your answer. Please try again.");
     } finally {
       setIsGrading(false);

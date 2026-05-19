@@ -5,6 +5,8 @@ import { generateSessionDebrief } from "@/lib/ai/session-debrief";
 import { calculateSessionXp, calculateMasteryLevel } from "@/lib/xp";
 import { computeNextReview } from "@/lib/spaced-repetition";
 
+export const maxDuration = 60;
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }

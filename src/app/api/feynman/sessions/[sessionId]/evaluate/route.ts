@@ -13,6 +13,8 @@ interface RouteParams {
 
 // POST /api/feynman/sessions/[sessionId]/evaluate
 // Asks Claude to evaluate the student's explanation across the full conversation.
+export const maxDuration = 60;
+
 export async function POST(_req: NextRequest, { params }: RouteParams) {
   const { sessionId } = await params;
   const { userId } = await auth();

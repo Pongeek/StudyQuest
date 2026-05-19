@@ -9,6 +9,8 @@ interface RouteParams {
 
 // POST /api/feynman/sessions/[sessionId]/message
 // Appends a student message to the conversation and returns Claude's reply.
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest, { params }: RouteParams) {
   const { sessionId } = await params;
   const { userId } = await auth();

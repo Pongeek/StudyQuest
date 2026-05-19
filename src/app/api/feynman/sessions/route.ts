@@ -5,6 +5,8 @@ import { getFeynmanReply } from "@/lib/ai/feynman-tutor";
 
 // POST /api/feynman/sessions
 // Creates a new Feynman session and returns Claude's opening question.
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

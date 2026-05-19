@@ -404,7 +404,8 @@ function BossFightEngineInner({
         playSfx("bossHit");
         addLog(`✗ Miss on Q${currentIdx + 1} (-15 HP)`);
       }
-    } catch {
+    } catch (err) {
+      console.error("[BossFightEngine] answer grading failed:", err);
       toast.error("Failed to grade your answer. Please try again.");
     } finally {
       setIsGrading(false);
