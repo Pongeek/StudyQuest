@@ -343,6 +343,7 @@ function FeynmanSessionInner({
           {/* Message input */}
           <div className="flex gap-2 items-end">
             <Textarea
+              dir="auto"
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}

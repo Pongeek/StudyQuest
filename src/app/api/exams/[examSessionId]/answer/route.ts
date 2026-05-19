@@ -42,17 +42,59 @@ export async function POST(
 
   if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
 
-  // ── MCQ fast-path: exact-match grading, no Claude call ──────────────────────
+  // ── Compute score + feedback ────────────────────────────────────────────────
+  let score: number;
+  let feedback: string;
+  let modelAnswerForResponse: string | undefined;
+
   if (question.type === "mcq") {
+    // MCQ fast-path: exact-match grading, no Claude call
     const isCorrect =
       typeof question.correct_answer === "string" &&
       userAnswer.trim() === question.correct_answer.trim();
 
-    const score = isCorrect ? 1.0 : 0;
-    const feedback = isCorrect
+    score = isCorrect ? 1.0 : 0;
+    feedback = isCorrect
       ? "Correct! ✓"
       : `Not quite. The correct answer is: ${question.correct_answer ?? "unknown"}`;
+    modelAnswerForResponse = question.model_answer ?? undefined;
+  } else {
+    // Open question: AI grading via Claude
+    const grading = await gradeExamAnswer({
+      question: question.content,
+      modelAnswer: question.model_answer,
+      marks: question.marks,
+      studentAnswer: userAnswer,
+      mode: session.mode as "timed" | "assisted",
+    });
+    score = grading.score;
+    feedback = grading.feedback;
+    modelAnswerForResponse =
+      session.mode === "assisted" ? question.model_answer : undefined;
+  }
 
+  // ── Upsert the answer ───────────────────────────────────────────────────────
+  // Supports re-submission: when the user edits a previously-locked answer
+  // and re-submits, we replace the existing row instead of inserting a
+  // duplicate. (The exam_answers table has no unique constraint on
+  // (session, question), so we do the existence check by hand.)
+  const { data: existingAnswer } = await supabase
+    .from("exam_answers")
+    .select("id")
+    .eq("exam_session_id", examSessionId)
+    .eq("exam_question_id", questionId)
+    .maybeSingle();
+
+  if (existingAnswer) {
+    await supabase
+      .from("exam_answers")
+      .update({
+        user_answer: userAnswer,
+        ai_score: score,
+        ai_feedback: feedback,
+      })
+      .eq("id", existingAnswer.id);
+  } else {
     await supabase.from("exam_answers").insert({
       exam_session_id: examSessionId,
       exam_question_id: questionId,
@@ -60,34 +102,11 @@ export async function POST(
       ai_score: score,
       ai_feedback: feedback,
     });
-
-    return NextResponse.json({
-      score,
-      feedback,
-      modelAnswer: question.model_answer ?? undefined,
-    });
   }
 
-  // ── Open question: AI grading via Claude ────────────────────────────────────
-  const grading = await gradeExamAnswer({
-    question: question.content,
-    modelAnswer: question.model_answer,
-    marks: question.marks,
-    studentAnswer: userAnswer,
-    mode: session.mode as "timed" | "assisted",
-  });
-
-  await supabase.from("exam_answers").insert({
-    exam_session_id: examSessionId,
-    exam_question_id: questionId,
-    user_answer: userAnswer,
-    ai_score: grading.score,
-    ai_feedback: grading.feedback,
-  });
-
   return NextResponse.json({
-    score: grading.score,
-    feedback: grading.feedback,
-    modelAnswer: session.mode === "assisted" ? question.model_answer : undefined,
+    score,
+    feedback,
+    modelAnswer: modelAnswerForResponse,
   });
 }

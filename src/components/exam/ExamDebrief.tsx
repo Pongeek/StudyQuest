@@ -67,14 +67,33 @@ export default function ExamDebrief({
   mode,
 }: ExamDebriefProps) {
   const router = useRouter();
+  // Defensive defaults — if the AI debrief generation partially fails on the
+  // server, some of these props can come through as undefined, which would
+  // crash the page on first render with a generic "This page couldn't load".
+  const safePredictedScore = typeof predictedScore === "number" && !isNaN(predictedScore) ? predictedScore : 0;
+  const safeXpEarned = typeof xpEarned === "number" && !isNaN(xpEarned) ? xpEarned : 0;
+  const safeElapsed = typeof elapsedSeconds === "number" && !isNaN(elapsedSeconds) ? elapsedSeconds : 0;
+  const safeStrongest = Array.isArray(strongestAreas) ? strongestAreas : [];
+  const safeGaps = Array.isArray(criticalGaps) ? criticalGaps : [];
+  const safeRecommended = Array.isArray(recommendedTopics) ? recommendedTopics : [];
+  const safeResults = Array.isArray(results) ? results : [];
+  const safeSummary = typeof summary === "string" ? summary : "";
+
   const readiness = READINESS_CONFIG[examReadiness] || READINESS_CONFIG.moderate;
-  const rtl = results.some((r) => isRTL(r.question));
-  const minutes = Math.floor(elapsedSeconds / 60);
+  const rtl = safeResults.some((r) => isRTL(r.question));
+  const minutes = Math.floor(safeElapsed / 60);
+
+  // Exam-mode total points — sum of (score × marks) across all questions.
+  // Shown alongside the predicted-score percentage because for an exam, the
+  // absolute point count (47/65) often matters as much as the percentage.
+  const totalMarks = safeResults.reduce((sum, r) => sum + (r.marks ?? 0), 0);
+  const earnedMarks = safeResults.reduce((sum, r) => sum + r.score * (r.marks ?? 0), 0);
+  const earnedMarksDisplay = earnedMarks.toFixed(1).replace(/\.0$/, "");
 
   return (
     <div className="max-w-2xl mx-auto space-y-6" dir={rtl ? "rtl" : "ltr"}>
       {/* Confetti on good score */}
-      {predictedScore >= 70 && <Confetti trigger={1} count={100} duration={3500} />}
+      {safePredictedScore >= 70 && <Confetti trigger={1} count={100} duration={3500} />}
 
       {/* Score hero */}
       <motion.div
@@ -86,11 +105,21 @@ export default function ExamDebrief({
         <div className="text-4xl sm:text-6xl mb-4">📝</div>
         <div className={cn(
           "text-4xl sm:text-5xl font-bold mb-2 animate-score-burst tabular-nums tracking-tight",
-          predictedScore >= 70 ? "text-emerald-400" : "text-white"
+          safePredictedScore >= 70 ? "text-emerald-400" : "text-white"
         )}>
-          <AnimatedCounter value={Math.round(predictedScore)} suffix="%" duration={1.5} delay={0.2} />
+          <AnimatedCounter value={Math.round(safePredictedScore)} suffix="%" duration={1.5} delay={0.2} />
         </div>
         <p className="text-slate-400 text-sm mb-1">Predicted Exam Score</p>
+        {/* Absolute point breakdown — exam-specific. For a 65-point exam,
+            seeing "47 / 65 pts" is more actionable than just the percentage. */}
+        {totalMarks > 0 && (
+          <p className="text-base sm:text-lg font-bold text-amber-300 tabular-nums mb-2">
+            {earnedMarksDisplay}
+            <span className="text-slate-500"> / </span>
+            {totalMarks}
+            <span className="text-slate-500 font-normal text-sm"> pts</span>
+          </p>
+        )}
         <div className={cn("inline-flex items-center gap-2 text-sm font-bold mb-4", readiness.color)}>
           <Target className="w-4 h-4" />
           {readiness.label}
@@ -105,7 +134,7 @@ export default function ExamDebrief({
           >
             <Zap className="w-5 h-5 text-amber-400" />
             <AnimatedCounter
-              value={xpEarned}
+              value={safeXpEarned}
               prefix="+"
               suffix=" XP"
               duration={1.2}
@@ -134,13 +163,13 @@ export default function ExamDebrief({
           Exam Analysis
         </h2>
 
-        <p className="text-sm text-slate-300 leading-relaxed">{summary}</p>
+        <p className="text-sm text-slate-300 leading-relaxed">{safeSummary}</p>
 
-        {strongestAreas.length > 0 && (
+        {safeStrongest.length > 0 && (
           <div>
             <p className="text-[11px] uppercase tracking-wider font-medium text-slate-500 mb-2">Strongest Areas</p>
             <ul className="space-y-1.5">
-              {strongestAreas.map((s, i) => (
+              {safeStrongest.map((s, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                   {s}
@@ -150,11 +179,11 @@ export default function ExamDebrief({
           </div>
         )}
 
-        {criticalGaps.length > 0 && (
+        {safeGaps.length > 0 && (
           <div>
             <p className="text-[11px] uppercase tracking-wider font-medium text-slate-500 mb-2">Critical Gaps</p>
             <ul className="space-y-1.5">
-              {criticalGaps.map((g, i) => (
+              {safeGaps.map((g, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
                   <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
                   {g}
@@ -164,11 +193,11 @@ export default function ExamDebrief({
           </div>
         )}
 
-        {recommendedTopics.length > 0 && (
+        {safeRecommended.length > 0 && (
           <div className="bg-indigo-500/10 border border-indigo-500/15 rounded-xl p-4">
             <p className="text-[11px] uppercase tracking-wider font-medium text-slate-500 mb-2">Study these topics before your exam</p>
             <ul className="space-y-1">
-              {recommendedTopics.map((t, i) => (
+              {safeRecommended.map((t, i) => (
                 <li key={i} className="text-sm font-bold text-indigo-300">{t}</li>
               ))}
             </ul>
@@ -184,7 +213,7 @@ export default function ExamDebrief({
         className="rpg-card rounded-2xl p-5 sm:p-6 space-y-4"
       >
         <h2 className="font-bold text-white">Question Breakdown</h2>
-        {results.map((r, i) => {
+        {safeResults.map((r, i) => {
           const qRtl = isRTL(r.question);
           const scoreColor = r.score >= 0.7 ? "text-green-400" : "text-red-400";
           const scoreBg = r.score >= 0.7
@@ -216,7 +245,7 @@ export default function ExamDebrief({
                   )}
                 </div>
                 <span className={cn("text-xs font-bold tabular-nums", scoreColor)}>
-                  {Math.round(r.score * 100)}% · {r.marks} mark{r.marks !== 1 ? "s" : ""}
+                  {(r.score * (r.marks ?? 0)).toFixed(1).replace(/\.0$/, "")}/{r.marks ?? 0} pts &middot; {Math.round(r.score * 100)}%
                 </span>
               </div>
 

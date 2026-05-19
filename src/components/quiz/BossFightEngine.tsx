@@ -1228,6 +1228,7 @@ function BossFightEngineInner({
               {/* Open question */}
               {currentQuestion.type === "open" && (
                 <Textarea
+                  dir="auto"
                   value={openAnswer}
                   onChange={(e) => setOpenAnswer(e.target.value)}
                   disabled={isAnswered}

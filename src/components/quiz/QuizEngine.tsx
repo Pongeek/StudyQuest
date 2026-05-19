@@ -737,6 +737,7 @@ function QuizEngineInner({
               {currentQuestion.type === "open" && (
                 <div className="space-y-2">
                   <Textarea
+                    dir="auto"
                     value={curState.openAnswer}
                     onChange={(e) =>
                       updateQState(currentQuestion.id, { openAnswer: e.target.value })

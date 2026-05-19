@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   DoorOpen,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -869,6 +870,7 @@ function ExamEngineInner({
             {!isMcq && (
               <div className="space-y-2">
                 <Textarea
+                  dir="auto"
                   value={curState.openAnswer}
                   onChange={(e) =>
                     updateQState(currentQuestion.id, { openAnswer: e.target.value })
@@ -891,20 +893,36 @@ function ExamEngineInner({
               </div>
             )}
 
-            {/* "Answer locked in" cue — both Timed and Untimed Practice
-                show only this neutral acknowledgment. Full correctness,
-                score, explanation, and model answer are revealed at the
-                final debrief screen, not during the exam. */}
+            {/* "Answer locked in" cue + Edit Answer button.
+                Both Timed and Untimed Practice show only this neutral
+                acknowledgment (no correctness reveal). The Edit Answer
+                button resets the result and re-enables the input so the
+                user can modify their answer — the next Submit re-grades
+                via the API and upserts the existing answer row. */}
             {isAnswered && curState.result && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-lg px-4 py-3 border border-white/[0.07] bg-white/[0.02] flex items-center gap-2.5 text-sm text-slate-400"
+                className="rounded-lg px-4 py-3 border border-white/[0.07] bg-white/[0.02] flex items-center justify-between gap-3 text-sm text-slate-400"
               >
-                <CheckCircle className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                <span>
-                  Answer locked in. Full results at the end of the exam.
-                </span>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <CheckCircle className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                  <span className="truncate">
+                    Answer locked in. Full results at the end of the exam.
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isGrading}
+                  onClick={() =>
+                    updateQState(currentQuestion.id, { result: null })
+                  }
+                  className="border-white/[0.10] text-slate-300 hover:bg-white/[0.05] hover:text-white shrink-0 gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Edit answer
+                </Button>
               </motion.div>
             )}
 
