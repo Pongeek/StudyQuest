@@ -34,11 +34,16 @@ export default function ExamDateButton({
 
   const hasDate = !!examDate;
 
-  // Friendly display string for the saved exam date (e.g. "May 28, 2026")
+  // Friendly display string for the saved exam date (e.g. "Jul 27, 2026").
+  // We use an explicit locale ("en-US") rather than `undefined` because
+  // `undefined` defaults to the runtime locale, which DIFFERS between Node
+  // (server, defaults to en-GB: "27 Jul 2026") and the browser (often
+  // en-US: "Jul 27, 2026") — triggering a React hydration mismatch on the
+  // first render. Pinning the locale makes server + client agree.
   let dateDisplay = "";
   if (examDate) {
     const d = new Date(examDate + "T12:00:00");
-    dateDisplay = d.toLocaleDateString(undefined, {
+    dateDisplay = d.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",

@@ -12,6 +12,7 @@ import CourseProcessingPoller from "@/components/course/CourseProcessingPoller";
 import CourseMap from "@/components/course/CourseMap";
 import ExamDateButton from "@/components/course/ExamDateButton";
 import EpisodeUploadForm from "@/components/course/EpisodeUploadForm";
+import EpisodeProcessingPoller from "@/components/course/EpisodeProcessingPoller";
 
 async function getCourse(courseId: string, userId: string) {
   const supabase = createServiceClient();
@@ -285,6 +286,12 @@ export default async function CoursePage({
         </div>
         <EpisodeUploadForm courseId={id} />
       </div>
+
+      {/* Auto-refresh while any episode is being AI-processed */}
+      <EpisodeProcessingPoller
+        courseId={id}
+        processingCount={episodes.filter((e: any) => e.status === "processing").length}
+      />
 
       {/* Course Map */}
       <CourseMap

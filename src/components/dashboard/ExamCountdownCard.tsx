@@ -22,7 +22,10 @@ export default function ExamCountdownCard({ plan }: ExamCountdownCardProps) {
   const urgencyChip = urgencyChipClass(plan.urgency);
   const urgencyAccent = urgencyAccentClass(plan.urgency);
 
-  const examDateStr = plan.examDate.toLocaleDateString(undefined, {
+  // Pinned to en-US so the server-rendered and client-rendered string
+  // agree (avoids the React hydration mismatch you get with the
+  // runtime-default locale).
+  const examDateStr = plan.examDate.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
