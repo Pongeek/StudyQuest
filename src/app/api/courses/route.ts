@@ -31,7 +31,9 @@ export async function POST(request: NextRequest) {
     );
   }
   const title = formData.get("title") as string;
-  const fileCount = parseInt(formData.get("fileCount") as string, 10);
+  const subject = (formData.get("subject") as string | null)?.trim() || "";
+  const fileCount = parseInt(formData.get("fileCount") as string, 10) || 0;
+  const mode = (formData.get("mode") as string | null) || "from-pdf";
 
   // Output language override — defaults to 'auto' (match source PDF).
   // Validated against the same set the DB CHECK constraint enforces so a
@@ -40,6 +42,35 @@ export async function POST(request: NextRequest) {
   const outputLanguage: "auto" | "en" | "he" =
     rawLang === "en" || rawLang === "he" ? rawLang : "auto";
 
+  // ── Empty-course fast path ──────────────────────────────────────────────
+  // Creates a ready-to-use course with no PDFs. The user adds episodes
+  // one-PDF-at-a-time via POST /api/courses/[id]/episodes. This is the
+  // recommended flow for university courses.
+  if (mode === "empty") {
+    const { data: emptyCourse, error: emptyErr } = await supabase
+      .from("courses")
+      .insert({
+        user_id: dbUser.id,
+        title: title?.trim() || "Untitled Course",
+        subject: subject,
+        status: "ready",
+        output_language: outputLanguage,
+      })
+      .select()
+      .single();
+    if (emptyErr || !emptyCourse) {
+      return NextResponse.json(
+        { error: "Failed to create course" },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json(
+      { courseId: emptyCourse.id, status: "ready", mode: "empty" },
+      { status: 201 }
+    );
+  }
+
+  // ── From-PDF legacy path ────────────────────────────────────────────────
   // Create course record first
   const { data: course, error: courseError } = await supabase
     .from("courses")

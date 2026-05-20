@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import CourseProcessingPoller from "@/components/course/CourseProcessingPoller";
 import CourseMap from "@/components/course/CourseMap";
 import ExamDateButton from "@/components/course/ExamDateButton";
+import EpisodeUploadForm from "@/components/course/EpisodeUploadForm";
 
 async function getCourse(courseId: string, userId: string) {
   const supabase = createServiceClient();
@@ -271,6 +272,19 @@ export default async function CoursePage({
           </div>
         </div>
       </Link>
+
+      {/* Add Episode — per-episode upload flow. Lets the user grow the
+          course incrementally instead of trying to upload the whole
+          textbook at once (which the AI struggles with at 300+ pages). */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base sm:text-lg font-bold text-white">Episodes</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Upload one PDF per chapter / episode — the AI extracts topics for just that section.
+          </p>
+        </div>
+        <EpisodeUploadForm courseId={id} />
+      </div>
 
       {/* Course Map */}
       <CourseMap
