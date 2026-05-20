@@ -171,7 +171,15 @@ export default async function CoursePage({
     }).length;
   }, 0);
   const progressPct = totalTopics > 0 ? Math.round((masteredTopics / totalTopics) * 100) : 0;
-  const isRTL = /[֐-׿؀-ۿ]/.test(course.title || "");
+  // Page direction logic — must consider THREE signals because the course
+  // title may not contain the same script as the AI-generated content:
+  //   1. Explicit `output_language` override on the course (most authoritative)
+  //   2. RTL chars in the title (legacy / from-PDF auto-detection)
+  //   3. RTL chars in the AI-generated theme_name (fallback)
+  const isRTL =
+    course.output_language === "he" ||
+    /[֐-׿؀-ۿ]/.test(course.title || "") ||
+    /[֐-׿؀-ۿ]/.test(course.theme_name || "");
 
   return (
     <div className="space-y-6" dir={isRTL ? "rtl" : "ltr"}>

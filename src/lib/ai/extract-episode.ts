@@ -112,8 +112,15 @@ ${titleInstruction}
 
 Topics = the major numbered sections within this chapter (e.g. 1.1, 1.2, 1.3 if the chapter is "Chapter 1"). Rules:
 - Each major numbered section (1.1, 1.2, 1.3, ...) becomes ONE topic.
+- **CRITICAL — topic title MUST start with the section number** as it appears in the source PDF, followed by the section name. Examples:
+    * "1.1 Finite Automata" (English source) → topic title: "1.1 Finite Automata"
+    * "1.1 אוטומטים סופיים" (Hebrew source) → topic title: "1.1 אוטומטים סופיים"
+    * "1.1 Finite Automata" but output language is Hebrew → topic title: "1.1 אוטומטים סופיים" (keep the "1.1" prefix; translate only the section name)
+  The number prefix is REQUIRED. Students rely on these numbers to navigate the PDF.
 - A topic INCLUDES all of its sub-sections. Section 1.3 with sub-sections 1.3.1, 1.3.2, 1.3.3 is ONE single topic, NOT four separate topics.
 - NEVER create a topic for a sub-section like 1.3.1 — it's part of its parent.
+- If the source PDF uses a different numbering scheme (e.g. "1.A", "I.", "§ 1"), preserve that scheme as it appears in the PDF.
+- If a section truly has no number in the source (just a heading), use the heading verbatim (translated if needed) without inventing a number.
 - Skip summary/review/glossary/exercise sections at the end of the chapter — don't create topics for those.
 - Aim for 3-7 topics per episode. If there are many sections, group closely related ones together.
 
