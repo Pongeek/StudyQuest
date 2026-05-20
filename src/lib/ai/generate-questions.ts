@@ -57,9 +57,16 @@ export async function generateTopicQuestions(params: {
   // This eliminates the entire class of "Claude wrote slightly-malformed
   // JSON" bugs (missing commas, unescaped newlines, etc.) — the API
   // GUARANTEES the input matches the schema below.
-  const message = await client.messages.create({
+  //
+  // Stream the response. 32k tokens of headroom is needed because:
+  //   - Tool-use output counts the schema field names too (overhead).
+  //   - Hebrew + LaTeX is token-dense (more tokens per visible character).
+  //   - 8-10 questions × 4 MCQ options × multi-sentence explanations can
+  //     easily exceed 8k. The previous 8192 cap was truncating mid-tool-
+  //     input, returning an empty `{}` to the caller.
+  const stream = client.messages.stream({
     model: "claude-sonnet-4-6",
-    max_tokens: 8192,
+    max_tokens: 32768,
     tools: [
       {
         name: "save_quiz_questions",
@@ -200,6 +207,19 @@ CALL the save_quiz_questions tool. Do not return prose — call the tool.`,
     ],
   });
 
+  // Await the final assembled message from the stream. With streaming, the
+  // tool_use block is built up incrementally and only available in full
+  // after stream completion.
+  const message = await stream.finalMessage();
+
+  // Log stop_reason — if it's "max_tokens", the response was truncated and
+  // the tool_use input could be partial/empty. Surfaces in the dev terminal
+  // so we know to bump max_tokens further if it happens again.
+  console.log(
+    `[generate-questions] stop_reason=${message.stop_reason}, ` +
+    `output_tokens=${message.usage?.output_tokens ?? "?"}`
+  );
+
   // Find the tool_use block in Claude's response. Tool use guarantees the
   // `input` field matches our schema — no manual JSON parsing needed.
   const toolUse = message.content.find(
@@ -208,14 +228,21 @@ CALL the save_quiz_questions tool. Do not return prose — call the tool.`,
   if (!toolUse) {
     throw new Error(
       "Claude did not call the save_quiz_questions tool. " +
-      `Response content types: ${message.content.map((b) => b.type).join(", ")}`
+      `Response content types: ${message.content.map((b) => b.type).join(", ")} ` +
+      `(stop_reason=${message.stop_reason})`
     );
   }
   const input = toolUse.input as { questions?: GeneratedQuestion[] };
   if (!Array.isArray(input.questions)) {
+    // If max_tokens was hit, the tool input was likely truncated. Surface
+    // that explicitly so the user knows to bump the limit further.
+    const reason = message.stop_reason === "max_tokens"
+      ? " The response hit the max_tokens limit and was truncated — bump the limit in generate-questions.ts."
+      : "";
     throw new Error(
       "Tool input did not contain a questions array. Got: " +
-      JSON.stringify(input).slice(0, 300)
+      JSON.stringify(input).slice(0, 300) +
+      reason
     );
   }
   // Sanitize: ensure options is undefined (not empty array) for non-MCQ.
