@@ -13,6 +13,7 @@ import CourseMap from "@/components/course/CourseMap";
 import ExamDateButton from "@/components/course/ExamDateButton";
 import EpisodeUploadForm from "@/components/course/EpisodeUploadForm";
 import EpisodeProcessingPoller from "@/components/course/EpisodeProcessingPoller";
+import DeleteCourseDialog from "@/components/course/DeleteCourseDialog";
 
 async function getCourse(courseId: string, userId: string) {
   const supabase = createServiceClient();
@@ -84,7 +85,32 @@ async function getCourse(courseId: string, userId: string) {
     }
   }
 
-  return { course, episodes: episodes || [], dbUserId: dbUser.id, examFileCount, latestExamSession, bossFightMap };
+  // Count completed quiz sessions across all this course's topics — used
+  // to convey the weight of deletion in DeleteCourseDialog.
+  const topicIds: string[] = [];
+  for (const ep of episodes || []) {
+    for (const t of ep.topics || []) topicIds.push(t.id);
+  }
+  let sessionsCount = 0;
+  if (topicIds.length > 0) {
+    const { count } = await supabase
+      .from("quiz_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", dbUser.id)
+      .in("topic_id", topicIds)
+      .not("completed_at", "is", null);
+    sessionsCount = count ?? 0;
+  }
+
+  return {
+    course,
+    episodes: episodes || [],
+    dbUserId: dbUser.id,
+    examFileCount,
+    latestExamSession,
+    bossFightMap,
+    sessionsCount,
+  };
 }
 
 function getMasteryForTopic(topic: any, dbUserId: string) {
@@ -128,7 +154,7 @@ export default async function CoursePage({
     }
   }
 
-  const { course, episodes, dbUserId, examFileCount, latestExamSession, bossFightMap } = result;
+  const { course, episodes, dbUserId, examFileCount, latestExamSession, bossFightMap, sessionsCount } = result;
 
   if (course.status === "processing") {
     return (
@@ -247,6 +273,27 @@ export default async function CoursePage({
                 courseId={id}
                 examDate={typeof course.exam_date === "string" ? course.exam_date : null}
                 examLabel={typeof course.exam_label === "string" ? course.exam_label : null}
+              />
+            </div>
+
+            {/* Danger zone — quiet by design so it never competes with the
+                primary actions. Placed at the bottom of the hero card so
+                power users can find it but new users won't trip on it. */}
+            <div className="mt-5 pt-4 border-t border-slate-700/30 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-400">Danger zone</p>
+                <p className="text-[11px] text-slate-600 mt-0.5">
+                  Permanently remove this course and everything inside it.
+                </p>
+              </div>
+              <DeleteCourseDialog
+                courseId={id}
+                courseName={course.theme_name || course.title}
+                stats={{
+                  episodes: episodes.length,
+                  topics: totalTopics,
+                  sessions: sessionsCount,
+                }}
               />
             </div>
           </div>

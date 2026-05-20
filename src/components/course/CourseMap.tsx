@@ -8,6 +8,7 @@ import { Lock, Play, Star, CheckCircle, Skull, ChevronDown, ChevronUp, Shield, Z
 import { cn } from "@/lib/utils";
 import { MASTERY_LABELS } from "@/lib/xp";
 import StartBossButton from "@/components/quiz/StartBossButton";
+import DeleteEpisodeButton from "@/components/course/DeleteEpisodeButton";
 import { useSound } from "@/lib/useSound";
 import { toast } from "sonner";
 
@@ -353,60 +354,81 @@ export default function CourseMap({
               isEpisodeComplete && "!border-green-500/20"
             )}
           >
-            {/* Episode Header — clickable to collapse */}
-            <button
-              onClick={() => toggleEpisode(episode.id)}
-              className="w-full px-5 py-4 flex items-center gap-4 hover:bg-white/[0.02] transition-colors"
-            >
-              {/* Episode number badge */}
-              <div className={cn(
-                "w-11 h-11 rounded-xl flex items-center justify-center text-sm font-extrabold text-white flex-shrink-0 transition-all duration-150",
-                isEpisodeComplete
-                  ? "bg-emerald-500"
-                  : "bg-indigo-500"
-              )}>
-                {isEpisodeComplete ? (
-                  <Trophy className="w-5 h-5" />
-                ) : (
-                  epIdx + 1
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0 text-left">
-                <div className="flex items-center gap-2">
-                  <h2 className="font-bold text-white text-sm sm:text-base truncate">{episode.title}</h2>
-                  {isEpisodeComplete && (
-                    <span className="text-xs font-bold uppercase tracking-wider text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full flex-shrink-0">
-                      Complete
-                    </span>
+            {/* Episode Header — left region collapses, right has delete +
+                chevron. Split into two siblings because HTML disallows
+                button-in-button (the delete dialog trigger is itself a
+                <button>). */}
+            <div className="w-full px-5 py-4 flex items-center gap-3 hover:bg-white/[0.02] transition-colors">
+              <button
+                type="button"
+                onClick={() => toggleEpisode(episode.id)}
+                aria-expanded={!isCollapsed}
+                aria-label={`Toggle episode ${episode.title}`}
+                className="flex-1 min-w-0 flex items-center gap-4 text-left cursor-pointer"
+              >
+                {/* Episode number badge */}
+                <div className={cn(
+                  "w-11 h-11 rounded-xl flex items-center justify-center text-sm font-extrabold text-white flex-shrink-0 transition-all duration-150",
+                  isEpisodeComplete
+                    ? "bg-emerald-500"
+                    : "bg-indigo-500"
+                )}>
+                  {isEpisodeComplete ? (
+                    <Trophy className="w-5 h-5" />
+                  ) : (
+                    epIdx + 1
                   )}
                 </div>
-                <div className="flex items-center gap-2.5 mt-1.5">
-                  <div className="flex-1 max-w-[160px] h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-                    <motion.div
-                      className={cn(
-                        "h-full rounded-full",
-                        isEpisodeComplete ? "bg-emerald-500" : "bg-indigo-500"
-                      )}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${epProgress}%` }}
-                      transition={{ duration: 0.8, ease: "easeOut", delay: epIdx * 0.08 + 0.3 }}
-                    />
-                  </div>
-                  <span className="text-xs text-slate-500 font-semibold tabular-nums">
-                    {completedCount}/{episode.topics.length}
-                  </span>
-                </div>
-              </div>
 
-              <div className="text-slate-500 flex-shrink-0">
-                {isCollapsed ? (
-                  <ChevronDown className="w-5 h-5" />
-                ) : (
-                  <ChevronUp className="w-5 h-5" />
-                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-bold text-white text-sm sm:text-base truncate">{episode.title}</h2>
+                    {isEpisodeComplete && (
+                      <span className="text-xs font-bold uppercase tracking-wider text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full flex-shrink-0">
+                        Complete
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2.5 mt-1.5">
+                    <div className="flex-1 max-w-[160px] h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                      <motion.div
+                        className={cn(
+                          "h-full rounded-full",
+                          isEpisodeComplete ? "bg-emerald-500" : "bg-indigo-500"
+                        )}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${epProgress}%` }}
+                        transition={{ duration: 0.8, ease: "easeOut", delay: epIdx * 0.08 + 0.3 }}
+                      />
+                    </div>
+                    <span className="text-xs text-slate-500 font-semibold tabular-nums">
+                      {completedCount}/{episode.topics.length}
+                    </span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Right side — destructive action + chevron */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <DeleteEpisodeButton
+                  episodeId={episode.id}
+                  episodeTitle={episode.title}
+                  topicCount={episode.topics.length}
+                />
+                <button
+                  type="button"
+                  onClick={() => toggleEpisode(episode.id)}
+                  aria-label={isCollapsed ? "Expand episode" : "Collapse episode"}
+                  className="text-slate-500 hover:text-slate-300 transition-colors p-1"
+                >
+                  {isCollapsed ? (
+                    <ChevronDown className="w-5 h-5" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5" />
+                  )}
+                </button>
               </div>
-            </button>
+            </div>
 
             {/* Topics list */}
             <AnimatePresence initial={false}>
