@@ -10,6 +10,7 @@ import { MASTERY_LABELS, MASTERY_COLORS } from "@/lib/xp";
 import { cn } from "@/lib/utils";
 import CourseProcessingPoller from "@/components/course/CourseProcessingPoller";
 import CourseMap from "@/components/course/CourseMap";
+import ExamDateButton from "@/components/course/ExamDateButton";
 
 async function getCourse(courseId: string, userId: string) {
   const supabase = createServiceClient();
@@ -227,6 +228,16 @@ export default async function CoursePage({
                 <p className="text-xs text-slate-500 font-semibold">{masteredTopics} / {totalTopics} topics mastered</p>
                 <p className="text-xs text-slate-600 font-medium">{episodes.length} episodes</p>
               </div>
+            </div>
+
+            {/* Exam date — sets the countdown widget on the dashboard.
+                When set, the dashboard generates a daily study plan. */}
+            <div className="mt-5 pt-5 border-t border-slate-700/30">
+              <ExamDateButton
+                courseId={id}
+                examDate={typeof course.exam_date === "string" ? course.exam_date : null}
+                examLabel={typeof course.exam_label === "string" ? course.exam_label : null}
+              />
             </div>
           </div>
         </div>

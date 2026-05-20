@@ -9,10 +9,17 @@ import TodaysMission from "@/components/dashboard/TodaysMission";
 import ReviewQueueCard from "@/components/dashboard/ReviewQueueCard";
 import GrimoireWidget from "@/components/dashboard/GrimoireWidget";
 import StreakWarningBanner from "@/components/dashboard/StreakWarningBanner";
+import ExamCountdownCard from "@/components/dashboard/ExamCountdownCard";
 import QuestBoard from "@/components/gamification/QuestBoard";
 import AnimatedCounter from "@/components/effects/AnimatedCounter";
 import { cn } from "@/lib/utils";
 import { calculateLevel, xpProgressInCurrentLevel, getLevelTitle } from "@/lib/xp";
+import {
+  generateStudyPlan,
+  type StudyPlan,
+  type StudyPlanTopic,
+  type StudyPlanEpisode,
+} from "@/lib/study-plan";
 
 async function getOrCreateUser(clerkId: string, email: string, name: string) {
   const supabase = createServiceClient();
@@ -131,6 +138,122 @@ async function getRecommendations(userId: string) {
   return [...weak, ...unattempted].slice(0, 3);
 }
 
+/**
+ * Build StudyPlan inputs for every course this user owns that has an
+ * `exam_date` set. Returns generated plans sorted by urgency (soonest first).
+ */
+async function getStudyPlans(userDbId: string) {
+  const supabase = createServiceClient();
+
+  // 1) Courses with an exam_date set (status must be ready — others have no topics yet)
+  const { data: examCourses } = await supabase
+    .from("courses")
+    .select("id, title, theme_name, exam_date, exam_label")
+    .eq("user_id", userDbId)
+    .eq("status", "ready")
+    .not("exam_date", "is", null);
+
+  if (!examCourses || examCourses.length === 0) return [];
+
+  // 2) For each course, pull episodes + topics + mastery + boss status
+  const courseIds = examCourses.map((c: any) => c.id);
+
+  const [episodesRes, topicsRes, masteryRes, bossRes] = await Promise.all([
+    supabase
+      .from("episodes")
+      .select("id, title, course_id")
+      .in("course_id", courseIds),
+    supabase
+      .from("topics")
+      .select("id, title, episode_id, order_index, episodes!inner(course_id)")
+      .in("episodes.course_id", courseIds),
+    supabase
+      .from("user_topic_mastery")
+      .select("topic_id, mastery_level, next_review_at")
+      .eq("user_id", userDbId),
+    supabase
+      .from("boss_fight_sessions")
+      .select("episode_id, passed")
+      .eq("user_id", userDbId)
+      .eq("passed", true),
+  ]);
+
+  const episodes = episodesRes.data || [];
+  const topics = topicsRes.data || [];
+  const masteryByTopic = new Map<string, { level: number; nextReview: string | null }>(
+    (masteryRes.data || []).map((m: any) => [
+      m.topic_id as string,
+      { level: m.mastery_level as number, nextReview: m.next_review_at as string | null },
+    ])
+  );
+  const defeatedBosses = new Set(
+    (bossRes.data || []).map((b: any) => b.episode_id as string)
+  );
+
+  const today = new Date();
+  const todayISO = today.toISOString().slice(0, 10);
+
+  const plans: StudyPlan[] = [];
+  for (const course of examCourses) {
+    const courseEpisodes = episodes.filter((e: any) => e.course_id === course.id);
+    const courseEpisodeIds = new Set(courseEpisodes.map((e: any) => e.id));
+    const courseTopics = topics.filter((t: any) => courseEpisodeIds.has(t.episode_id));
+
+    // Map topics → StudyPlanTopic
+    const planTopics: StudyPlanTopic[] = courseTopics.map((t: any) => ({
+      topicId: t.id,
+      topicTitle: t.title,
+      episodeId: t.episode_id,
+      episodeTitle:
+        courseEpisodes.find((e: any) => e.id === t.episode_id)?.title || "Episode",
+      masteryLevel: masteryByTopic.get(t.id)?.level ?? 0,
+      orderIndex: t.order_index ?? 0,
+    }));
+
+    // Map episodes → StudyPlanEpisode (boss unlocked when ALL topics ≥ 1)
+    const planEpisodes: StudyPlanEpisode[] = courseEpisodes.map((e: any) => {
+      const epTopics = planTopics.filter((t) => t.episodeId === e.id);
+      const bossUnlocked =
+        epTopics.length > 0 && epTopics.every((t) => t.masteryLevel >= 1);
+      return {
+        episodeId: e.id,
+        episodeTitle: e.title,
+        bossUnlocked,
+        bossDefeated: defeatedBosses.has(e.id),
+      };
+    });
+
+    // Reviews due in this course
+    const dueReviewTopicIds = planTopics
+      .map((t) => t.topicId)
+      .filter((id) => {
+        const m = masteryByTopic.get(id);
+        return m?.nextReview && m.nextReview.slice(0, 10) <= todayISO;
+      });
+
+    const plan = generateStudyPlan({
+      courseId: course.id,
+      courseTitle: course.theme_name || course.title,
+      examDate: new Date(course.exam_date + "T00:00:00"),
+      examLabel: course.exam_label || null,
+      allTopics: planTopics,
+      episodes: planEpisodes,
+      dueReviewTopicIds,
+      today,
+    });
+    plans.push(plan);
+  }
+
+  // Sort: most-urgent first. Past exams sink to the bottom.
+  plans.sort((a, b) => {
+    if (a.urgency === "past" && b.urgency !== "past") return 1;
+    if (a.urgency !== "past" && b.urgency === "past") return -1;
+    return a.daysUntilExam - b.daysUntilExam;
+  });
+
+  return plans;
+}
+
 async function getGrimoireCount(userId: string): Promise<number> {
   const supabase = createServiceClient();
 
@@ -171,12 +294,13 @@ export default async function DashboardPage() {
   const dbUser = await getOrCreateUser(userId, email, name.trim() || "Adventurer");
   if (!dbUser) redirect("/sign-in");
 
-  const [courses, recentAchievements, recommendations, reviewQueue, grimoireCount] = await Promise.all([
+  const [courses, recentAchievements, recommendations, reviewQueue, grimoireCount, studyPlans] = await Promise.all([
     getUserCourses(dbUser.id),
     getRecentAchievements(dbUser.id),
     getRecommendations(dbUser.id),
     getReviewQueue(dbUser.id),
     getGrimoireCount(dbUser.id),
+    getStudyPlans(dbUser.id),
   ]);
 
   const level = calculateLevel(dbUser.total_xp || 0);
@@ -353,6 +477,19 @@ export default async function DashboardPage() {
 
         </div>
       </div>
+
+      {/* ── Exam countdowns + auto-generated study plans ──
+            One card per course with exam_date set, sorted by urgency
+            (soonest first). Past exams sink to the bottom and render as
+            a faded "was X days ago" chip — kept so the user can see their
+            historical exams but not have them dominate the dashboard. */}
+      {studyPlans.length > 0 && (
+        <div className="space-y-4">
+          {studyPlans.map((plan) => (
+            <ExamCountdownCard key={plan.courseId} plan={plan} />
+          ))}
+        </div>
+      )}
 
       {/* ── Review Queue (spaced repetition) — above Today's Mission ── */}
       {reviewQueue.length > 0 && (
