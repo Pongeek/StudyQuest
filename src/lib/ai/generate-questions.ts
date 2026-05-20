@@ -53,13 +53,72 @@ export async function generateTopicQuestions(params: {
 
   const totalCount = mcqCount + openCount;
 
+  // Use Anthropic's tool use to enforce strict JSON schema on the output.
+  // This eliminates the entire class of "Claude wrote slightly-malformed
+  // JSON" bugs (missing commas, unescaped newlines, etc.) — the API
+  // GUARANTEES the input matches the schema below.
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 8192,
+    tools: [
+      {
+        name: "save_quiz_questions",
+        description:
+          "Save the generated quiz questions for the topic. You MUST call this tool with the complete questions array.",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            questions: {
+              type: "array",
+              description: "Array of generated quiz questions.",
+              items: {
+                type: "object",
+                properties: {
+                  type: {
+                    type: "string",
+                    enum: ["mcq", "open"],
+                    description: "Question type — 'mcq' for multiple-choice, 'open' for free-response.",
+                  },
+                  content: {
+                    type: "string",
+                    description:
+                      "The question text in Markdown. For MCQ: stem only. For open: the full question. Math notation MUST use LaTeX wrapped in $...$ for inline or $$...$$ for display.",
+                  },
+                  options: {
+                    type: "array",
+                    items: { type: "string" },
+                    description:
+                      "MCQ ONLY: 4 options, each starting with 'A. ', 'B. ', 'C. ', 'D. '. Omit or empty array for open questions.",
+                  },
+                  correct_answer: {
+                    type: "string",
+                    description:
+                      "For MCQ: the EXACT string of the correct option (e.g. 'B. ...'). For open: a model answer.",
+                  },
+                  explanation: {
+                    type: "string",
+                    description: "Explanation of why the correct answer is right, in Markdown.",
+                  },
+                  difficulty: {
+                    type: "integer",
+                    minimum: 1,
+                    maximum: 5,
+                    description: "Difficulty 1 (easiest) to 5 (hardest).",
+                  },
+                },
+                required: ["type", "content", "correct_answer", "explanation", "difficulty"],
+              },
+            },
+          },
+          required: ["questions"],
+        },
+      },
+    ],
+    tool_choice: { type: "tool", name: "save_quiz_questions" },
     messages: [
       {
         role: "user",
-        content: `You are a university professor creating exam questions. Generate questions for the following topic.
+        content: `You are a university professor creating exam questions. Generate questions for the following topic, then CALL the save_quiz_questions tool with your questions array.
 
 Course Subject: ${courseSubject}
 Episode: ${episodeTitle}
@@ -134,15 +193,40 @@ MATH / LOGIC / FORMAL NOTATION (CRITICAL — applies to math, CS theory, logic, 
 - If a question references a language, set, or formal object, INCLUDE the full LaTeX definition inline — never write "see the textbook" or paraphrase symbols in words.
 - Translate any unicode math symbols (\\u2208 ∈, \\u2227 ∧, \\u2200 ∀, \\u2192 →) to LaTeX (\`\\in\`, \`\\wedge\`, \`\\forall\`, \`\\to\`) wrapped in dollar signs.
 
-- Return ONLY valid JSON array, no extra prose, no surrounding markdown fences around the array itself.`,
+- Math notation: use LaTeX wrapped in $...$ (the renderer is KaTeX). Inside the tool call, escape backslashes as needed for the JSON schema.
+
+CALL the save_quiz_questions tool. Do not return prose — call the tool.`,
       },
     ],
   });
 
-  const content = message.content[0];
-  if (content.type !== "text") throw new Error("Unexpected response type");
-
-  return parseQuestionsArray(content.text.trim());
+  // Find the tool_use block in Claude's response. Tool use guarantees the
+  // `input` field matches our schema — no manual JSON parsing needed.
+  const toolUse = message.content.find(
+    (block): block is Anthropic.Messages.ToolUseBlock => block.type === "tool_use"
+  );
+  if (!toolUse) {
+    throw new Error(
+      "Claude did not call the save_quiz_questions tool. " +
+      `Response content types: ${message.content.map((b) => b.type).join(", ")}`
+    );
+  }
+  const input = toolUse.input as { questions?: GeneratedQuestion[] };
+  if (!Array.isArray(input.questions)) {
+    throw new Error(
+      "Tool input did not contain a questions array. Got: " +
+      JSON.stringify(input).slice(0, 300)
+    );
+  }
+  // Sanitize: ensure options is undefined (not empty array) for non-MCQ.
+  return input.questions.map((q) => ({
+    type: q.type,
+    content: q.content,
+    options: q.type === "mcq" && Array.isArray(q.options) && q.options.length > 0 ? q.options : undefined,
+    correct_answer: q.correct_answer,
+    explanation: q.explanation,
+    difficulty: q.difficulty,
+  }));
 }
 
 /**
