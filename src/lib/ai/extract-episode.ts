@@ -52,6 +52,11 @@ export async function extractEpisodeStructure(
   options: {
     outputLanguage?: OutputLanguage;
     userProvidedTitle?: string;
+    /** Total physical pages of the PRIMARY PDF (the one whose pages will
+     *  be displayed in the topic viewer). Used to (a) ground the prompt
+     *  so Claude doesn't use the textbook's printed page numbers, and
+     *  (b) clip any out-of-range output. */
+    primaryFilePageCount?: number;
   } = {}
 ): Promise<EpisodeStructure> {
   if (pdfBuffers.length === 0) {
@@ -79,6 +84,7 @@ export async function extractEpisodeStructure(
 
   const outputLanguage = options.outputLanguage ?? "auto";
   const userTitle = options.userProvidedTitle?.trim() || "";
+  const primaryPageCount = options.primaryFilePageCount ?? 0;
   const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
   // Document blocks first, then the instruction text block.
@@ -124,13 +130,37 @@ Topics = the major numbered sections within this chapter (e.g. 1.1, 1.2, 1.3 if 
 - Skip summary/review/glossary/exercise sections at the end of the chapter — don't create topics for those.
 - Aim for 3-7 topics per episode. If there are many sections, group closely related ones together.
 
-## Page ranges
+## Page ranges — CRITICAL: read this carefully
 
-For each topic, set page_start and page_end:
-- page_start = the page where the topic's section heading first appears.
-- page_end = the last page before the NEXT major section begins.
-- CRITICAL: If section 1.3 contains sub-sections 1.3.1, 1.3.2, etc., the page_end of topic 1.3 must reach the end of 1.3.x's content — NOT just the intro paragraph of 1.3.
-- Use page numbers visible in the PDF (headers, footers, or numbered pages). The PDFs are attached above — read them directly.
+For each topic, set page_start and page_end using the **1-based PDF page index** — that is, the Nth physical page of the attached PDF, counting from 1.
+
+**ABSOLUTELY DO NOT** use the printed page numbers shown in the textbook's headers or footers. The attached PDF is often a chapter excerpt extracted from a larger book; the textbook header may say "Chapter 1 begins on page 31" but if Chapter 1 begins on the **1st** physical page of THIS attached PDF, then page_start MUST be 1, not 31.
+
+How to count:
+- The very first page of the attached PDF is page 1 (regardless of what the printed page number says).
+- The second physical page is page 2. And so on.
+- ${primaryPageCount > 0
+  ? `The primary attached PDF has ${primaryPageCount} pages total. All page_start and page_end values MUST be integers between 1 and ${primaryPageCount} inclusive. Any value above ${primaryPageCount} is WRONG and will be rejected.`
+  : `Use sensible values within the actual page count of the attached PDF.`}
+
+For each topic:
+- page_start = the index of the first physical page of the topic's section.
+- page_end = the index of the last physical page of the topic's section (the page just before the next major section begins).
+- If section 1.3 contains sub-sections 1.3.1, 1.3.2, etc., page_end must include ALL of 1.3.x's pages, not just the intro.
+- If a section spans only one page, page_start === page_end is fine.
+
+Worked example: imagine an attached PDF with 52 physical pages whose first physical page shows "Chapter 1: Regular Languages" in big text (even though the printed footer says "31"). Inside, you find:
+  - "1.1 Finite Automata" starting on physical page 3
+  - "1.2 Nondeterminism" starting on physical page 17
+  - "1.3 Regular Expressions" starting on physical page 30
+  - "1.4 Nonregular Languages" starting on physical page 41
+  - Chapter ends on physical page 52
+Then the correct output is:
+  - Topic "1.1 Finite Automata": page_start=3, page_end=16
+  - Topic "1.2 Nondeterminism": page_start=17, page_end=29
+  - Topic "1.3 Regular Expressions": page_start=30, page_end=40
+  - Topic "1.4 Nonregular Languages": page_start=41, page_end=52
+The fact that the textbook footer says page "63" or "75" for "1.3" is IRRELEVANT — we want physical PDF indices.
 
 ## JSON structure to return
 
@@ -177,7 +207,32 @@ ${buildLanguageRule(outputLanguage)}
   if (content.type !== "text") throw new Error("Unexpected response type from Claude");
 
   const raw = content.text.trim();
-  return parseEpisodeStructure(raw, userTitle);
+  const parsed = parseEpisodeStructure(raw, userTitle);
+
+  // Safety net: clamp any out-of-range page indices. Defensive against
+  // Claude occasionally still using printed page numbers despite the prompt.
+  if (primaryPageCount > 0) {
+    for (const topic of parsed.topics) {
+      if (topic.page_start != null) {
+        if (topic.page_start < 1) topic.page_start = 1;
+        if (topic.page_start > primaryPageCount) topic.page_start = primaryPageCount;
+      }
+      if (topic.page_end != null) {
+        if (topic.page_end < 1) topic.page_end = 1;
+        if (topic.page_end > primaryPageCount) topic.page_end = primaryPageCount;
+      }
+      // Ensure end >= start
+      if (
+        topic.page_start != null &&
+        topic.page_end != null &&
+        topic.page_end < topic.page_start
+      ) {
+        topic.page_end = topic.page_start;
+      }
+    }
+  }
+
+  return parsed;
 }
 
 // ─── Defensive JSON parser ────────────────────────────────────────────────────

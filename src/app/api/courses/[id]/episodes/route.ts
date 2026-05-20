@@ -167,7 +167,11 @@ async function processEpisodeAsync(
 ) {
   const supabase = createServiceClient();
 
-  // Best-effort: count pages on the first file for downstream use
+  // Count pages on the PRIMARY PDF (the first file) before calling Claude.
+  // The count is critical: we pass it into the AI prompt so Claude uses
+  // 1-based PDF indices (1..N) instead of the textbook's printed page
+  // numbers (which would otherwise produce out-of-range page_start/page_end
+  // like "page 63 of 52"). The count also gets saved for UI display.
   let primaryPageCount = 0;
   try {
     const result = await extractPagesFromBuffer(files[0].buffer);
@@ -188,6 +192,7 @@ async function processEpisodeAsync(
   const structure = await extractEpisodeStructure(files, {
     outputLanguage,
     userProvidedTitle: userTitle || undefined,
+    primaryFilePageCount: primaryPageCount,
   });
 
   // Update the episode with AI-extracted (or user-provided) title + description
