@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { extractTextFromBuffer, extractPagesFromBuffer } from "@/lib/pdf/extract-text";
+import { extractPagesFromBuffer } from "@/lib/pdf/extract-text";
 import { extractCourseStructure } from "@/lib/ai/extract-course";
 
 export const maxDuration = 120;
@@ -127,29 +127,16 @@ async function processCoursesAsync(
     return;
   }
 
-  // Extract text from all content files with page markers
-  let allText = "";
-  let primaryFileName = contentFiles[0].name;
-
-  // Track file info for page mapping (we use the first content file for page references)
+  // Page count is still useful for the course_files record (used later to
+  // display "X pages" in the UI). The actual text isn't sent to Claude any
+  // more — Claude reads the PDFs natively via document blocks.
+  const primaryFileName = contentFiles[0].name;
   let primaryFilePageCount = 0;
-
-  for (const { buffer, name } of contentFiles) {
-    try {
-      const result = await extractPagesFromBuffer(buffer);
-      // Use page-marked text so AI can map topics to page numbers
-      allText += `\n\n=== ${name} ===\n\n${result.textWithPageMarkers}`;
-      if (name === primaryFileName) {
-        primaryFilePageCount = result.totalPages;
-      }
-    } catch (err) {
-      console.warn(`Failed to extract text from ${name}:`, err);
-    }
-  }
-
-  if (!allText.trim()) {
-    await supabase.from("courses").update({ status: "error" }).eq("id", courseId);
-    return;
+  try {
+    const result = await extractPagesFromBuffer(contentFiles[0].buffer);
+    primaryFilePageCount = result.totalPages;
+  } catch (err) {
+    console.warn(`Failed to count pages in ${primaryFileName}:`, err);
   }
 
   // Update page count on the course_files record(s)
@@ -161,8 +148,13 @@ async function processCoursesAsync(
       .eq("file_name", primaryFileName);
   }
 
-  // Ask Claude to build the course structure
-  const structure = await extractCourseStructure(allText, primaryFileName, outputLanguage);
+  // Ask Claude to build the course structure — passing PDF buffers directly
+  // so Claude reads them natively (preserves math notation, diagrams, etc.).
+  const pdfsForExtraction = contentFiles.map((f) => ({
+    name: f.name,
+    buffer: f.buffer,
+  }));
+  const structure = await extractCourseStructure(pdfsForExtraction, outputLanguage);
 
   // Persist course metadata
   await supabase

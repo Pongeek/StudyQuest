@@ -10,12 +10,28 @@ export interface ExtractedExamQuestion {
   key_topics: string[];
 }
 
+/**
+ * Extract exam questions directly from a PDF buffer using Claude's native
+ * vision-based PDF reading. Bypasses unpdf entirely, which means math
+ * notation (set-builder, quantifiers, Greek letters, set definitions like
+ * `B = {w ∈ {0,1}* | ...}`) survives the round-trip intact instead of being
+ * garbled by text extraction. Claude sees the actual rendered PDF page.
+ */
 export async function extractExamQuestions(
-  pdfText: string,
+  pdfBuffer: Buffer,
   courseTopic: string
 ): Promise<ExtractedExamQuestion[]> {
-  const truncatedText = pdfText.slice(0, 80000);
   const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
+
+  // Anthropic PDF document blocks support up to 32 MB / 100 pages per
+  // request. For larger files we'd need to split, but exam papers are
+  // usually well under either limit.
+  if (pdfBuffer.length > 32 * 1024 * 1024) {
+    throw new Error(
+      "Exam PDF is larger than 32 MB — Claude can only read PDFs up to that size in a single request. Re-export the PDF at a lower resolution or split it into smaller files."
+    );
+  }
+  const pdfBase64 = pdfBuffer.toString("base64");
 
   // Stream the response. Past exams in Hebrew (or with many questions) can
   // easily exceed the SDK's 10-minute non-streaming threshold and the old
@@ -27,12 +43,20 @@ export async function extractExamQuestions(
     messages: [
       {
         role: "user",
-        content: `You are given a university past exam paper for the course: "${courseTopic}".
+        content: [
+          {
+            type: "document",
+            source: {
+              type: "base64",
+              media_type: "application/pdf",
+              data: pdfBase64,
+            },
+          },
+          {
+            type: "text",
+            text: `You are given a university past exam paper for the course: "${courseTopic}". The PDF is attached above — read it directly, including any math notation, diagrams, tables, and special symbols.
 
-Extract ALL questions from this exam as a JSON array. Preserve the exact question wording from the paper.
-
-Exam Paper Text:
-${truncatedText}
+Extract ALL questions from this exam as a JSON array. Preserve the exact question wording from the paper, including all mathematical content (set definitions, formulas, automata descriptions, etc.).
 
 Return ONLY a JSON array (no markdown around the array, no explanation). Each element MUST have this shape:
 {
@@ -139,6 +163,8 @@ MATH / LOGIC / FORMAL NOTATION (CRITICAL — applies to CS, math, and formal-met
 - This rule overrides any tendency to simplify or summarize: the student needs the EXACT math content, not a description of it.
 
 Return ONLY valid JSON array — no prose around it, no markdown fence around the array itself.`,
+          },
+        ],
       },
     ],
   });

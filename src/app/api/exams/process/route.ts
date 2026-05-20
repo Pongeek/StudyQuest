@@ -110,8 +110,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Pass the raw PDF buffer to Claude's native PDF reading — Claude sees
+    // the actual rendered pages (math notation, set-builder syntax, automata
+    // diagrams, tables) instead of the garbled output that unpdf produces
+    // for math-heavy content. The unpdf text-extraction step above is now
+    // only used as a sanity check (NO_TEXT_LAYER / EMPTY_PDF_TEXT detection),
+    // not as the actual input to the AI.
     const courseName = course.theme_name || course.title;
-    const questions = await extractExamQuestions(pdfText, courseName);
+    const questions = await extractExamQuestions(buffer, courseName);
 
     // If the extractor succeeded but returned zero questions, that's not a
     // success — surface it so the user knows to try a different file or

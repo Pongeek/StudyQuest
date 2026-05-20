@@ -41,34 +41,61 @@ function buildLanguageRule(lang: OutputLanguage): string {
   return "- IMPORTANT: All text content (theme_name, subject, titles, descriptions, summaries, key_concepts) MUST be in the SAME LANGUAGE as the source material. If the material is in Hebrew, write everything in Hebrew. If in English, write in English.";
 }
 
+/**
+ * Extract course structure directly from PDF buffer(s) using Claude's native
+ * vision-based PDF reading. Bypasses unpdf entirely — Claude sees the actual
+ * rendered pages, so math notation, diagrams, set-builder syntax, automata,
+ * and other non-text content all survive. Page numbers come through
+ * naturally (Claude sees page headers/footers in the PDF).
+ *
+ * Pass an array so the caller can include multiple PDFs (lecture + notes)
+ * in a single extraction call. Each PDF must fit within Anthropic's 32 MB
+ * per-document limit; total content stays within Claude's 200k context.
+ */
 export async function extractCourseStructure(
-  pdfText: string,
-  fileName: string,
+  pdfBuffers: Array<{ name: string; buffer: Buffer }>,
   outputLanguage: OutputLanguage = "auto"
 ): Promise<CourseStructure> {
-  // Claude Sonnet 4.6 supports 200k+ tokens of context. Earlier code clipped
-  // to 80k chars (~20k tokens), which truncated longer PDFs mid-document and
-  // caused Claude to assign too-narrow page ranges (a topic's true end page
-  // was in the cut-off region, so page_end was set to the last page Claude
-  // could see). 280k chars ≈ 70k tokens, comfortably fits a 100-page text
-  // while leaving room for the prompt and response.
-  const truncatedText = pdfText.slice(0, 280000);
+  if (pdfBuffers.length === 0) {
+    throw new Error("extractCourseStructure called with no PDFs");
+  }
   const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 8192,
-    messages: [
-      {
-        role: "user",
-        content: `You are an expert academic curriculum designer. Your job is to analyze study material and create a structured course outline that maps cleanly to the document's own section numbering.
+  // Validate each PDF is under Anthropic's 32 MB / 100 page document limit.
+  // Anything larger needs to be split client-side first.
+  for (const { name, buffer } of pdfBuffers) {
+    if (buffer.length > 32 * 1024 * 1024) {
+      throw new Error(
+        `PDF "${name}" is larger than 32 MB — Claude can only read PDFs up to that size in a single request.`
+      );
+    }
+  }
 
-The text below has [PAGE N] markers showing which PDF page each section of text comes from. You MUST use these markers to determine accurate page ranges.
+  // Use the first PDF's name as the canonical "fileName" for the prompt.
+  // When multiple PDFs are present, Claude still gets to see all of them.
+  const fileName = pdfBuffers[0].name;
 
-File: ${fileName}
+  // Build the message content: each PDF attached as its own document block,
+  // followed by the instruction text block. Claude reads the PDFs natively
+  // and uses page numbers visible in the PDF itself.
+  const contentBlocks: Anthropic.Messages.ContentBlockParam[] = [];
+  for (const { buffer } of pdfBuffers) {
+    contentBlocks.push({
+      type: "document",
+      source: {
+        type: "base64",
+        media_type: "application/pdf",
+        data: buffer.toString("base64"),
+      },
+    });
+  }
+  contentBlocks.push({
+    type: "text",
+    text: `You are an expert academic curriculum designer. Your job is to analyze the attached PDF study material and create a structured course outline that maps cleanly to the document's own section numbering.
 
-Study Material:
-${truncatedText}
+The PDF${pdfBuffers.length > 1 ? "s are" : " is"} attached above. Read ${pdfBuffers.length > 1 ? "them" : "it"} directly — you have access to the actual rendered pages, including math notation, diagrams, tables, and page numbers visible in the document.
+
+Primary file: ${fileName}
 
 ## Your task
 
@@ -92,8 +119,8 @@ CRITICAL — follow these rules exactly:
    - The key_concepts field should list the important sub-topics and terms covered within that section.
 
 4. **Page ranges MUST cover the ENTIRE section, including ALL sub-sections.**
-   - page_start = the [PAGE N] where the section heading first appears.
-   - page_end = the LAST [PAGE N] before the NEXT major section begins.
+   - page_start = the page N where the section heading first appears.
+   - page_end = the LAST page N before the NEXT major section begins.
    - **CRITICAL:** If section 1.3 contains sub-sections 1.3.1, 1.3.2, 1.3.3 — all of those sub-section pages belong INSIDE topic 1.3. page_end must reach the page just before section 1.4 starts, not the end of the 1.3 intro paragraph.
    - Example: if section 1.3 starts on [PAGE 33] and section 1.4 starts on [PAGE 50], then 1.3 has page_start=33, page_end=49. Even if pages 37-49 are sub-sections 1.3.1, 1.3.2, etc., they all belong to topic 1.3.
    - Before finalizing a topic's page_end, look ahead in the document for sub-section headings (e.g., 1.3.1) — those pages MUST be included in the parent topic's range.
@@ -143,6 +170,15 @@ ${buildLanguageRule(outputLanguage)}
 - DO NOT create topics with only 1 page when the section clearly spans 2-4 pages.
 - DO NOT create topics for summary/review/glossary sections at the end of a chapter.
 - DO NOT create more than 8 topics per episode. If there are many sections, group closely related ones together.`,
+  });
+
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 8192,
+    messages: [
+      {
+        role: "user",
+        content: contentBlocks,
       },
     ],
   });
