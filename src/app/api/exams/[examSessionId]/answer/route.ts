@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { gradeExamAnswer } from "@/lib/ai/grade-exam-answer";
+import { uploadAnswerImage } from "@/lib/answer-image";
 
 export const maxDuration = 60;
 
@@ -32,7 +33,23 @@ export async function POST(
 
   if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
-  const { questionId, userAnswer } = await request.json();
+  // Accept both JSON (legacy / MCQ + plain open) and multipart (open with
+  // attached diagram image).
+  const contentType = request.headers.get("content-type") || "";
+  let questionId: string;
+  let userAnswer: string;
+  let imageFile: File | null = null;
+  if (contentType.includes("multipart/form-data")) {
+    const fd = await request.formData();
+    questionId = (fd.get("questionId") as string) ?? "";
+    userAnswer = (fd.get("userAnswer") as string) ?? "";
+    const f = fd.get("image");
+    imageFile = f instanceof File ? f : null;
+  } else {
+    const body = await request.json();
+    questionId = body.questionId;
+    userAnswer = body.userAnswer;
+  }
 
   const { data: question } = await supabase
     .from("exam_questions")
@@ -41,6 +58,17 @@ export async function POST(
     .single();
 
   if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
+
+  // Upload diagram image (open questions only) — Claude sees it inline.
+  const uploadedImage =
+    question.type !== "mcq" && imageFile
+      ? await uploadAnswerImage({
+          file: imageFile,
+          userId,
+          sessionId: examSessionId,
+          questionId,
+        })
+      : null;
 
   // ── Compute score + feedback ────────────────────────────────────────────────
   let score: number;
@@ -59,13 +87,19 @@ export async function POST(
       : `Not quite. The correct answer is: ${question.correct_answer ?? "unknown"}`;
     modelAnswerForResponse = question.model_answer ?? undefined;
   } else {
-    // Open question: AI grading via Claude
+    // Open question: AI grading via Claude (with optional diagram image)
     const grading = await gradeExamAnswer({
       question: question.content,
       modelAnswer: question.model_answer,
       marks: question.marks,
       studentAnswer: userAnswer,
       mode: session.mode as "timed" | "assisted",
+      studentImage: uploadedImage
+        ? {
+            mediaType: uploadedImage.mediaType,
+            base64: uploadedImage.buffer.toString("base64"),
+          }
+        : null,
     });
     score = grading.score;
     feedback = grading.feedback;
@@ -92,6 +126,9 @@ export async function POST(
         user_answer: userAnswer,
         ai_score: score,
         ai_feedback: feedback,
+        // Only overwrite image_url if a NEW image was uploaded this time.
+        // Re-submitting without a new image preserves the previous one.
+        ...(uploadedImage ? { image_url: uploadedImage.storagePath } : {}),
       })
       .eq("id", existingAnswer.id);
   } else {
@@ -101,6 +138,7 @@ export async function POST(
       user_answer: userAnswer,
       ai_score: score,
       ai_feedback: feedback,
+      image_url: uploadedImage?.storagePath ?? null,
     });
   }
 

@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import MarkdownContent from "@/components/quiz/MarkdownContent";
 import MarkdownInline from "@/components/quiz/MarkdownInline";
+import AnswerImagePicker from "@/components/quiz/AnswerImagePicker";
 import ExamDebrief from "./ExamDebrief";
 import { XPBurstProvider, useXPBurst } from "@/components/effects/XPBurst";
 import { useSound } from "@/lib/useSound";
@@ -68,6 +69,8 @@ interface AnswerResult {
 /** Stored state for each exam question slot */
 interface QuestionState {
   openAnswer: string;
+  /** Optional diagram image attached for this question (open Qs only) */
+  openAnswerImage: File | null;
   selectedOption: string | null;
   result: {
     score: number;
@@ -110,6 +113,7 @@ function ExamEngineInner({
     questions.forEach((q, i) => {
       map.set(q.id, {
         openAnswer: "",
+        openAnswerImage: null,
         selectedOption: null,
         result: null,
         visited: i === 0,
@@ -191,6 +195,7 @@ function ExamEngineInner({
     (qId: string): QuestionState =>
       questionStates.get(qId) ?? {
         openAnswer: "",
+        openAnswerImage: null,
         selectedOption: null,
         result: null,
         visited: false,
@@ -204,6 +209,7 @@ function ExamEngineInner({
       const next = new Map(prev);
       const current = next.get(qId) ?? {
         openAnswer: "",
+        openAnswerImage: null,
         selectedOption: null,
         result: null,
         visited: false,
@@ -294,27 +300,42 @@ function ExamEngineInner({
     const userAnswer = isMcq
       ? (curState.selectedOption ?? "")
       : curState.openAnswer.trim();
+    const attachedImage = !isMcq ? curState.openAnswerImage : null;
 
     if (isMcq && !curState.selectedOption) {
       toast.error("Please select an option before submitting.");
       return;
     }
-    if (!isMcq && userAnswer.length < 3) {
-      toast.error("Please write an answer before submitting.");
+    // For open Qs, either typed text (≥3 chars) OR a diagram image counts.
+    if (!isMcq && userAnswer.length < 3 && !attachedImage) {
+      toast.error("Please write an answer or attach a diagram before submitting.");
       return;
     }
 
     setIsGrading(true);
     try {
-      const res = await fetch(`/api/exams/${examSessionId}/answer`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionId: currentQuestion.id,
-          userAnswer,
-          isMcq,
-        }),
-      });
+      // Use multipart when a diagram is attached; otherwise JSON is fine.
+      let res: Response;
+      if (attachedImage) {
+        const fd = new FormData();
+        fd.append("questionId", currentQuestion.id);
+        fd.append("userAnswer", userAnswer);
+        fd.append("image", attachedImage);
+        res = await fetch(`/api/exams/${examSessionId}/answer`, {
+          method: "POST",
+          body: fd,
+        });
+      } else {
+        res = await fetch(`/api/exams/${examSessionId}/answer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            questionId: currentQuestion.id,
+            userAnswer,
+            isMcq,
+          }),
+        });
+      }
 
       if (!res.ok) throw new Error("Failed to grade answer");
       const data = await res.json();
@@ -893,12 +914,24 @@ function ExamEngineInner({
                   }
                   className="bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500/50 focus-visible:border-indigo-500/50 min-h-[120px] resize-none"
                 />
+                {/* Diagram / image attachment — drawing answers (automata,
+                    derivations, proofs) get graded via Claude vision. */}
                 {!isAnswered && (
-                  <p className="text-xs text-slate-600">
-                    {mode === "assisted"
-                      ? "Write a thorough answer — the AI will provide detailed feedback."
-                      : "Write a thorough answer — the AI will grade based on conceptual accuracy."}
-                  </p>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <AnswerImagePicker
+                      image={curState.openAnswerImage}
+                      onChange={(file) =>
+                        updateQState(currentQuestion.id, { openAnswerImage: file })
+                      }
+                      disabled={isGrading}
+                      dir={rtl ? "rtl" : "ltr"}
+                    />
+                    <p className="text-xs text-slate-600">
+                      {mode === "assisted"
+                        ? "Write thoroughly — AI gives detailed feedback."
+                        : "Write thoroughly — AI grades on conceptual accuracy."}
+                    </p>
+                  </div>
                 )}
               </div>
             )}

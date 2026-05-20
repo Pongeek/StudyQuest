@@ -5,17 +5,26 @@ export interface ExamGradingResult {
   feedback: string;
 }
 
+export interface StudentAnswerImage {
+  mediaType: "image/jpeg" | "image/png" | "image/webp";
+  base64: string;
+}
+
 export async function gradeExamAnswer(params: {
   question: string;
   modelAnswer: string;
   marks: number;
   studentAnswer: string;
   mode: "timed" | "assisted";
+  /** Optional diagram / hand-written work attached by the student. */
+  studentImage?: StudentAnswerImage | null;
 }): Promise<ExamGradingResult> {
-  const { question, modelAnswer, marks, studentAnswer, mode } = params;
+  const { question, modelAnswer, marks, studentAnswer, mode, studentImage } = params;
   const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
-  if (!studentAnswer.trim() || studentAnswer.trim().length < 3) {
+  const hasText = studentAnswer.trim().length >= 3;
+  const hasImage = !!studentImage;
+  if (!hasText && !hasImage) {
     return { score: 0, feedback: "No answer was provided." };
   }
 
@@ -26,20 +35,27 @@ export async function gradeExamAnswer(params: {
 - Be thorough and educational (4-6 sentences)`
     : `Since this is timed mode, keep feedback brief (1-2 sentences).`;
 
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    messages: [
-      {
-        role: "user",
-        content: `You are a university professor grading an exam answer.
+  const userContent: Anthropic.Messages.ContentBlockParam[] = [];
+  if (studentImage) {
+    userContent.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: studentImage.mediaType,
+        data: studentImage.base64,
+      },
+    });
+  }
+  userContent.push({
+    type: "text",
+    text: `You are a university professor grading an exam answer.
 
 Question (${marks} marks): ${question}
 
 Model Answer / Rubric: ${modelAnswer}
 
-Student's Answer: ${studentAnswer}
-
+Student's Typed Answer: ${hasText ? studentAnswer : "(no typed text — see attached image)"}
+${hasImage ? "\nThe student attached an image (above) — a hand-drawn diagram, derivation, automaton, proof, or similar. Read it carefully and grade based on BOTH the typed text AND the image together. The drawing is part of their answer.\n" : ""}
 ${assistedExtra}
 
 Score from 0.0 to 1.0 based on accuracy and completeness relative to the marks available.
@@ -51,6 +67,15 @@ Return ONLY a JSON object (no markdown):
 }
 
 IMPORTANT: Write feedback in the SAME LANGUAGE as the question and student answer.`,
+  });
+
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 1024,
+    messages: [
+      {
+        role: "user",
+        content: userContent,
       },
     ],
   });

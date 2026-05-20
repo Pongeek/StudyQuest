@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { gradeOpenAnswer } from "@/lib/ai/grade-answer";
+import { uploadAnswerImage } from "@/lib/answer-image";
 
 export const maxDuration = 60;
 
@@ -13,7 +14,25 @@ export async function POST(
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { questionId, userAnswer, topicId } = await request.json();
+  // JSON (MCQ / plain open) or multipart (open + diagram image)
+  const contentType = request.headers.get("content-type") || "";
+  let questionId: string;
+  let userAnswer: string;
+  let topicId: string;
+  let imageFile: File | null = null;
+  if (contentType.includes("multipart/form-data")) {
+    const fd = await request.formData();
+    questionId = (fd.get("questionId") as string) ?? "";
+    userAnswer = (fd.get("userAnswer") as string) ?? "";
+    topicId = (fd.get("topicId") as string) ?? "";
+    const f = fd.get("image");
+    imageFile = f instanceof File ? f : null;
+  } else {
+    const body = await request.json();
+    questionId = body.questionId;
+    userAnswer = body.userAnswer;
+    topicId = body.topicId;
+  }
 
   if (!questionId || !topicId) {
     return NextResponse.json({ error: "questionId and topicId required" }, { status: 400 });
@@ -28,6 +47,16 @@ export async function POST(
     .single();
 
   if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
+
+  const uploadedImage =
+    question.type !== "mcq" && imageFile
+      ? await uploadAnswerImage({
+          file: imageFile,
+          userId,
+          sessionId,
+          questionId,
+        })
+      : null;
 
   let score = 0;
   let feedback = "";
@@ -52,6 +81,12 @@ export async function POST(
       explanation: question.explanation,
       studentAnswer: userAnswer,
       topicTitle: topic?.title ?? "",
+      studentImage: uploadedImage
+        ? {
+            mediaType: uploadedImage.mediaType,
+            base64: uploadedImage.buffer.toString("base64"),
+          }
+        : null,
     });
     score = result.score;
     feedback = result.feedback;
@@ -64,6 +99,7 @@ export async function POST(
     user_answer: userAnswer,
     ai_score: score,
     ai_feedback: feedback,
+    image_url: uploadedImage?.storagePath ?? null,
   });
 
   return NextResponse.json({ score, feedback });

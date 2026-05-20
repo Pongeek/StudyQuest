@@ -17,6 +17,7 @@ import Confetti from "@/components/effects/Confetti";
 import AnimatedCounter from "@/components/effects/AnimatedCounter";
 import MarkdownContent from "@/components/quiz/MarkdownContent";
 import MarkdownInline from "@/components/quiz/MarkdownInline";
+import AnswerImagePicker from "@/components/quiz/AnswerImagePicker";
 import {
   calculateLevel,
   xpProgressInCurrentLevel,
@@ -238,6 +239,8 @@ function BossFightEngineInner({
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [openAnswer, setOpenAnswer] = useState("");
+  // Optional diagram image attached to the current open question.
+  const [openAnswerImage, setOpenAnswerImage] = useState<File | null>(null);
   const [answerResult, setAnswerResult] = useState<{
     score: number;
     feedback: string;
@@ -318,20 +321,36 @@ function BossFightEngineInner({
   // ── Submit answer ──
   const submitAnswer = async () => {
     if (!currentQuestion) return;
+    const isOpen = currentQuestion.type !== "mcq";
     const userAnswer =
       currentQuestion.type === "mcq" ? selectedOption || "" : openAnswer.trim();
-    if (!userAnswer) {
-      toast.error("Please provide an answer before striking.");
+    const attachedImage = isOpen ? openAnswerImage : null;
+
+    if (!userAnswer && !attachedImage) {
+      toast.error("Please provide an answer or attach a diagram before striking.");
       return;
     }
 
     setIsGrading(true);
     try {
-      const res = await fetch(`/api/boss-fight/${sessionId}/answer`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionId: currentQuestion.id, userAnswer }),
-      });
+      // Multipart when a diagram is attached; JSON otherwise.
+      let res: Response;
+      if (attachedImage) {
+        const fd = new FormData();
+        fd.append("questionId", currentQuestion.id);
+        fd.append("userAnswer", userAnswer);
+        fd.append("image", attachedImage);
+        res = await fetch(`/api/boss-fight/${sessionId}/answer`, {
+          method: "POST",
+          body: fd,
+        });
+      } else {
+        res = await fetch(`/api/boss-fight/${sessionId}/answer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ questionId: currentQuestion.id, userAnswer }),
+        });
+      }
       if (!res.ok) throw new Error("Failed to grade answer");
       const { score, feedback } = await res.json();
 
@@ -420,6 +439,7 @@ function BossFightEngineInner({
       setCurrentIdx((i) => i + 1);
       setSelectedOption(null);
       setOpenAnswer("");
+      setOpenAnswerImage(null);
       setAnswerResult(null);
     }
   };
@@ -1227,14 +1247,24 @@ function BossFightEngineInner({
 
               {/* Open question */}
               {currentQuestion.type === "open" && (
-                <Textarea
-                  dir="auto"
-                  value={openAnswer}
-                  onChange={(e) => setOpenAnswer(e.target.value)}
-                  disabled={isAnswered}
-                  placeholder="Write your answer — this is a boss-level question, be thorough!"
-                  className="bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-600 focus-visible:ring-red-500/50 focus-visible:border-red-500/50 min-h-[120px] resize-none"
-                />
+                <div className="space-y-2">
+                  <Textarea
+                    dir="auto"
+                    value={openAnswer}
+                    onChange={(e) => setOpenAnswer(e.target.value)}
+                    disabled={isAnswered}
+                    placeholder="Write your answer — boss-level question, be thorough!"
+                    className="bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-600 focus-visible:ring-red-500/50 focus-visible:border-red-500/50 min-h-[120px] resize-none"
+                  />
+                  {!isAnswered && (
+                    <AnswerImagePicker
+                      image={openAnswerImage}
+                      onChange={setOpenAnswerImage}
+                      disabled={isGrading}
+                      dir={rtl ? "rtl" : "ltr"}
+                    />
+                  )}
+                </div>
               )}
 
               {/* Feedback */}

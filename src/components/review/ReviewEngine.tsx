@@ -25,6 +25,7 @@ import { useSound } from "@/lib/useSound";
 import { REVIEW_XP_PER_CORRECT } from "@/lib/spaced-repetition";
 import ReviewSummary from "./ReviewSummary";
 import { type UnlockedAchievement } from "@/components/effects/AchievementUnlockOverlay";
+import AnswerImagePicker from "@/components/quiz/AnswerImagePicker";
 
 function isRTL(text: string): boolean {
   return /[֐-׿؀-ۿ]/.test(text);
@@ -45,6 +46,8 @@ interface ReviewQuestion {
 interface QuestionState {
   selectedOption: string | null;
   openAnswer: string;
+  /** Optional diagram image attached for this open question */
+  openAnswerImage: File | null;
   result: {
     score: number;
     feedback: string;
@@ -103,6 +106,7 @@ function ReviewEngineInner({
       map.set(q.id, {
         selectedOption: null,
         openAnswer: "",
+        openAnswerImage: null,
         result: null,
         visited: i === 0,
         skipped: false,
@@ -126,6 +130,7 @@ function ReviewEngineInner({
       questionStates.get(qId) ?? {
         selectedOption: null,
         openAnswer: "",
+        openAnswerImage: null,
         result: null,
         visited: false,
         skipped: false,
@@ -139,6 +144,7 @@ function ReviewEngineInner({
       const current = next.get(qId) ?? {
         selectedOption: null,
         openAnswer: "",
+        openAnswerImage: null,
         result: null,
         visited: false,
         skipped: false,
@@ -180,27 +186,42 @@ function ReviewEngineInner({
     if (!currentQuestion) return;
 
     const qState = getQState(currentQuestion.id);
+    const isOpen = currentQuestion.type !== "mcq";
     const userAnswer =
       currentQuestion.type === "mcq"
         ? qState.selectedOption ?? ""
         : qState.openAnswer.trim();
+    const attachedImage = isOpen ? qState.openAnswerImage : null;
 
-    if (!userAnswer) {
-      toast.error("Please provide an answer before submitting.");
+    if (!userAnswer && !attachedImage) {
+      toast.error("Please type an answer or attach a diagram before submitting.");
       return;
     }
 
     setIsGrading(true);
     try {
-      const res = await fetch(`/api/review/${sessionId}/answer`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionId: currentQuestion.id,
-          userAnswer,
-          topicId: currentQuestion.topicId,
-        }),
-      });
+      let res: Response;
+      if (attachedImage) {
+        const fd = new FormData();
+        fd.append("questionId", currentQuestion.id);
+        fd.append("userAnswer", userAnswer);
+        fd.append("topicId", currentQuestion.topicId);
+        fd.append("image", attachedImage);
+        res = await fetch(`/api/review/${sessionId}/answer`, {
+          method: "POST",
+          body: fd,
+        });
+      } else {
+        res = await fetch(`/api/review/${sessionId}/answer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            questionId: currentQuestion.id,
+            userAnswer,
+            topicId: currentQuestion.topicId,
+          }),
+        });
+      }
 
       if (!res.ok) throw new Error("Failed to grade answer");
       const { score, feedback } = await res.json();
@@ -596,9 +617,19 @@ function ReviewEngineInner({
                   className="bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-600 focus-visible:ring-cyan-500/50 focus-visible:border-cyan-500/50 min-h-[120px] resize-none"
                 />
                 {!isAnswered && (
-                  <p className="text-xs text-slate-600">
-                    Explain your understanding in your own words.
-                  </p>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <AnswerImagePicker
+                      image={curState.openAnswerImage}
+                      onChange={(file) =>
+                        updateQState(currentQuestion.id, { openAnswerImage: file })
+                      }
+                      disabled={isGrading}
+                      dir={rtl ? "rtl" : "ltr"}
+                    />
+                    <p className="text-xs text-slate-600">
+                      Explain your understanding in your own words.
+                    </p>
+                  </div>
                 )}
               </div>
             )}
