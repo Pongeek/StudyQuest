@@ -177,9 +177,9 @@ Whenever improving the frontend, make the app feel like the user is **leveling u
 
 ---
 
-## Current State (Checkpoint — 2026-05)
+## Current State (Checkpoint — 2026-05-20)
 
-The MVP is shipped and stable. The user is mid-polish on the gamification + exam-prep layer. Read this before touching anything.
+The MVP plus three major content layers (Scroll / Grimoire / Feynman), the exam-prep loop, the image-answer pipeline, the per-episode upload pattern, and full course/episode delete are all shipped. The app is in active polish + new-feature mode. Read this section AND the next ("What shipped in May 2026") before touching anything.
 
 ### What's wired up
 
@@ -205,15 +205,17 @@ The MVP is shipped and stable. The user is mid-polish on the gamification + exam
 005 — exam MCQ support (type, options, correct_answer on exam_questions)
 006 — slot-machine achievements (lucky_scholar, perfect_day, combo_breaker)
 007 — spaced repetition (SR columns + review_sessions + review_answers + review_master + consistent_scholar)
+008 — daily_scrolls (Scroll of Wisdom: per-day insight rows)
+009 — grimoire (review_sessions.source + review_sessions.pinned_question_ids)
+010 — feynman_sessions (multi-turn teach-back chat + "the_professor" achievement)
+011 — new feature achievements (grimoire/feynman-adjacent badges)
+012 — courses.output_language (per-course AI output language override)
+013 — courses.exam_date + courses.exam_label (countdown + study plan inputs)
+014 — episodes.status + course_files.episode_id (per-episode upload pipeline)
+015 — image_url on quiz_answers / exam_answers / review_answers / boss_fight_answers
 ```
 
-A pending dashboard SQL block was prepared but **not applied** by me — confirm with the user before re-running:
-```sql
-ALTER TABLE topics ADD COLUMN IF NOT EXISTS source_file_id UUID REFERENCES course_files(id) ON DELETE SET NULL;
-ALTER TABLE topics ADD COLUMN IF NOT EXISTS source_pages JSONB DEFAULT NULL;
-ALTER TABLE course_files ADD COLUMN IF NOT EXISTS page_count INTEGER DEFAULT NULL;
-CREATE INDEX IF NOT EXISTS idx_topics_source_file ON topics(source_file_id) WHERE source_file_id IS NOT NULL;
-```
+The migration files live in `supabase/migrations/`. Always update this list when you add a migration so the next session can verify the live DB matches.
 
 ### Conventions established this round (don't break)
 
@@ -231,21 +233,151 @@ CREATE INDEX IF NOT EXISTS idx_topics_source_file ON topics(source_file_id) WHER
 - **Combo bonus → server XP:** currently the combo multiplier is client-side cosmetic only. The Combo Breaker achievement fires, but XP doesn't scale with combo length. Wire into `calculate.ts` or per-answer route.
 - **`longest_streak` not updated:** audit flagged that `users.longest_streak` never advances when `current_streak` exceeds it. Fix in the streak update path.
 - **Quiz + Boss navigator parity:** the chevron-arrow auto-scroll navigator and `Leave Exam` button are only in `ExamEngine`. Mirror to `QuizEngine` and `BossFightEngine` for long sessions.
-- **User strategic queue (not yet picked):** onboarding flow polish, daily quests generator, course-map visual redesign, smart dashboard widget.
+- **Orphan PDFs in storage:** when a course/episode is deleted, FK CASCADE removes DB rows but the actual files in the `course-files` Supabase Storage bucket are NOT removed. Harmless (few MB of quota) but eventually worth a sweeper.
+- **User strategic queue (not yet picked):** onboarding flow polish, daily quests generator, course-map visual redesign, smart dashboard widget. The user has also asked about making the **dashboard hero feel "elegant + a bit retro pixelated"** — design-direction task, not started.
+
+---
+
+## What shipped in May 2026
+
+Each subsection here is a contained feature with its own files + migration. If you're picking up work and one of these is being touched, read the matching subsection first.
+
+### Per-episode upload pipeline (replaces "upload the whole textbook")
+
+The old flow uploaded one giant PDF as the course. That broke for 300+ page textbooks (Claude context, page-numbering, slow extraction). The new flow:
+
+1. User creates an **empty course** via `EmptyCourseForm` (`mode: "empty"` on `POST /api/courses`) — just a name, subject, output language.
+2. User uploads **one PDF per episode/chapter** via `EpisodeUploadForm` (max 3 PDFs per episode, ≤100 pages each works best). `POST /api/courses/[id]/episodes` accepts multipart, stores PDFs in `course-files` bucket, creates an `episodes` row with `status='processing'`, fires `processEpisodeAsync()` background work.
+3. `EpisodeProcessingPoller` (client) re-`router.refresh()`es every 4s while any episode is processing (5-min safety cap), so the UI flips to "ready" without a manual reload.
+4. `extractEpisodeStructure()` in `src/lib/ai/extract-episode.ts` calls Claude with native document content blocks, schema-enforced via tool use (`save_episode_structure`), inserts topics, wires prerequisites, sets `status='ready'`.
+
+Critical extraction rules baked into the prompt (don't relax these without thinking):
+- **Topic titles MUST start with the section number** (e.g. `1.1 Finite Automata`, `1.3 ביטויים רגולריים`). The course map relies on this for ordering hints.
+- **Page ranges use 1-based PDF physical page indices**, NOT textbook printed page numbers. The Sipser bug — Claude reading "Page 63" from a footer and storing 63 in a 52-page PDF — was fixed by passing `primaryFilePageCount` into the prompt, including a worked example, and post-processing clamp.
+
+Files:
+- `src/components/course/EmptyCourseForm.tsx`, `src/components/course/EpisodeUploadForm.tsx`, `src/components/course/EpisodeProcessingPoller.tsx`
+- `src/app/dashboard/courses/new/page.tsx` (tabbed: "Empty course" recommended vs "From single PDF" legacy)
+- `src/app/api/courses/route.ts` (`mode: "empty"` fast path)
+- `src/app/api/courses/[id]/episodes/route.ts` (multipart POST + background processing)
+- `src/lib/ai/extract-episode.ts` (tool use, streaming, page-range rules)
+
+### Exam date countdown + study plan
+
+The user sets an exam date per course on the course detail page. A dashboard widget then renders a countdown + auto-generated daily study plan.
+
+- `supabase/migrations/013_exam_dates.sql` adds `exam_date DATE` + `exam_label TEXT` on `courses`.
+- `PATCH /api/courses/[id]/exam-date` — validates `YYYY-MM-DD` + 64-char label cap.
+- `src/lib/study-plan.ts` — pure functions, `generateStudyPlan()` returns `{ daysUntilExam, urgency, actions[] }` where `urgency ∈ 'calm' | 'steady' | 'crunch' | 'final-push' | 'exam-day' | 'past'`. Picks topics with lowest mastery (< `MASTERY_TARGET = 3`), clamped 1–4 per day.
+- `src/components/course/ExamDateButton.tsx` — the picker in the course header. **Use `"en-US"` locale explicitly** when formatting the displayed date — defaulting to `undefined` caused a hydration mismatch (server defaulted to en-GB).
+- `src/components/dashboard/ExamCountdownCard.tsx` — the dashboard widget; uses BookOpen / Sparkles / Swords icons per action type.
+
+### Image answer uploads (Claude vision)
+
+Students can attach a hand-drawn diagram (automata, derivations, set-builder, proofs) to any **open-answer** question. Claude vision grades the image alongside the typed text. Lives across all four engines.
+
+- `supabase/migrations/015_answer_images.sql` — adds `image_url TEXT` to `quiz_answers`, `exam_answers`, `review_answers`, `boss_fight_answers`.
+- `src/lib/answer-image.ts` — 5MB max, jpeg/png/webp only. `uploadAnswerImage()` stores under `answers/<userId>/<sessionId>/<questionId>-<ts>.<ext>` in `course-files` bucket. Returns `{ storagePath, mediaType, buffer }`. `buildClaudeImageBlock()` builds the vision content block.
+- `src/components/quiz/AnswerImagePicker.tsx` — the shared picker (drop / select / preview / remove). RTL-aware. Used by `QuizEngine`, `ExamEngine`, `BossFightEngine`, `ReviewEngine`.
+- Graders updated: `src/lib/ai/grade-answer.ts` and `src/lib/ai/grade-exam-answer.ts` both accept optional `studentImage: { mediaType, base64 } | null`. When present, the image block is prepended to `userContent` and the prompt acknowledges "grade based on BOTH the typed text AND the image together."
+- All four answer routes (`/api/quiz/answers`, `/api/exams/[id]/answer`, `/api/review/[sessionId]/answer`, `/api/boss-fight/[sessionId]/answer`) now negotiate `application/json` **or** `multipart/form-data` based on `Content-Type` header. Image-bearing submissions go multipart. MCQ stays JSON.
+
+### Scroll of Wisdom (daily insight)
+
+First dashboard visit of the day unfurls a full-screen scroll with one AI-generated insight from a random ready-course topic. One tap dismisses.
+
+- `supabase/migrations/008_daily_scrolls.sql` — `daily_scrolls(user_id, scroll_date UNIQUE)`.
+- `src/lib/ai/generate-scroll.ts` — single-turn Claude call, ~256 tokens, returns plain text (2–3 sentences, counterintuitive / surprising).
+- `src/app/api/scroll/today/route.ts` — GET (fetch-or-generate today's scroll), POST (dismiss).
+- `src/components/scroll/ScrollOfWisdom.tsx` — client overlay. **localStorage gate** key `sq:scroll-YYYY-MM-DD` so it only fires once per day per browser. Animation pattern mirrors `LevelUpOverlay` (spring, damping 16, stiffness 180, transform-origin top). Mounted in `src/app/dashboard/layout.tsx`.
+- Z-index: scroll `z-[130]`, level-up `z-[150]`, achievement `z-[160]` — preserve this stacking order.
+
+### Mistake Grimoire (failed-question collection)
+
+Every question the user has failed 2+ times across quiz sessions becomes a "demon" in the gothic-styled grimoire. "Slay All Demons" creates a targeted review session.
+
+- `supabase/migrations/009_grimoire.sql` — adds `review_sessions.source TEXT DEFAULT 'review'` and `review_sessions.pinned_question_ids JSONB`.
+- `GET /api/grimoire` — groups quiz_answers in JS (not SQL — avoids gnarly Supabase joins) to count failures per question_id, joins question details, marks "settled" if latest score ≥ 0.8.
+- `POST /api/grimoire/session` — picks up to 10 unsettled demons, creates `review_sessions` row with `source='grimoire'` and `pinned_question_ids: [...]`.
+- `src/app/dashboard/grimoire/page.tsx`, `src/app/dashboard/grimoire/session/[sessionId]/page.tsx`
+- `src/components/dashboard/GrimoireWidget.tsx` — dashboard card with `glow-purple` when count > 0.
+
+### Feynman Mode (teach-back chat)
+
+When the user fails a quiz below 60%, `SessionDebrief` offers "Teach It Back 🎓". They open a chat with Claude playing a curious peer who NEVER gives answers — only asks "why?", "what if?", "give me an example?". After 3+ exchanges, user can request evaluation.
+
+- `supabase/migrations/010_feynman_sessions.sql` — `feynman_sessions(messages JSONB, status TEXT CHECK IN ('active','passed','abandoned'), evaluation_score NUMERIC(4,3), xp_earned INTEGER)`. Includes the "the_professor" achievement (pass 5 Feynman sessions).
+- `src/lib/ai/feynman-tutor.ts` — TWO Claude functions. `getFeynmanReply()` is **multi-turn** (alternating user/assistant messages); `evaluateFeynmanSession()` is single-turn JSON. **First and only multi-turn Claude code in this codebase** — handle the `messages` array carefully (no system role inside, system goes in `system` param).
+- API: `POST /api/feynman/sessions` (create + opening message), `POST /api/feynman/sessions/[sessionId]/message` (turn), `POST /api/feynman/sessions/[sessionId]/evaluate` (score + XP). XP: pass = 60 XP, fail = 15 XP consolation. Topic must have `mastery_level` updated by upstream review logic, not here.
+- `src/components/feynman/FeynmanSession.tsx` — chat UI client component. Bot avatar 🎓, user messages right-aligned indigo-900. Typing indicator (3-dot bounce). "Am I ready? →" button surfaces only when `turnCount >= 3`.
+
+### Course / Episode delete (just landed — 2026-05-20)
+
+Bifurcated risk levels because a course represents weeks of progress, an episode only one chapter.
+
+- **Course delete** — `DELETE /api/courses/[id]` (ownership check via combined WHERE on `user_id` + `id`; FK CASCADE handles all children). UI is `src/components/course/DeleteCourseDialog.tsx` — GitHub-style **type-to-confirm**: user must type the course name (case-insensitive, trimmed). Stats panel quantifies episodes / topics / completed sessions. Lives in a quiet "Danger zone" at the bottom of the course hero card.
+- **Episode delete** — `DELETE /api/episodes/[id]` (ownership via `courses!inner(user_id)` join, recomputes `course.episode_count` + `course.topic_count` after cascade). UI is `src/components/course/DeleteEpisodeButton.tsx` — small trash icon in each episode header inside `CourseMap`. Light confirm (no type-to-confirm).
+- **CourseMap header split**: HTML disallows `<button>` inside `<button>`, so the episode header was split into a left clickable region (collapse toggle) + a right region containing `DeleteEpisodeButton` + chevron. The trash button uses `stopPropagation()` so opening the dialog doesn't toggle collapse.
+- **Storage caveat**: PDF files in the `course-files` bucket are NOT removed by cascade (FK CASCADE only covers DB rows). Logged as a known TODO above.
+
+### Hebrew RTL + output-language signal
+
+- `supabase/migrations/012_course_output_language.sql` — `courses.output_language TEXT` override so the user can pin a course to a specific AI output language even if the source PDF mixes scripts.
+- Course detail page direction check (`src/app/dashboard/courses/[id]/page.tsx`) now uses **three signals in priority order**: `course.output_language === "he"` → RTL chars in `course.title` → RTL chars in `course.theme_name`. The first two alone were insufficient because an English course title can have all-Hebrew content.
+- `MarkdownContent` keeps code blocks force-LTR; prose inherits parent `dir`. Textareas across all engines use `dir="auto"` so user input gets auto-detected.
+
+### AI infrastructure upgrades
+
+- **Tool use for question generation** — `extract-episode.ts`, `extract-exam-questions.ts`, and topic-question generation all now use Anthropic tool use (`tool_choice: { type: "tool", name: "save_..." }`). This eliminated an entire class of "slightly malformed JSON" parsing failures because Anthropic validates against the tool schema before returning.
+- **Streaming for long extractions** — `client.messages.stream() + finalMessage()` with `max_tokens: 32768`. The non-streaming `max_tokens: 8192` was truncating Hebrew+LaTeX outputs and returning empty tool input `{}`. Always log `stop_reason` and `output_tokens` when debugging tool-use truncation.
+- **Native PDF reading** — both course/episode extraction and exam-question extraction now feed PDFs to Claude as native document content blocks instead of unpdf-extracted text. Preserves math notation, diagrams, and set-builder syntax that text extraction garbled.
+- **6-stage defensive JSON parser** — `direct → strip fences → bracket-slice → smart quotes → escape control chars → repair missing commas`. Tool use is the preferred path now, but the parser is still used as a fallback in legacy non-tool-use call sites.
+
+### UI / hydration / RSC discipline (don't backslide)
+
+- **`router.refresh()` timing**: never call it right after `/complete` returns — server pages will see `completed_at` and redirect before the celebration plays. Refresh on the navigation button onClick instead. Applied across `SessionDebrief`, `ExamDebrief`, `ReviewSummary`, `BossFightEngine` victory screen.
+- **Date formatting hydration**: use `"en-US"` explicitly in `toLocaleDateString()` — Node defaults to en-GB, browsers default to en-US, mismatch crashes hydration. Applied in `ExamDateButton` and `ExamCountdownCard`.
+- **DOMMatrix is not defined on server**: react-pdf's pdf.js touches DOMMatrix at module-load. PDF viewer is wrapped in `TopicPDFViewerClient.tsx` which uses `dynamic(() => import("./TopicPDFViewer"), { ssr: false })`.
+- **`ComboHUD` positioning**: `position: fixed` children inside transformed `AnimatePresence` wrappers get a new containing block. Render `ComboHUD` at the engine top level, outside any motion wrapper.
+
+---
+
+## Security posture (read this before touching auth/env)
+
+- **Sign-ups are restricted** — the user manually allows friend emails in Clerk. Don't enable open sign-up without asking.
+- **Anthropic spending cap is set** — the user has a budget cap on their API key. Don't add expensive new prompts (large `max_tokens` on user-triggered routes) without flagging the cost impact.
+- **Keys have been rotated** mid-conversation in the past. Treat any key value that ever appeared in chat as compromised. Never echo, paste, or include `.env.local` values in code, commits, or responses.
+- **`.env.local` must stay gitignored.** When you change env-var requirements, tell the user to update BOTH Vercel project env vars AND their local `.env.local`.
+- **Ownership checks everywhere**: every delete/mutate API route must filter by `user_id = dbUser.id` (resolved from `clerk_id`). The combined-WHERE pattern (`.eq("id", x).eq("user_id", dbUser.id)`) means a cross-tenant attempt returns 0 rows, not a leak.
 
 ### Key files to know
 
 - `src/components/exam/ExamEngine.tsx` — large; mode-gated feedback, navigator, leave-confirm, silent combo tracking.
-- `src/components/quiz/QuizEngine.tsx` + `BossFightEngine.tsx` — sound + router.refresh discipline lives here.
-- `src/components/quiz/SessionDebrief.tsx` — end-of-quiz mount sound + nav-button refresh.
-- `src/app/api/exams/[examSessionId]/complete/route.ts` — accepts `maxCombo`, checks Combo Breaker, returns `newAchievements`.
-- `src/lib/ai/extract-exam-questions.ts` — streaming + defensive parser + Hebrew rules.
+- `src/components/quiz/QuizEngine.tsx` + `BossFightEngine.tsx` + `src/components/review/ReviewEngine.tsx` — sound + router.refresh discipline + image-answer attach lives here.
+- `src/components/quiz/SessionDebrief.tsx` — end-of-quiz mount sound + nav-button refresh + Feynman "Teach It Back" CTA when score < 60%.
+- `src/components/quiz/AnswerImagePicker.tsx` — shared image picker for diagram answers; RTL-aware.
+- `src/components/course/CourseMap.tsx` — episode collapse + topic nodes + boss-fight node + per-episode delete button. Header is split (left collapse / right delete+chevron) due to nested-button HTML rules.
+- `src/components/course/DeleteCourseDialog.tsx`, `src/components/course/DeleteEpisodeButton.tsx` — destructive flows. Uses `@base-ui/react/dialog` via the shadcn `dialog.tsx` wrapper (`render={<Element/>}`, NOT Radix `asChild`).
+- `src/components/course/EpisodeUploadForm.tsx`, `EpisodeProcessingPoller.tsx`, `EmptyCourseForm.tsx`, `ExamDateButton.tsx` — per-episode pipeline + countdown UI.
+- `src/components/scroll/ScrollOfWisdom.tsx`, `src/components/feynman/FeynmanSession.tsx`, `src/components/dashboard/GrimoireWidget.tsx` + `ExamCountdownCard.tsx` — May-2026 content layers.
+- `src/lib/ai/extract-episode.ts`, `extract-exam-questions.ts`, `grade-answer.ts`, `grade-exam-answer.ts`, `generate-scroll.ts`, `feynman-tutor.ts` — all Claude code paths. Tool use + streaming + vision blocks.
+- `src/lib/answer-image.ts` — image upload helper + Claude vision block builder.
+- `src/lib/study-plan.ts` — pure functions for the exam countdown / daily plan.
 - `src/lib/spaced-repetition.ts` — SM-2 constants and `computeNextReview`.
 - `src/lib/sound.ts` + `src/lib/useSound.ts` — sound engine + React glue.
 - `src/components/effects/ComboHUD.tsx`, `LevelUpOverlay.tsx`, `AchievementUnlockOverlay.tsx`, `XPBurst.tsx` — celebration layer.
 - `src/components/dashboard/StreakWarningBanner.tsx`, `SoundToggle.tsx` — Tier-1 dopamine bits.
 - `src/app/dashboard/courses/[id]/exam/page.tsx` — exam prep landing per course; "Untimed Practice" + "Timed Exam" buttons.
+- `src/app/dashboard/courses/[id]/page.tsx` — course detail; mounts ExamDateButton + EpisodeUploadForm + EpisodeProcessingPoller + CourseMap + DeleteCourseDialog (danger zone).
 
 ### Next likely user asks
 
-The user is iterating on feel/polish. Expect requests around: making the celebration moments hit harder, fixing animation timing edge cases, exam-engine parity work, or one of the strategic queue items above. Confirm scope before refactoring large files (especially `ExamEngine.tsx` and `CourseMap.tsx` — both are long).
+The user is iterating on feel/polish + actively studying their real Automata / Computational Models course on this app (it's their primary use case, not a demo). Expect requests around:
+
+- **Dashboard hero "elegant + a bit retro pixelated" redesign** — explicitly mentioned; user wants the level/user-info area to look better. Subtle pixelation (a little, not maximalist), elegant rather than chaotic. Use the existing `.font-pixel`, `.pixel-xp-bar`, `.hud-level-frame`, `.stat-label` utilities — don't invent new ones unless `globals.css` truly lacks the primitive.
+- Polish on the May-2026 layers (Scroll/Grimoire/Feynman) as the user starts using them daily.
+- Exam-engine parity work (mirror navigator + Leave button to Quiz/Boss engines).
+- Onboarding / first-run polish.
+- Quality-of-life on the per-episode flow: edit episode title, reorder episodes, etc.
+
+Confirm scope before refactoring large files (`ExamEngine.tsx`, `CourseMap.tsx`, `BossFightEngine.tsx`, `ReviewEngine.tsx` are all long). The user prefers tight, focused PRs over megacommits — match that cadence.
