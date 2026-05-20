@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { MASTERY_LABELS, MASTERY_COLORS, MASTERY_BG } from "@/lib/xp";
 import { cn } from "@/lib/utils";
 import StartQuizButton from "@/components/quiz/StartQuizButton";
-import TopicPDFViewer from "@/components/course/TopicPDFViewer";
+import TopicPDFViewer from "@/components/course/TopicPDFViewerClient";
 
 async function getTopicData(topicId: string, courseId: string, userId: string) {
   const supabase = createServiceClient();

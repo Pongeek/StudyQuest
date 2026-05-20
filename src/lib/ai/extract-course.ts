@@ -238,6 +238,15 @@ function parseCourseStructure(raw: string): CourseStructure {
 
   try {
     return JSON.parse(repaired) as CourseStructure;
+  } catch { /* fall through */ }
+
+  // Stage 6 — insert missing commas between adjacent JSON values. Claude
+  // occasionally forgets the comma between `"options": [...]` and the next
+  // property in long responses. See insertMissingCommas() for the rules.
+  repaired = insertMissingCommas(repaired);
+
+  try {
+    return JSON.parse(repaired) as CourseStructure;
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     const posMatch = errMsg.match(/position (\d+)/);
@@ -247,13 +256,78 @@ function parseCourseStructure(raw: string): CourseStructure {
       .replace(/\s+/g, " ");
     const preview = raw.slice(0, 200).replace(/\s+/g, " ");
     throw new Error(
-      `Could not parse Claude response as JSON after 5 repair stages. ` +
+      `Could not parse Claude response as JSON after 6 repair stages. ` +
       `Failure at char ${pos}. ` +
       `Context (±120 chars around failure): ${JSON.stringify(context)}. ` +
       `Head of raw response: ${preview}... ` +
       `(original error: ${errMsg})`
     );
   }
+}
+
+/**
+ * Insert commas between adjacent JSON values where Claude forgot them.
+ * See generate-questions.ts for the full doc-comment.
+ */
+function insertMissingCommas(input: string): string {
+  let out = "";
+  let inString = false;
+  let escapeNext = false;
+  let lastNonWs = "";
+
+  for (let i = 0; i < input.length; i++) {
+    const c = input[i];
+    if (escapeNext) {
+      out += c;
+      escapeNext = false;
+      continue;
+    }
+    if (c === "\\" && inString) {
+      out += c;
+      escapeNext = true;
+      continue;
+    }
+    if (c === '"') {
+      if (inString) {
+        out += c;
+        lastNonWs = '"';
+        inString = false;
+      } else {
+        if (lastNonWs === '"' || lastNonWs === "]" || lastNonWs === "}") {
+          out += ",";
+        }
+        out += c;
+        lastNonWs = '"';
+        inString = true;
+      }
+      continue;
+    }
+    if (inString) {
+      out += c;
+      continue;
+    }
+    if (c === "[" || c === "{") {
+      if (lastNonWs === '"' || lastNonWs === "]" || lastNonWs === "}") {
+        out += ",";
+      }
+      out += c;
+      lastNonWs = c;
+      continue;
+    }
+    if (c === "]" || c === "}") {
+      out += c;
+      lastNonWs = c;
+      continue;
+    }
+    if (/\s/.test(c)) {
+      out += c;
+      continue;
+    }
+    out += c;
+    lastNonWs = c;
+  }
+
+  return out;
 }
 
 /**

@@ -193,6 +193,17 @@ function parseQuestionsArray(raw: string): GeneratedQuestion[] {
 
   try {
     return JSON.parse(repaired) as GeneratedQuestion[];
+  } catch { /* fall through */ }
+
+  // Stage 6 — insert missing commas between adjacent JSON values. Claude
+  // sometimes forgets the comma between `"options": [...]` and the next
+  // property `"correct_answer": "..."`, or between two array elements.
+  // Pattern: a value-ending token (closing ", ], or }) immediately followed
+  // (after whitespace) by another value-starting token ("`, `[`, `{`).
+  repaired = insertMissingCommas(repaired);
+
+  try {
+    return JSON.parse(repaired) as GeneratedQuestion[];
   } catch (err) {
     // Surface CONTEXT around the failure position so the next debugging
     // session has actionable info instead of just "position 5514".
@@ -204,13 +215,93 @@ function parseQuestionsArray(raw: string): GeneratedQuestion[] {
       .replace(/\s+/g, " ");
     const preview = raw.slice(0, 200).replace(/\s+/g, " ");
     throw new Error(
-      `Could not parse questions JSON after 5 repair stages. ` +
+      `Could not parse questions JSON after 6 repair stages. ` +
       `Failure at char ${pos}. ` +
       `Context (±120 chars around failure): ${JSON.stringify(context)}. ` +
       `Head of raw response: ${preview}... ` +
       `(original error: ${errMsg})`
     );
   }
+}
+
+/**
+ * Insert commas between adjacent JSON values. Walks the string with a state
+ * machine (so we don't insert commas inside string literals by accident).
+ * Triggers when a value-ending token (closing `"`, `]`, or `}`) is followed
+ * — after whitespace only — by a value-starting token (`"`, `[`, `{`, or
+ * a literal like `true`, `false`, `null`, or a number).
+ *
+ * Claude's most common JSON formatting bug in long responses is forgetting
+ * the comma between `"options": [...]` and the next sibling property.
+ */
+function insertMissingCommas(input: string): string {
+  let out = "";
+  let inString = false;
+  let escapeNext = false;
+  let lastNonWs = ""; // last non-whitespace char EMITTED (not inside a string)
+
+  for (let i = 0; i < input.length; i++) {
+    const c = input[i];
+
+    if (escapeNext) {
+      out += c;
+      escapeNext = false;
+      continue;
+    }
+    if (c === "\\" && inString) {
+      out += c;
+      escapeNext = true;
+      continue;
+    }
+    if (c === '"') {
+      if (inString) {
+        // Closing a string — emit, then track this as a value-ender.
+        out += c;
+        lastNonWs = '"';
+        inString = false;
+        continue;
+      } else {
+        // Opening a string — check if we need to insert a comma first.
+        if (lastNonWs === '"' || lastNonWs === "]" || lastNonWs === "}") {
+          out += ",";
+        }
+        out += c;
+        lastNonWs = '"'; // reset; we're now inside a string
+        inString = true;
+        continue;
+      }
+    }
+
+    if (inString) {
+      out += c;
+      continue;
+    }
+
+    // Outside string — handle structural tokens
+    if (c === "[" || c === "{") {
+      if (lastNonWs === '"' || lastNonWs === "]" || lastNonWs === "}") {
+        out += ",";
+      }
+      out += c;
+      lastNonWs = c;
+      continue;
+    }
+    if (c === "]" || c === "}") {
+      out += c;
+      lastNonWs = c;
+      continue;
+    }
+    if (/\s/.test(c)) {
+      out += c;
+      continue; // don't update lastNonWs
+    }
+
+    // Any other char (number digit, letter for true/false/null, etc.)
+    out += c;
+    lastNonWs = c;
+  }
+
+  return out;
 }
 
 /**
