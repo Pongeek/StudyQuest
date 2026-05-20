@@ -221,26 +221,73 @@ function parseCourseStructure(raw: string): CourseStructure {
     } catch { /* fall through */ }
   }
 
-  // Stage 4 — repair common malformations:
-  //   - Smart/curly quotes → straight quotes (Hebrew text frequently
-  //     triggers " " ' ' which break JSON)
-  //   - Trailing commas before `}` or `]`
-  const repaired = cleaned
+  // Stage 4 — repair common malformations (smart quotes, trailing commas)
+  let repaired = cleaned
     .replace(/[“”„]/g, '"')  // “ ” „ → "
     .replace(/[‘’‚]/g, "'")  // ‘ ’ ‚ → '
     .replace(/,\s*([}\]])/g, "$1");          // trailing commas
 
   try {
     return JSON.parse(repaired) as CourseStructure;
+  } catch { /* fall through */ }
+
+  // Stage 5 — escape raw newlines / tabs / CR that Claude sometimes leaves
+  // UNESCAPED inside string values (JSON forbids these). Tiny state machine
+  // tracks whether we're inside a JSON string literal.
+  repaired = escapeControlCharsInStrings(repaired);
+
+  try {
+    return JSON.parse(repaired) as CourseStructure;
   } catch (err) {
-    // Surface a snippet of what failed to parse so the terminal log shows
-    // the actual content Claude returned — far easier to debug than just
-    // "SyntaxError at position 727" with no context.
-    const preview = raw.slice(0, 400).replace(/\s+/g, " ");
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const posMatch = errMsg.match(/position (\d+)/);
+    const pos = posMatch ? parseInt(posMatch[1], 10) : 0;
+    const context = repaired
+      .slice(Math.max(0, pos - 120), pos + 120)
+      .replace(/\s+/g, " ");
+    const preview = raw.slice(0, 200).replace(/\s+/g, " ");
     throw new Error(
-      `Could not parse Claude response as JSON after 4 repair stages. ` +
-      `First 400 chars of response: ${preview}... ` +
-      `(original error: ${err instanceof Error ? err.message : String(err)})`
+      `Could not parse Claude response as JSON after 5 repair stages. ` +
+      `Failure at char ${pos}. ` +
+      `Context (±120 chars around failure): ${JSON.stringify(context)}. ` +
+      `Head of raw response: ${preview}... ` +
+      `(original error: ${errMsg})`
     );
   }
+}
+
+/**
+ * Walks a JSON-ish string and escapes any raw newlines, tabs, or carriage
+ * returns that appear INSIDE string literals. See generate-questions.ts
+ * for the same helper applied to question arrays.
+ */
+function escapeControlCharsInStrings(input: string): string {
+  let out = "";
+  let inString = false;
+  let escapeNext = false;
+  for (let i = 0; i < input.length; i++) {
+    const c = input[i];
+    if (escapeNext) {
+      out += c;
+      escapeNext = false;
+      continue;
+    }
+    if (c === "\\") {
+      out += c;
+      escapeNext = true;
+      continue;
+    }
+    if (c === '"') {
+      inString = !inString;
+      out += c;
+      continue;
+    }
+    if (inString) {
+      if (c === "\n") { out += "\\n"; continue; }
+      if (c === "\r") { out += "\\r"; continue; }
+      if (c === "\t") { out += "\\t"; continue; }
+    }
+    out += c;
+  }
+  return out;
 }

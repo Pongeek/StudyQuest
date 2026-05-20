@@ -175,20 +175,78 @@ function parseQuestionsArray(raw: string): GeneratedQuestion[] {
     } catch { /* fall through */ }
   }
 
-  // Stage 4 — repair common malformations
-  const repaired = cleaned
+  // Stage 4 — repair common malformations (smart quotes, trailing commas)
+  let repaired = cleaned
     .replace(/[“”„]/g, '"')
     .replace(/[‘’‚]/g, "'")
     .replace(/,\s*([}\]])/g, "$1");
 
   try {
     return JSON.parse(repaired) as GeneratedQuestion[];
+  } catch { /* fall through */ }
+
+  // Stage 5 — escape raw control chars (newlines, tabs, CR) that Claude
+  // sometimes leaves UNESCAPED inside string values. JSON forbids these.
+  // We walk the string with a tiny state machine that tracks whether we're
+  // currently inside a JSON string literal.
+  repaired = escapeControlCharsInStrings(repaired);
+
+  try {
+    return JSON.parse(repaired) as GeneratedQuestion[];
   } catch (err) {
-    const preview = raw.slice(0, 400).replace(/\s+/g, " ");
+    // Surface CONTEXT around the failure position so the next debugging
+    // session has actionable info instead of just "position 5514".
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const posMatch = errMsg.match(/position (\d+)/);
+    const pos = posMatch ? parseInt(posMatch[1], 10) : 0;
+    const context = repaired
+      .slice(Math.max(0, pos - 120), pos + 120)
+      .replace(/\s+/g, " ");
+    const preview = raw.slice(0, 200).replace(/\s+/g, " ");
     throw new Error(
-      `Could not parse questions JSON after 4 repair stages. ` +
-      `First 400 chars: ${preview}... ` +
-      `(original error: ${err instanceof Error ? err.message : String(err)})`
+      `Could not parse questions JSON after 5 repair stages. ` +
+      `Failure at char ${pos}. ` +
+      `Context (±120 chars around failure): ${JSON.stringify(context)}. ` +
+      `Head of raw response: ${preview}... ` +
+      `(original error: ${errMsg})`
     );
   }
+}
+
+/**
+ * Walks a JSON-ish string and escapes any raw newlines, tabs, or carriage
+ * returns that appear INSIDE string literals. Outside strings these chars
+ * are valid whitespace; inside strings they're invalid (must be `\n`, `\t`,
+ * `\r`). Claude occasionally produces strings containing raw newlines in
+ * long, complex responses — this stage rescues them.
+ */
+function escapeControlCharsInStrings(input: string): string {
+  let out = "";
+  let inString = false;
+  let escapeNext = false;
+  for (let i = 0; i < input.length; i++) {
+    const c = input[i];
+    if (escapeNext) {
+      out += c;
+      escapeNext = false;
+      continue;
+    }
+    if (c === "\\") {
+      out += c;
+      escapeNext = true;
+      continue;
+    }
+    if (c === '"') {
+      inString = !inString;
+      out += c;
+      continue;
+    }
+    if (inString) {
+      if (c === "\n") { out += "\\n"; continue; }
+      if (c === "\r") { out += "\\r"; continue; }
+      if (c === "\t") { out += "\\t"; continue; }
+    }
+    out += c;
+  }
+  return out;
 }
