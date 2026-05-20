@@ -5,14 +5,27 @@ export interface GradingResult {
   feedback: string;
 }
 
+/**
+ * Optional image attached to the student's answer (e.g. a hand-drawn DFA,
+ * derivation, or proof). When present, Claude grades both the typed text
+ * AND the image together using its vision capability.
+ */
+export interface StudentAnswerImage {
+  mediaType: "image/jpeg" | "image/png" | "image/webp";
+  /** base64-encoded image content (no data: prefix) */
+  base64: string;
+}
+
 export async function gradeOpenAnswer(params: {
   question: string;
   modelAnswer: string;
   explanation: string;
   studentAnswer: string;
   topicTitle: string;
+  /** When set, Claude sees the image as an additional content block. */
+  studentImage?: StudentAnswerImage | null;
 }): Promise<GradingResult> {
-  const { question, modelAnswer, explanation, studentAnswer, topicTitle } = params;
+  const { question, modelAnswer, explanation, studentAnswer, topicTitle, studentImage } = params;
 
   // Surface a clear, actionable error during deploys / first run when the
   // CLAUDE_API_KEY env var isn't set — without this, the SDK throws a
@@ -25,20 +38,34 @@ export async function gradeOpenAnswer(params: {
 
   const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
-  if (!studentAnswer.trim() || studentAnswer.trim().length < 5) {
+  // "No answer" check — but if the student attached a diagram image with no
+  // text, that's still a valid answer (their work is in the picture).
+  const hasText = studentAnswer.trim().length >= 5;
+  const hasImage = !!studentImage;
+  if (!hasText && !hasImage) {
     return {
       score: 0,
-      feedback: "No answer was provided. Try to explain your understanding even if you're unsure.",
+      feedback: "No answer was provided. Try to explain your understanding even if you're unsure — or attach a diagram if drawing is easier.",
     };
   }
 
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 512,
-    messages: [
-      {
-        role: "user",
-        content: `You are a university professor grading a student's answer. Be fair, encouraging, and specific.
+  // Build the message content. When the student attached an image, we
+  // include it as a vision content block alongside the instruction text.
+  // Claude will read both the typed answer AND the image when grading.
+  const userContent: Anthropic.Messages.ContentBlockParam[] = [];
+  if (studentImage) {
+    userContent.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: studentImage.mediaType,
+        data: studentImage.base64,
+      },
+    });
+  }
+  userContent.push({
+    type: "text",
+    text: `You are a university professor grading a student's answer. Be fair, encouraging, and specific.
 
 Topic: ${topicTitle}
 Question: ${question}
@@ -46,8 +73,8 @@ Question: ${question}
 Model Answer: ${modelAnswer}
 Grading Rubric: ${explanation}
 
-Student's Answer: ${studentAnswer}
-
+Student's Typed Answer: ${hasText ? studentAnswer : "(no typed text — see attached image)"}
+${hasImage ? "\nThe student ALSO attached an image (above) — a hand-drawn diagram, derivation, proof, automaton, or similar. Read it carefully and grade based on BOTH the typed text AND the image together. The drawing is part of their answer, not optional.\n" : ""}
 Evaluate the student's answer based on conceptual accuracy and completeness.
 Score from 0.0 to 1.0:
 - 0.9-1.0: Excellent, covers all key points with understanding
@@ -62,6 +89,15 @@ Return ONLY a JSON object (no markdown):
 }
 
 IMPORTANT: Write the feedback in the SAME LANGUAGE as the question and student answer. If they are in Hebrew, respond in Hebrew.`,
+  });
+
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 512,
+    messages: [
+      {
+        role: "user",
+        content: userContent,
       },
     ],
   });

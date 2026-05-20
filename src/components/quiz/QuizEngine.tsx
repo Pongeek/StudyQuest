@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import SessionDebrief from "./SessionDebrief";
 import MarkdownContent from "./MarkdownContent";
 import MarkdownInline from "./MarkdownInline";
+import AnswerImagePicker from "./AnswerImagePicker";
 import { XPBurstProvider, useXPBurst } from "@/components/effects/XPBurst";
 import ComboHUD from "@/components/effects/ComboHUD";
 import { useSound } from "@/lib/useSound";
@@ -58,6 +59,8 @@ interface AnswerResult {
 interface QuestionState {
   selectedOption: string | null;
   openAnswer: string;
+  /** Optional diagram image the student attached for this question (open Qs only) */
+  openAnswerImage: File | null;
   result: {
     score: number;
     feedback: string;
@@ -114,6 +117,7 @@ function QuizEngineInner({
       map.set(q.id, {
         selectedOption: null,
         openAnswer: "",
+        openAnswerImage: null,
         result: null,
         visited: i === 0,
         skipped: false,
@@ -166,6 +170,7 @@ function QuizEngineInner({
       questionStates.get(qId) ?? {
         selectedOption: null,
         openAnswer: "",
+        openAnswerImage: null,
         result: null,
         visited: false,
         skipped: false,
@@ -180,6 +185,7 @@ function QuizEngineInner({
         const current = next.get(qId) ?? {
           selectedOption: null,
           openAnswer: "",
+          openAnswerImage: null,
           result: null,
           visited: false,
           skipped: false,
@@ -253,28 +259,47 @@ function QuizEngineInner({
     if (!currentQuestion) return;
 
     const qState = getQState(currentQuestion.id);
+    const isOpen = currentQuestion.type !== "mcq";
     const userAnswer =
       currentQuestion.type === "mcq"
         ? qState.selectedOption ?? ""
         : qState.openAnswer.trim();
+    const attachedImage = isOpen ? qState.openAnswerImage : null;
 
-    if (!userAnswer) {
-      toast.error("Please provide an answer before submitting.");
+    // An open answer is valid if EITHER typed text OR an attached image is present.
+    if (!userAnswer && !attachedImage) {
+      toast.error("Please type an answer or attach a diagram before submitting.");
       return;
     }
 
     setIsGrading(true);
     try {
-      const res = await fetch("/api/quiz/answers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          questionId: currentQuestion.id,
-          userAnswer,
-          topicTitle,
-        }),
-      });
+      // If an image is attached, send multipart so the file flows up.
+      // Otherwise stick with JSON for the simpler / faster path.
+      let res: Response;
+      if (attachedImage) {
+        const fd = new FormData();
+        fd.append("sessionId", sessionId);
+        fd.append("questionId", currentQuestion.id);
+        fd.append("userAnswer", userAnswer);
+        fd.append("topicTitle", topicTitle);
+        fd.append("image", attachedImage);
+        res = await fetch("/api/quiz/answers", {
+          method: "POST",
+          body: fd,
+        });
+      } else {
+        res = await fetch("/api/quiz/answers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            questionId: currentQuestion.id,
+            userAnswer,
+            topicTitle,
+          }),
+        });
+      }
 
       if (!res.ok) {
         const body = await res.text().catch(() => "");
@@ -743,13 +768,27 @@ function QuizEngineInner({
                       updateQState(currentQuestion.id, { openAnswer: e.target.value })
                     }
                     disabled={isAnswered}
-                    placeholder="Write your answer here... Explain your understanding in your own words."
+                    placeholder="Write your answer here... Or attach a diagram below if drawing is easier."
                     className="bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500/50 focus-visible:border-indigo-500/50 min-h-[120px] resize-none"
                   />
+                  {/* Diagram / image attachment — Claude vision grades both
+                      the typed text AND the attached image together. Critical
+                      for CS theory / math / physics where the answer is
+                      often a drawing (automaton, derivation, proof). */}
                   {!isAnswered && (
-                    <p className="text-xs text-slate-600">
-                      Write a thorough answer -- the AI will grade based on conceptual accuracy.
-                    </p>
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <AnswerImagePicker
+                        image={curState.openAnswerImage}
+                        onChange={(file) =>
+                          updateQState(currentQuestion.id, { openAnswerImage: file })
+                        }
+                        disabled={isGrading}
+                        dir={rtl ? "rtl" : "ltr"}
+                      />
+                      <p className="text-xs text-slate-600">
+                        Write thoroughly -- the AI grades on conceptual accuracy.
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
