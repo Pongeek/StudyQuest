@@ -124,6 +124,20 @@ FORMATTING RULES (exam questions often contain pseudocode, formulas, or tables):
 - Use \\n for line breaks inside JSON string values. Backticks and code fences must appear literally inside the JSON strings.
 - MCQ option strings should be plain text (no markdown) — they are short choice labels.
 
+MATH / LOGIC / FORMAL NOTATION (CRITICAL — applies to CS, math, and formal-methods exams):
+- The downstream renderer supports KaTeX. Wrap inline math in \`$...$\` and display math in \`$$...$$\` (using ACTUAL dollar signs, written into the JSON string).
+- Examples of content you MUST preserve in LaTeX (not drop, not paraphrase, not "see original"):
+  - Set-builder notation: \`$\\{w \\in \\{0,1\\}^* \\mid |w| \\text{ is a multiple of } 3\\}$\`
+  - Quantifiers / logic: \`$\\forall x \\in S, \\exists y$\`
+  - Greek letters: \`$\\Sigma\`, \`$\\delta$\`, \`$\\epsilon$\`, \`$\\lambda$\`
+  - Kleene star and operators: \`$L^*$\`, \`$\\cup$\`, \`$\\cap$\`, \`$\\to$\`, \`$\\Rightarrow$\`
+  - Subscripts / superscripts: \`$q_0$\`, \`$2^n$\`, \`$\\Sigma^*$\`
+  - Cardinality bars: \`$|w|$\`
+- NEVER write a placeholder like "(see original questionnaire)" or "(specify the exact language)" — the question content MUST be self-contained. If the source PDF defined a language B with set notation, the extracted question MUST include the full LaTeX-wrapped definition of B inline.
+- If the PDF text contains unicode math symbols (\\u2208 ∈, \\u2227 ∧, \\u2200 ∀, etc.), TRANSLATE them to LaTeX (\`\\in\`, \`\\wedge\`, \`\\forall\`) wrapped in dollar signs.
+- For complex multi-line definitions or proofs, use display math with \`$$...$$\` on its own line.
+- This rule overrides any tendency to simplify or summarize: the student needs the EXACT math content, not a description of it.
+
 Return ONLY valid JSON array — no prose around it, no markdown fence around the array itself.`,
       },
     ],

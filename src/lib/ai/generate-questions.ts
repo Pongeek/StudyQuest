@@ -121,6 +121,19 @@ FORMATTING RULES (CRITICAL — questions often contain pseudocode):
   | P1      | 0       | 8     |
   | P2      | 1       | 4     |
 - Use \`\\n\` for line breaks inside JSON string values. Backticks and code fences must appear literally inside the JSON strings.
+
+MATH / LOGIC / FORMAL NOTATION (CRITICAL — applies to math, CS theory, logic, formal methods):
+- The downstream renderer supports KaTeX. Wrap inline math in \`$...$\` and display math in \`$$...$$\` (using ACTUAL dollar signs, written into the JSON string).
+- Examples of content you MUST preserve in LaTeX:
+  - Set-builder notation: \`$\\{w \\in \\{0,1\\}^* \\mid |w| \\text{ is a multiple of } 3\\}$\`
+  - Quantifiers / logic: \`$\\forall x \\in S, \\exists y$\`
+  - Greek letters: \`$\\Sigma\`, \`$\\delta$\`, \`$\\epsilon$\`, \`$\\lambda$\`
+  - Kleene star and operators: \`$L^*$\`, \`$\\cup$\`, \`$\\cap$\`, \`$\\to$\`
+  - Subscripts / superscripts: \`$q_0$\`, \`$2^n$\`, \`$\\Sigma^*$\`
+  - Cardinality / absolute value: \`$|w|$\`, \`$|S|$\`
+- If a question references a language, set, or formal object, INCLUDE the full LaTeX definition inline — never write "see the textbook" or paraphrase symbols in words.
+- Translate any unicode math symbols (\\u2208 ∈, \\u2227 ∧, \\u2200 ∀, \\u2192 →) to LaTeX (\`\\in\`, \`\\wedge\`, \`\\forall\`, \`\\to\`) wrapped in dollar signs.
+
 - Return ONLY valid JSON array, no extra prose, no surrounding markdown fences around the array itself.`,
       },
     ],
