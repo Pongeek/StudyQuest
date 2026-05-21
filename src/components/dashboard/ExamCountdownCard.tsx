@@ -42,13 +42,13 @@ export default function ExamCountdownCard({ plan }: ExamCountdownCardProps) {
       {/* Header */}
       <header className="flex items-start justify-between gap-3 mb-4">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 flex items-center gap-1.5">
+          <p className="font-pixel text-[9px] tracking-wider text-slate-500 flex items-center gap-1.5">
             <CalendarDays className="w-3 h-3" />
-            {plan.examLabel || "Exam"} · {examDateStr}
+            {(plan.examLabel || "Exam").toUpperCase()} · {examDateStr.toUpperCase()}
           </p>
           <h2
             id={`exam-${plan.courseId}-heading`}
-            className="text-base sm:text-lg font-bold text-white tracking-tight mt-1 truncate"
+            className="text-base sm:text-lg font-bold text-white tracking-tight mt-2 truncate"
           >
             {plan.courseTitle}
           </h2>
@@ -63,24 +63,24 @@ export default function ExamCountdownCard({ plan }: ExamCountdownCardProps) {
         >
           {plan.urgency === "past" ? (
             <>
-              <span className="text-xs font-medium opacity-70">Was</span>
+              <span className="font-pixel text-[8px] tracking-wider opacity-70">WAS</span>
               <span className="text-lg font-bold tabular-nums leading-none">
                 {Math.abs(plan.daysUntilExam)}d
               </span>
-              <span className="text-[10px] opacity-70">ago</span>
+              <span className="font-pixel text-[8px] tracking-wider opacity-70">AGO</span>
             </>
           ) : plan.urgency === "exam-day" ? (
             <>
-              <span className="text-xs font-bold">EXAM</span>
-              <span className="text-base font-bold">TODAY</span>
+              <span className="font-pixel text-[9px] tracking-wider">EXAM</span>
+              <span className="font-pixel text-[11px] tracking-wider mt-1">TODAY</span>
             </>
           ) : (
             <>
               <span className="text-2xl font-extrabold tabular-nums leading-none">
                 {plan.daysUntilExam}
               </span>
-              <span className="text-[10px] uppercase tracking-wider opacity-80 mt-0.5">
-                day{plan.daysUntilExam === 1 ? "" : "s"} left
+              <span className="font-pixel text-[8px] tracking-wider opacity-80 mt-1">
+                {plan.daysUntilExam === 1 ? "DAY LEFT" : "DAYS LEFT"}
               </span>
             </>
           )}
@@ -116,13 +116,13 @@ export default function ExamCountdownCard({ plan }: ExamCountdownCardProps) {
       {/* Today's plan */}
       {plan.urgency !== "past" && plan.actions.length > 0 && (
         <>
-          <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-amber-400/75 mb-2.5 flex items-center gap-2">
+          <div className="font-pixel text-[9px] tracking-wider text-amber-400/80 mb-3 flex items-center gap-2">
             <Sword className="w-3 h-3" />
-            Today&apos;s plan
+            TODAY&apos;S PLAN
             <span className="text-slate-700">·</span>
-            <span className="text-slate-500 flex items-center gap-1 tabular-nums font-medium tracking-normal normal-case">
+            <span className="text-slate-500 flex items-center gap-1 tabular-nums">
               <Clock className="w-3 h-3" />
-              ~{plan.estimatedTotalMinutes} min
+              ~{plan.estimatedTotalMinutes}M
             </span>
           </div>
           <ul className="space-y-1.5">

@@ -1,3 +1,6 @@
+"use client";
+
+import { motion } from "framer-motion";
 import { Swords } from "lucide-react";
 import QuestCard, { type QuestTier } from "./QuestCard";
 
@@ -18,9 +21,25 @@ function tierFor(index: number, masteryLevel: number): QuestTier {
   return masteryLevel >= 1 ? "priority" : "standard";
 }
 
+const gridContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+};
+
+const cardVariant = {
+  hidden: { opacity: 0, y: 18 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const },
+  },
+};
+
 /**
- * The Quest Board section — section header with amber biome ambient,
- * + a grid of QuestCards. First card is rendered as "featured".
+ * Quest Board — section header + responsive 3-card grid of QuestCards.
+ * First card is "featured" (recommended next action) → indigo pixel border +
+ * CRT scanlines + pulsing RECOMMENDED stamp. Others are "priority" (weak
+ * topic — amber border) or "standard" (new topic — indigo CTA on slate).
  *
  * Returns null when there are no recommendations so the caller doesn't
  * have to guard.
@@ -51,24 +70,34 @@ export default function QuestBoard({ recommendations }: QuestBoardProps) {
             </p>
           </div>
         </div>
-        <span className="hidden sm:inline-flex items-center text-xs font-medium text-slate-500 bg-white/[0.03] border border-white/[0.07] rounded-full px-2.5 py-1">
-          {recommendations.length} pending
+        {/* Pixel pending counter — pairs with the new pixel quest cards */}
+        <span
+          className="hidden sm:inline-flex items-center font-pixel text-[9px] tracking-wider text-indigo-300 bg-indigo-500/10 border border-indigo-500/40 px-2 py-1.5"
+          aria-label={`${recommendations.length} quests pending`}
+        >
+          {recommendations.length} PENDING
         </span>
       </header>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <motion.div
+        variants={gridContainer}
+        initial="hidden"
+        animate="show"
+        className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
         {recommendations.map((rec, idx) => (
-          <QuestCard
-            key={rec.topicId}
-            topicId={rec.topicId}
-            topicTitle={rec.topicTitle}
-            courseName={rec.courseName}
-            href={`/dashboard/courses/${rec.courseId}/topics/${rec.topicId}`}
-            masteryLevel={rec.masteryLevel}
-            tier={tierFor(idx, rec.masteryLevel)}
-          />
+          <motion.div key={rec.topicId} variants={cardVariant} className="h-full">
+            <QuestCard
+              topicId={rec.topicId}
+              topicTitle={rec.topicTitle}
+              courseName={rec.courseName}
+              href={`/dashboard/courses/${rec.courseId}/topics/${rec.topicId}`}
+              masteryLevel={rec.masteryLevel}
+              tier={tierFor(idx, rec.masteryLevel)}
+            />
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </section>
   );
 }

@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
 import { Flame, Sparkles, Sword, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface TodaysMissionProps {
@@ -15,9 +17,14 @@ interface TodaysMissionProps {
 /**
  * Daily-quest hook shown on the dashboard above the Quest Board.
  *
- * Three states:
+ * Tier A (full pixel) treatment to match Hero + Quest Board: pixel-border,
+ * pixel nail corners, pixel-font TODAY'S MISSION micro-label, chunky
+ * pixel-shadow CTA. hasStreak swings amber (streak rescue); no-streak swings
+ * indigo (begin first streak).
+ *
+ * States:
  *  - studied today           → null (don't waste vertical space)
- *  - streak ≥ 1, not today   → amber "streak at risk" rescue CTA with pulse-ring
+ *  - streak ≥ 1, not today   → amber "streak at risk" rescue CTA
  *  - no streak yet           → indigo "ignite a streak" CTA
  */
 export default function TodaysMission({
@@ -25,29 +32,49 @@ export default function TodaysMission({
   studiedToday,
   nextQuestHref,
 }: TodaysMissionProps) {
+  const reduceMotion = useReducedMotion();
+
   if (studiedToday) return null;
 
   const hasStreak = streak >= 1;
   const href = nextQuestHref ?? "/dashboard/courses";
 
+  // Tier-based color tokens. Featured = amber (streak in danger);
+  // standard = indigo (no streak yet).
+  const borderTone = hasStreak ? "text-amber-500/80" : "text-indigo-500/80";
+  const nailColor = hasStreak ? "bg-amber-400" : "bg-indigo-400";
+  const microLabelColor = hasStreak ? "text-amber-400/90" : "text-indigo-400/90";
+  const iconTileBg = hasStreak
+    ? "bg-amber-500/10 text-amber-500"
+    : "bg-indigo-500/10 text-indigo-500";
+  const ctaPalette = hasStreak
+    ? "bg-amber-500 text-slate-950 shadow-[0_4px_0_0_#78350f] hover:shadow-[0_2px_0_0_#78350f] active:shadow-[0_0_0_0_#78350f]"
+    : "bg-indigo-500 text-white shadow-[0_4px_0_0_#312e81] hover:shadow-[0_2px_0_0_#312e81] active:shadow-[0_0_0_0_#312e81]";
+
   return (
-    <section
+    <motion.section
       aria-labelledby="todays-mission-heading"
+      initial={reduceMotion ? false : { opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "rounded-2xl px-5 py-5 sm:px-6 sm:py-6 relative overflow-hidden",
-        "animate-slide-up",
-        hasStreak ? "rpg-card-gold" : "rpg-card",
+        "relative bg-slate-900/95 px-5 py-5 sm:px-6 sm:py-6",
+        "pixel-border",
+        borderTone
       )}
-      style={{ animationDelay: "0.1s" }}
     >
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-        {/* Icon tile */}
+      {/* Pixel nail corners — match Quest Board card vocabulary */}
+      <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5", nailColor)} />
+      <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5", nailColor)} />
+      <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5", nailColor)} />
+      <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5", nailColor)} />
+
+      <div className="relative z-[1] flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+        {/* Icon tile — pixel-bordered to match the card */}
         <div
           className={cn(
-            "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border",
-            hasStreak
-              ? "bg-amber-500/10 border-amber-500/25"
-              : "bg-indigo-500/10 border-indigo-500/25",
+            "w-12 h-12 pixel-border flex items-center justify-center shrink-0",
+            iconTileBg
           )}
           aria-hidden
         >
@@ -60,13 +87,8 @@ export default function TodaysMission({
 
         {/* Copy */}
         <div className="flex-1 min-w-0">
-          <div
-            className={cn(
-              "text-[11px] uppercase tracking-wider font-medium mb-1",
-              hasStreak ? "text-amber-400/90" : "text-indigo-400/90",
-            )}
-          >
-            Today&rsquo;s Mission
+          <div className={cn("font-pixel text-[9px] tracking-wider mb-2", microLabelColor)}>
+            TODAY&rsquo;S MISSION
           </div>
           <h2
             id="todays-mission-heading"
@@ -75,9 +97,7 @@ export default function TodaysMission({
             {hasStreak ? (
               <>
                 Keep the fire alive{" "}
-                <span className="text-amber-400">
-                  &middot; {streak}-day streak
-                </span>
+                <span className="text-amber-400">&middot; {streak}-day streak</span>
               </>
             ) : (
               <>Begin your first streak</>
@@ -90,23 +110,27 @@ export default function TodaysMission({
           </p>
         </div>
 
-        {/* CTA */}
-        <Link href={href} className="shrink-0 w-full sm:w-auto block">
-          <Button
-            size="lg"
+        {/* CTA — chunky pixel-press button, matches Quest Board featured */}
+        <Link
+          href={href}
+          className={cn(
+            "shrink-0 w-full sm:w-auto pixel-focus outline-none",
+            "transition-transform duration-100 hover:translate-y-0.5 active:translate-y-1"
+          )}
+        >
+          <div
             className={cn(
-              "w-full sm:w-auto gap-2 font-medium",
-              hasStreak
-                ? "bg-amber-500 hover:bg-amber-400 text-slate-950"
-                : "bg-indigo-500 hover:bg-indigo-400 text-white",
+              "w-full sm:w-auto px-5 py-3 flex items-center justify-center gap-2",
+              "font-pixel text-[10px] tracking-wider",
+              ctaPalette
             )}
           >
-            <Sword className="w-4 h-4" />
-            {hasStreak ? "Continue the Quest" : "Begin Today's Quest"}
-            <ArrowRight className="w-4 h-4" />
-          </Button>
+            <Sword className="w-4 h-4" aria-hidden />
+            {hasStreak ? "CONTINUE THE QUEST" : "BEGIN TODAY'S QUEST"}
+            <ArrowRight className="w-4 h-4" aria-hidden />
+          </div>
         </Link>
       </div>
-    </section>
+    </motion.section>
   );
 }

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
 import { BookOpen, Plus, Sparkles, Swords, Map as MapIcon, Crown, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import TodaysMission from "@/components/dashboard/TodaysMission";
 import ReviewQueueCard from "@/components/dashboard/ReviewQueueCard";
 import GrimoireWidget from "@/components/dashboard/GrimoireWidget";
@@ -82,60 +81,90 @@ async function getReviewQueue(userId: string) {
   }));
 }
 
+/**
+ * Quest Board recommendations.
+ *
+ * Surfaces the user's next 3 unmastered topics IN CURRICULUM ORDER —
+ * sorted by (course created order, episode.order_index, topic.order_index).
+ * This guarantees topic 1.1 surfaces before topic 3.3 when both are
+ * unattempted, instead of whatever order Supabase happened to return rows in.
+ *
+ * Unmastered = mastery_level < 2 (covers both "never attempted" and
+ * "attempted but still weak"). Both deserve to be on the board; curriculum
+ * order picks the natural next-thing-to-study.
+ */
 async function getRecommendations(userId: string) {
   const supabase = createServiceClient();
 
-  const { data: weakTopics } = await supabase
-    .from("user_topic_mastery")
-    .select("mastery_level, topic_id, topics(id, title, episode_id, episodes(id, course_id, courses(id, title, theme_name, user_id)))")
-    .eq("user_id", userId)
-    .lt("mastery_level", 2)
-    .gte("sessions_completed", 1)
-    .limit(3);
-
-  const weak = (weakTopics || [])
-    .filter((row: any) => row.topics?.episodes?.courses?.user_id === userId)
-    .map((row: any) => ({
-      topicId: row.topics.id,
-      topicTitle: row.topics.title,
-      courseId: row.topics.episodes.courses.id,
-      courseName: row.topics.episodes.courses.theme_name || row.topics.episodes.courses.title,
-      masteryLevel: row.mastery_level,
-    }));
-
-  if (weak.length >= 3) return weak.slice(0, 3);
-
-  const weakTopicIds = weak.map((w: any) => w.topicId);
-
-  const { data: allCourses } = await supabase
+  // 1) All ready courses with their episodes + topics. We DON'T fetch
+  // user_topic_mastery via nested join here because Supabase nested selects
+  // don't accept the user_id filter at the deepest level — we'd get every
+  // user's mastery for these topics. Two queries + JS join instead.
+  const { data: courses } = await supabase
     .from("courses")
-    .select("id, title, theme_name, episodes(id, topics(id, title, user_topic_mastery(mastery_level, sessions_completed)))")
+    .select(
+      "id, title, theme_name, episodes(id, order_index, topics(id, title, order_index))"
+    )
     .eq("user_id", userId)
-    .eq("status", "ready");
+    .eq("status", "ready")
+    .order("created_at", { ascending: true });
 
-  const unattempted: any[] = [];
-  for (const course of allCourses || []) {
+  if (!courses || courses.length === 0) return [];
+
+  // 2) Collect every topic id, then look up the user's mastery in one round-trip
+  const allTopicIds: string[] = [];
+  for (const course of courses as any[]) {
     for (const episode of course.episodes || []) {
       for (const topic of episode.topics || []) {
-        if (weakTopicIds.includes(topic.id)) continue;
-        const mastery = topic.user_topic_mastery?.[0];
-        if (!mastery || mastery.sessions_completed === 0) {
-          unattempted.push({
-            topicId: topic.id,
-            topicTitle: topic.title,
-            courseId: course.id,
-            courseName: course.theme_name || course.title,
-            masteryLevel: mastery?.mastery_level ?? 0,
-          });
-        }
-        if (weak.length + unattempted.length >= 3) break;
+        allTopicIds.push(topic.id);
       }
-      if (weak.length + unattempted.length >= 3) break;
     }
-    if (weak.length + unattempted.length >= 3) break;
+  }
+  if (allTopicIds.length === 0) return [];
+
+  const { data: masteryRows } = await supabase
+    .from("user_topic_mastery")
+    .select("topic_id, mastery_level")
+    .eq("user_id", userId)
+    .in("topic_id", allTopicIds);
+
+  const masteryByTopic = new Map<string, number>(
+    (masteryRows || []).map((r: any) => [r.topic_id as string, (r.mastery_level as number) ?? 0])
+  );
+
+  // 3) Walk every course in curriculum order, collecting unmastered topics
+  type Recommendation = {
+    topicId: string;
+    topicTitle: string;
+    courseId: string;
+    courseName: string;
+    masteryLevel: number;
+  };
+
+  const candidates: Recommendation[] = [];
+  for (const course of courses as any[]) {
+    const sortedEpisodes = (course.episodes || [])
+      .slice()
+      .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0));
+    for (const episode of sortedEpisodes) {
+      const sortedTopics = (episode.topics || [])
+        .slice()
+        .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0));
+      for (const topic of sortedTopics) {
+        const masteryLevel = masteryByTopic.get(topic.id) ?? 0;
+        if (masteryLevel >= 2) continue; // skip already-mastered topics
+        candidates.push({
+          topicId: topic.id,
+          topicTitle: topic.title,
+          courseId: course.id,
+          courseName: course.theme_name || course.title,
+          masteryLevel,
+        });
+      }
+    }
   }
 
-  return [...weak, ...unattempted].slice(0, 3);
+  return candidates.slice(0, 3);
 }
 
 /**
@@ -435,7 +464,7 @@ export default async function DashboardPage() {
               const statusConfig =
                 course.status === "ready"
                   ? {
-                      badge: "Ready",
+                      badge: "READY",
                       className:
                         "border-green-700/50 text-green-400 bg-green-500/10",
                       glow: "shadow-green-500/10",
@@ -443,14 +472,14 @@ export default async function DashboardPage() {
                     }
                   : course.status === "processing"
                   ? {
-                      badge: "Processing",
+                      badge: "PROCESSING",
                       className:
                         "border-amber-700/50 text-amber-400 bg-amber-500/10 animate-pulse",
                       glow: "shadow-amber-500/10",
                       dot: "bg-amber-400 animate-pulse",
                     }
                   : {
-                      badge: "Error",
+                      badge: "ERROR",
                       className:
                         "border-red-700/50 text-red-400 bg-red-500/10",
                       glow: "shadow-red-500/10",
@@ -489,15 +518,20 @@ export default async function DashboardPage() {
                           )}
                         />
                       </div>
-                      <Badge variant="outline" className={statusConfig.className}>
+                      <span
+                        className={cn(
+                          "font-pixel text-[8px] tracking-wider px-2 py-1 border inline-flex items-center gap-1.5",
+                          statusConfig.className
+                        )}
+                      >
                         <span
                           className={cn(
-                            "w-1.5 h-1.5 rounded-full mr-1.5 inline-block",
+                            "w-1.5 h-1.5 rounded-full inline-block",
                             statusConfig.dot
                           )}
                         />
                         {statusConfig.badge}
-                      </Badge>
+                      </span>
                     </div>
 
                     <h3 className="font-bold text-white group-hover:text-indigo-300 transition-colors leading-tight">
@@ -510,9 +544,9 @@ export default async function DashboardPage() {
                     {/* Progress bar */}
                     {course.status === "ready" && (
                       <div className="mt-4">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                            Progress
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-pixel text-[8px] tracking-wider text-slate-500">
+                            PROGRESS
                           </span>
                           <span className="text-xs font-bold text-indigo-400 tabular-nums">
                             {progressPct}%
@@ -608,12 +642,14 @@ export default async function DashboardPage() {
                     {ua.achievements?.description}
                   </div>
                   {ua.earned_at && (
-                    <div className="text-[11px] text-slate-600 mt-0.5">
-                      Earned{" "}
-                      {new Date(ua.earned_at).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      })}
+                    <div className="font-pixel text-[8px] tracking-wider text-slate-600 mt-1">
+                      EARNED{" "}
+                      {new Date(ua.earned_at)
+                        .toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })
+                        .toUpperCase()}
                     </div>
                   )}
                 </div>
