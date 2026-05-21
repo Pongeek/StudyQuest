@@ -343,6 +343,8 @@ export default function CourseMap({
         const isCollapsed = collapsedEpisodes.has(episode.id);
         const isEpisodeComplete = epProgress === 100;
 
+        const epNailColor = isEpisodeComplete ? "bg-emerald-400" : "bg-indigo-400";
+
         return (
           <motion.div
             key={episode.id}
@@ -350,10 +352,16 @@ export default function CourseMap({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: epIdx * 0.08, duration: 0.4 }}
             className={cn(
-              "rpg-card rounded-2xl overflow-hidden transition-all duration-300",
+              "rpg-card rounded-2xl overflow-hidden transition-all duration-300 relative",
               isEpisodeComplete && "!border-green-500/20"
             )}
           >
+            {/* Pixel nail corners — status-colored, ties episode card to family */}
+            <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[2]", epNailColor)} />
+            <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5 z-[2]", epNailColor)} />
+            <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[2]", epNailColor)} />
+            <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[2]", epNailColor)} />
+
             {/* Episode Header — left region collapses, right has delete +
                 chevron. Split into two siblings because HTML disallows
                 button-in-button (the delete dialog trigger is itself a
@@ -366,9 +374,10 @@ export default function CourseMap({
                 aria-label={`Toggle episode ${episode.title}`}
                 className="flex-1 min-w-0 flex items-center gap-4 text-left cursor-pointer"
               >
-                {/* Episode number badge */}
+                {/* Episode number badge — pixel-bordered tile (currentColor
+                    drives the border tone so it stays crisp against the fill). */}
                 <div className={cn(
-                  "w-11 h-11 rounded-xl flex items-center justify-center text-sm font-extrabold text-white flex-shrink-0 transition-all duration-150",
+                  "w-11 h-11 pixel-border flex items-center justify-center text-sm font-extrabold text-white flex-shrink-0 transition-all duration-150",
                   isEpisodeComplete
                     ? "bg-emerald-500"
                     : "bg-indigo-500"
@@ -384,8 +393,8 @@ export default function CourseMap({
                   <div className="flex items-center gap-2">
                     <h2 className="font-bold text-white text-sm sm:text-base truncate">{episode.title}</h2>
                     {isEpisodeComplete && (
-                      <span className="text-xs font-bold uppercase tracking-wider text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full flex-shrink-0">
-                        Complete
+                      <span className="font-pixel text-[8px] tracking-wider text-green-400 bg-green-500/10 pixel-border px-2 py-1 flex-shrink-0">
+                        COMPLETE
                       </span>
                     )}
                   </div>
@@ -559,35 +568,48 @@ export default function CourseMap({
                         >
                           {episode.bossFight.isUnlocked ? (
                             <div className={cn(
-                              "flex items-center gap-3.5 px-4 py-3.5 rounded-xl border transition-all duration-150 relative overflow-hidden",
+                              "relative px-4 py-3.5 flex items-center gap-3.5 transition-all duration-150 pixel-border bg-slate-900/95",
                               episode.bossFight.isDefeated
-                                ? "border-amber-400/20 bg-amber-950/10"
-                                : "border-red-500/20 bg-red-950/10 hover:border-red-500/35"
+                                ? "text-amber-500/80"
+                                : "text-red-500/80"
                             )}>
+                              {/* Pixel nails — red for pending, amber for victory */}
+                              {(() => {
+                                const bossNail = episode.bossFight.isDefeated ? "bg-amber-400" : "bg-red-400";
+                                return (
+                                  <>
+                                    <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[1]", bossNail)} />
+                                    <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5 z-[1]", bossNail)} />
+                                    <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[1]", bossNail)} />
+                                    <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[1]", bossNail)} />
+                                  </>
+                                );
+                              })()}
 
                               <div className={cn(
-                                "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 relative",
+                                "w-10 h-10 pixel-border flex items-center justify-center flex-shrink-0 relative text-white",
                                 episode.bossFight.isDefeated
                                   ? "bg-amber-500"
                                   : "bg-red-600"
                               )}>
                                 {episode.bossFight.isDefeated ? (
-                                  <Trophy className="w-5 h-5 text-white" />
+                                  <Trophy className="w-5 h-5" />
                                 ) : (
-                                  <Skull className="w-5 h-5 text-white" />
+                                  <Skull className="w-5 h-5" />
                                 )}
                               </div>
 
-                              <div className="flex-1 min-w-0 relative z-10">
-                                <div className="flex items-center gap-2">
-                                  <p className="text-sm font-extrabold text-white">
-                                    {episode.bossFight.isDefeated ? "Boss Defeated!" : "Episode Boss Fight"}
-                                  </p>
-                                  <Shield className={cn(
-                                    "w-3.5 h-3.5",
-                                    episode.bossFight.isDefeated ? "text-amber-400" : "text-red-400"
-                                  )} />
+                              <div className="flex-1 min-w-0 relative z-[1]">
+                                <div className={cn(
+                                  "font-pixel text-[9px] tracking-wider flex items-center gap-1.5",
+                                  episode.bossFight.isDefeated ? "text-amber-400/90" : "text-red-400/90"
+                                )}>
+                                  <Shield className="w-3 h-3" />
+                                  {episode.bossFight.isDefeated ? "VICTORY" : "BOSS FIGHT"}
                                 </div>
+                                <p className="text-sm font-extrabold text-white mt-0.5">
+                                  {episode.bossFight.isDefeated ? "Boss Defeated!" : "Episode Boss Fight"}
+                                </p>
                                 <p className="text-xs text-slate-400 mt-0.5">
                                   {episode.bossFight.isDefeated
                                     ? `Best score: ${Math.round(episode.bossFight.bestScore || 0)}%`
@@ -599,18 +621,21 @@ export default function CourseMap({
                                 <StartBossButton episodeId={episode.id} courseId={courseId} />
                               )}
                               {episode.bossFight.isDefeated && (
-                                <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full flex-shrink-0 flex items-center gap-1">
+                                <span className="font-pixel text-[10px] tracking-wider text-amber-400 bg-amber-500/10 pixel-border px-3 py-1.5 flex-shrink-0 flex items-center gap-1">
                                   <Zap className="w-3 h-3" />
                                   +150 XP
                                 </span>
                               )}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-3.5 px-4 py-3.5 rounded-xl border border-slate-800/30 bg-slate-900/20 opacity-25">
-                              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/[0.04] border border-white/[0.07]">
-                                <Lock className="w-4 h-4 text-slate-600" />
+                            <div className="flex items-center gap-3.5 px-4 py-3.5 pixel-border bg-slate-900/20 text-slate-700/60 opacity-50">
+                              <div className="w-10 h-10 pixel-border flex items-center justify-center flex-shrink-0 bg-white/[0.04] text-slate-600">
+                                <Lock className="w-4 h-4" />
                               </div>
                               <div className="flex-1 min-w-0">
+                                <div className="font-pixel text-[9px] tracking-wider text-slate-500 mb-0.5">
+                                  BOSS LOCKED
+                                </div>
                                 <p className="text-sm font-bold text-slate-500">Episode Boss</p>
                                 <span className="text-xs text-slate-700">Complete all topics to unlock</span>
                               </div>

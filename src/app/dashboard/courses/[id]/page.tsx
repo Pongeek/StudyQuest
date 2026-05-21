@@ -2,11 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
-import { ArrowLeft, Loader2, BookOpen, Lock, Play, FileText, Target, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, BookOpen, FileText, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { MASTERY_LABELS, MASTERY_COLORS } from "@/lib/xp";
 import { cn } from "@/lib/utils";
 import CourseProcessingPoller from "@/components/course/CourseProcessingPoller";
 import CourseMap from "@/components/course/CourseMap";
@@ -214,55 +211,118 @@ export default async function CoursePage({
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back to Dashboard
         </Link>
 
-        <div className="rpg-card rounded-2xl overflow-hidden">
-          {/* Top accent line */}
+        <div
+          className="rounded-2xl overflow-hidden relative"
+          style={{
+            background: "rgba(8, 6, 25, 0.84)",
+            backdropFilter: "blur(20px)",
+            border: `1px solid ${progressPct === 100 ? "rgba(16, 185, 129, 0.22)" : "rgba(99, 102, 241, 0.20)"}`,
+            boxShadow: progressPct === 100
+              ? "0 0 0 1px rgba(16,185,129,0.06), 0 8px 40px rgba(0,0,0,0.60), inset 0 1px 0 rgba(255,255,255,0.045)"
+              : "0 0 0 1px rgba(99,102,241,0.06), 0 8px 40px rgba(0,0,0,0.60), inset 0 1px 0 rgba(255,255,255,0.045)",
+          }}
+        >
+          {/* Top accent line — matches DashboardHeroCard indigo seam */}
           <div className={cn(
-            "h-px",
-            progressPct === 100 ? "bg-emerald-500/40" : "bg-indigo-500/30"
+            "absolute top-0 inset-x-0 h-px",
+            progressPct === 100
+              ? "bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent"
+              : "bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent"
           )} />
 
-          <div className="p-5 sm:p-8">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white/[0.04] border border-white/[0.07]">
-                    <BookOpen className={cn("w-5 h-5", progressPct === 100 ? "text-emerald-400" : "text-indigo-400")} />
+          {/* Dot-matrix HUD texture — same primitive used by the dashboard hero */}
+          <div className="absolute inset-0 hud-hero-texture rounded-2xl pointer-events-none" />
+
+          {/* Pixel nail corners — progress-colored, Tier A signature */}
+          {(() => {
+            const nail = progressPct === 100 ? "bg-emerald-400" : "bg-indigo-400";
+            return (
+              <>
+                <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[1]", nail)} />
+                <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5 z-[1]", nail)} />
+                <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[1]", nail)} />
+                <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[1]", nail)} />
+              </>
+            );
+          })()}
+
+          <div className="relative p-5 sm:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-3 mb-3 flex-wrap">
+                  <div className={cn(
+                    "w-11 h-11 pixel-border bg-white/[0.04] flex items-center justify-center shrink-0",
+                    progressPct === 100 ? "text-emerald-400" : "text-indigo-400"
+                  )}>
+                    <BookOpen className="w-5 h-5" />
                   </div>
-                  <Badge variant="outline" className="border-green-500/30 bg-green-500/10 text-green-400 text-xs font-bold">
-                    {course.subject || "Course"}
-                  </Badge>
+                  {/* Subject chip styled as a rank-chip — matches dashboard hero vocabulary */}
+                  <span className="rank-chip rank-chip-shimmer">
+                    <span aria-hidden="true" className="opacity-50">&#9670;</span>
+                    <span>{(course.subject || "COURSE").toUpperCase()}</span>
+                    <span aria-hidden="true" className="opacity-50">&#9670;</span>
+                  </span>
                 </div>
-                <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight tracking-tight">
                   {course.theme_name || course.title}
                 </h1>
-                {course.theme_name && <p className="text-slate-500 mt-1 text-sm">{course.title}</p>}
+                {course.theme_name && (
+                  <p className="text-slate-500 mt-1.5 text-sm truncate">{course.title}</p>
+                )}
               </div>
-              <div className="text-right">
-                <div className={cn(
-                  "text-3xl font-extrabold tabular-nums tracking-tight",
-                  progressPct === 100 ? "text-emerald-400" : "text-white"
+
+              {/* Percent HUD — pixel-bordered scoreboard with Press Start 2P numerals */}
+              <div className={cn(
+                "shrink-0 inline-flex flex-col items-center justify-center px-4 py-3 pixel-border bg-slate-950/40 min-w-[110px]",
+                progressPct === 100 ? "text-emerald-400" : "text-indigo-300"
+              )}>
+                <span className="font-pixel text-[9px] tracking-wider opacity-80 mb-1">
+                  {progressPct === 100 ? "COMPLETE" : "PROGRESS"}
+                </span>
+                <span className={cn(
+                  "font-pixel tracking-tight tabular-nums leading-none",
+                  progressPct >= 100 ? "text-[20px]" : "text-[22px]"
                 )}>
                   {progressPct}%
-                </div>
-                <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
-                  {progressPct === 100 ? "Complete!" : "Progress"}
-                </div>
+                </span>
               </div>
             </div>
 
-            <div className="mt-5 pt-5 border-t border-slate-700/30">
-              <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+            {/* Pixel XP bar — matches the dashboard hero progress vocabulary */}
+            <div className="mt-6 pt-5 border-t border-white/[0.06]">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="stat-label text-amber-500/70">MASTERY PROGRESS</span>
+                <span className="text-[11px] text-slate-400 tabular-nums font-medium">
+                  {masteredTopics} / {totalTopics}
+                </span>
+              </div>
+              <div
+                className="pixel-xp-bar"
+                role="progressbar"
+                aria-valuenow={progressPct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Course mastery progress: ${progressPct}% complete`}
+              >
                 <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-700",
-                    progressPct === 100 ? "bg-emerald-500" : "bg-indigo-500"
-                  )}
-                  style={{ width: `${progressPct}%` }}
+                  className="pixel-xp-bar-fill"
+                  style={{
+                    width: `${progressPct}%`,
+                    ...(progressPct === 100
+                      ? {
+                          background:
+                            "linear-gradient(90deg, #047857, #059669 40%, #10b981 75%, #34d399 100%)",
+                        }
+                      : {}),
+                  }}
                 />
               </div>
-              <div className="flex items-center justify-between mt-2">
-                <p className="text-xs text-slate-500 font-semibold">{masteredTopics} / {totalTopics} topics mastered</p>
-                <p className="text-xs text-slate-600 font-medium">{episodes.length} episodes</p>
+              <div className="flex justify-between mt-1.5">
+                <span className="stat-label text-slate-600">{episodes.length} {episodes.length === 1 ? "EPISODE" : "EPISODES"}</span>
+                <span className="stat-label text-indigo-400/50">
+                  {progressPct === 100 ? "MASTERED" : `${100 - progressPct}% TO GO`}
+                </span>
+                <span className="stat-label text-slate-600">{totalTopics} {totalTopics === 1 ? "TOPIC" : "TOPICS"}</span>
               </div>
             </div>
 
@@ -300,16 +360,24 @@ export default async function CoursePage({
         </div>
       </div>
 
-      {/* Exam Prep */}
-      <Link href={`/dashboard/courses/${id}/exam`}>
-        <div className="rpg-card rounded-2xl p-5 !border-amber-500/15 hover:!border-amber-500/35 transition-all duration-150 cursor-pointer relative overflow-hidden group">
-          <div className="relative z-10 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/[0.04] border border-white/[0.07] rounded-lg flex items-center justify-center">
-                <FileText className="w-5 h-5 text-amber-400" />
+      {/* Exam Prep — Tier A: amber pixel-border + nails + pixel-font micro-label */}
+      <Link href={`/dashboard/courses/${id}/exam`} className="block group">
+        <div className="relative bg-slate-900/95 pixel-border text-amber-500/80 p-5 transition-transform duration-100 group-hover:translate-y-0.5 group-active:translate-y-1">
+          {/* Pixel nails */}
+          <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+          <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+          <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+          <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+
+          <div className="relative z-[1] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 pixel-border bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="font-bold text-white text-sm">Exam Preparation</h3>
+              <div className="min-w-0">
+                <div className="font-pixel text-[9px] tracking-wider text-amber-400/90 mb-1">
+                  EXAM PREPARATION
+                </div>
                 <p className="text-xs text-slate-400">
                   {examFileCount > 0
                     ? `${examFileCount} past exam${examFileCount > 1 ? "s" : ""} uploaded`
@@ -318,9 +386,9 @@ export default async function CoursePage({
               </div>
             </div>
             {latestExamSession && (
-              <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1.5">
-                <Target className="w-4 h-4 text-amber-400" />
-                <span className="text-sm font-extrabold text-amber-400">
+              <div className="shrink-0 inline-flex items-center gap-1.5 pixel-border bg-amber-500/10 text-amber-400 px-3 py-1.5">
+                <Target className="w-4 h-4" />
+                <span className="font-pixel text-[10px] tracking-wider tabular-nums">
                   {Math.round(latestExamSession.predicted_score)}%
                 </span>
               </div>

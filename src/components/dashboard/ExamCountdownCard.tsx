@@ -16,11 +16,13 @@ interface ExamCountdownCardProps {
  *   - Today's plan: list of actions linked to start them
  */
 export default function ExamCountdownCard({ plan }: ExamCountdownCardProps) {
-  // Tier-based color schema. The card itself stays neutral; only the
-  // countdown chip and accent line carry urgency color so the dashboard
-  // doesn't feel chaotic when multiple courses are listed.
+  // Tier B+ color schema. Outer card stays soft (info-dense surfaces don't
+  // need a pixel-border competing with the data), but the countdown chip,
+  // accent line, and pixel-nail corners carry urgency color so the card
+  // visibly belongs to the same family as Today's Mission / Quest Board.
   const urgencyChip = urgencyChipClass(plan.urgency);
   const urgencyAccent = urgencyAccentClass(plan.urgency);
+  const urgencyNail = urgencyNailClass(plan.urgency);
 
   // Pinned to en-US so the server-rendered and client-rendered string
   // agree (avoids the React hydration mismatch you get with the
@@ -39,6 +41,12 @@ export default function ExamCountdownCard({ plan }: ExamCountdownCardProps) {
       {/* Top accent line — urgency-colored */}
       <div className={cn("absolute top-0 inset-x-0 h-0.5", urgencyAccent)} />
 
+      {/* Pixel nail corners — urgency-colored, ties card to Tier A family */}
+      <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5", urgencyNail)} />
+      <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5", urgencyNail)} />
+      <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5", urgencyNail)} />
+      <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5", urgencyNail)} />
+
       {/* Header */}
       <header className="flex items-start justify-between gap-3 mb-4">
         <div className="min-w-0 flex-1">
@@ -54,10 +62,12 @@ export default function ExamCountdownCard({ plan }: ExamCountdownCardProps) {
           </h2>
         </div>
 
-        {/* Countdown chip */}
+        {/* Countdown chip — pixel-bordered scoreboard. text-color drives both
+            the inner content color AND the pixel-border (via currentColor). */}
         <div
           className={cn(
-            "shrink-0 inline-flex flex-col items-center justify-center rounded-xl border px-3 py-1.5 min-w-[64px]",
+            "shrink-0 inline-flex flex-col items-center justify-center px-3 py-2 min-w-[72px]",
+            "pixel-border bg-slate-950/40",
             urgencyChip
           )}
         >
@@ -170,19 +180,37 @@ export default function ExamCountdownCard({ plan }: ExamCountdownCardProps) {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function urgencyChipClass(urgency: StudyPlan["urgency"]): string {
+  // Returns ONLY a text-color (+ optional animate) — the pixel-border
+  // utility picks the border tone up via currentColor.
   switch (urgency) {
     case "exam-day":
-      return "border-red-500/40 bg-red-500/15 text-red-300 animate-pulse";
+      return "text-red-300 animate-pulse";
     case "final-push":
-      return "border-red-500/30 bg-red-500/10 text-red-300";
+      return "text-red-300";
     case "crunch":
-      return "border-orange-500/30 bg-orange-500/10 text-orange-300";
+      return "text-orange-300";
     case "steady":
-      return "border-amber-500/30 bg-amber-500/10 text-amber-300";
+      return "text-amber-300";
     case "calm":
-      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+      return "text-emerald-300";
     case "past":
-      return "border-slate-700/40 bg-slate-800/40 text-slate-500";
+      return "text-slate-500";
+  }
+}
+
+function urgencyNailClass(urgency: StudyPlan["urgency"]): string {
+  switch (urgency) {
+    case "exam-day":
+    case "final-push":
+      return "bg-red-400";
+    case "crunch":
+      return "bg-orange-400";
+    case "steady":
+      return "bg-amber-400";
+    case "calm":
+      return "bg-emerald-400";
+    case "past":
+      return "bg-slate-600";
   }
 }
 
@@ -203,24 +231,26 @@ function urgencyAccentClass(urgency: StudyPlan["urgency"]): string {
 }
 
 function ActionIcon({ kind }: { kind: StudyPlan["actions"][number]["kind"] }) {
+  // Pixel-bordered icon tile — currentColor drives both icon + border tone.
+  // Subtle Tier B+ signature on each row without competing with the countdown chip.
   const cls = "w-4 h-4 shrink-0";
   switch (kind) {
     case "study-topic":
       return (
-        <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center">
-          <BookOpen className={cn(cls, "text-indigo-400")} />
+        <div className="w-7 h-7 pixel-border bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+          <BookOpen className={cls} />
         </div>
       );
     case "review":
       return (
-        <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center">
-          <Sparkles className={cn(cls, "text-emerald-400")} />
+        <div className="w-7 h-7 pixel-border bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+          <Sparkles className={cls} />
         </div>
       );
     case "boss-fight":
       return (
-        <div className="w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/25 flex items-center justify-center">
-          <Swords className={cn(cls, "text-red-400")} />
+        <div className="w-7 h-7 pixel-border bg-red-500/10 text-red-400 flex items-center justify-center shrink-0">
+          <Swords className={cls} />
         </div>
       );
   }

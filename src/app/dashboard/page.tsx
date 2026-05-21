@@ -465,25 +465,30 @@ export default async function DashboardPage() {
                 course.status === "ready"
                   ? {
                       badge: "READY",
-                      className:
-                        "border-green-700/50 text-green-400 bg-green-500/10",
-                      glow: "shadow-green-500/10",
+                      // Tier B+: pixel-border uses currentColor, so text-green-400
+                      // drives both the chip's text and its border tone.
+                      className: "text-green-400 bg-green-500/10",
+                      nail: "bg-green-400",
                       dot: "bg-green-400",
+                      accent:
+                        "bg-gradient-to-r from-transparent via-green-400/40 to-transparent",
                     }
                   : course.status === "processing"
                   ? {
                       badge: "PROCESSING",
-                      className:
-                        "border-amber-700/50 text-amber-400 bg-amber-500/10 animate-pulse",
-                      glow: "shadow-amber-500/10",
+                      className: "text-amber-400 bg-amber-500/10 animate-pulse",
+                      nail: "bg-amber-400",
                       dot: "bg-amber-400 animate-pulse",
+                      accent:
+                        "bg-gradient-to-r from-transparent via-amber-400/40 to-transparent",
                     }
                   : {
                       badge: "ERROR",
-                      className:
-                        "border-red-700/50 text-red-400 bg-red-500/10",
-                      glow: "shadow-red-500/10",
+                      className: "text-red-400 bg-red-500/10",
+                      nail: "bg-red-400",
                       dot: "bg-red-400",
+                      accent:
+                        "bg-gradient-to-r from-transparent via-red-400/40 to-transparent",
                     };
 
               return (
@@ -496,31 +501,26 @@ export default async function DashboardPage() {
                     )}
                   >
                     {/* Status accent line */}
-                    <div
-                      className={cn(
-                        "absolute top-0 inset-x-0 h-0.5",
-                        course.status === "ready"
-                          ? "bg-gradient-to-r from-transparent via-green-400/40 to-transparent"
-                          : course.status === "processing"
-                          ? "bg-gradient-to-r from-transparent via-amber-400/40 to-transparent"
-                          : "bg-gradient-to-r from-transparent via-red-400/40 to-transparent"
-                      )}
-                    />
+                    <div className={cn("absolute top-0 inset-x-0 h-0.5", statusConfig.accent)} />
+
+                    {/* Pixel nail corners — status-colored. Ties card to Tier A family. */}
+                    <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[1]", statusConfig.nail)} />
+                    <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5 z-[1]", statusConfig.nail)} />
+                    <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[1]", statusConfig.nail)} />
+                    <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[1]", statusConfig.nail)} />
 
                     <div className="flex items-start justify-between mb-3">
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-white/[0.04] border border-white/[0.07]">
-                        <BookOpen
-                          className={cn(
-                            "w-4.5 h-4.5",
-                            course.status === "ready"
-                              ? "text-indigo-400"
-                              : "text-slate-500"
-                          )}
-                        />
+                      <div
+                        className={cn(
+                          "w-9 h-9 pixel-border flex items-center justify-center bg-white/[0.04]",
+                          course.status === "ready" ? "text-indigo-400" : "text-slate-500"
+                        )}
+                      >
+                        <BookOpen className="w-4 h-4" />
                       </div>
                       <span
                         className={cn(
-                          "font-pixel text-[8px] tracking-wider px-2 py-1 border inline-flex items-center gap-1.5",
+                          "font-pixel text-[8px] tracking-wider px-2 py-1 pixel-border inline-flex items-center gap-1.5",
                           statusConfig.className
                         )}
                       >
@@ -629,9 +629,18 @@ export default async function DashboardPage() {
             {recentAchievements.map((ua: any) => (
               <div
                 key={ua.id}
-                className="rpg-card rounded-xl px-4 py-3.5 flex items-center gap-3.5 transition-colors group"
+                className="rpg-card rounded-xl px-4 py-3.5 flex items-center gap-3.5 transition-colors group relative overflow-hidden"
               >
-                <div className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-xl shrink-0">
+                {/* Amber accent line — trophy stamp feel */}
+                <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
+
+                {/* Pixel nail corners — amber, marks the trophy as earned */}
+                <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+                <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+                <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+                <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+
+                <div className="w-10 h-10 pixel-border bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl shrink-0">
                   {ua.achievements?.icon}
                 </div>
                 <div className="min-w-0">
@@ -642,7 +651,7 @@ export default async function DashboardPage() {
                     {ua.achievements?.description}
                   </div>
                   {ua.earned_at && (
-                    <div className="font-pixel text-[8px] tracking-wider text-slate-600 mt-1">
+                    <div className="font-pixel text-[8px] tracking-wider text-amber-400/70 mt-1">
                       EARNED{" "}
                       {new Date(ua.earned_at)
                         .toLocaleDateString("en-US", {
@@ -657,12 +666,20 @@ export default async function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="rpg-card rounded-xl p-6 text-center !border-slate-800/60">
-            <Trophy className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-            <p className="text-sm font-semibold text-slate-500">
-              Your adventure begins&hellip;
+          <div className="rpg-card rounded-xl p-6 text-center !border-slate-800/60 relative overflow-hidden">
+            {/* Muted pixel nails for the empty state — quieter, slate-toned */}
+            <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-slate-700 z-[1]" />
+            <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-slate-700 z-[1]" />
+            <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-slate-700 z-[1]" />
+            <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-slate-700 z-[1]" />
+
+            <div className="w-12 h-12 pixel-border bg-white/[0.04] text-slate-700 mx-auto mb-3 flex items-center justify-center">
+              <Trophy className="w-6 h-6" />
+            </div>
+            <p className="font-pixel text-[9px] tracking-wider text-slate-500 mb-2">
+              ADVENTURE BEGINS
             </p>
-            <p className="text-xs text-slate-600 mt-1">
+            <p className="text-xs text-slate-600">
               Complete quests to earn your first achievement
             </p>
           </div>
