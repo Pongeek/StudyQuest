@@ -36,7 +36,10 @@ const features = [
 
 export default function LandingFeatures() {
   const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  // Only animate when the section is genuinely centered in the viewport (the
+  // "I'm reading this now" moment) rather than the moment it pokes into the
+  // viewport. Top/bottom margins shrunk by 40% each.
+  const isInView = useInView(ref, { once: true, margin: "-40% 0px -40% 0px" });
 
   return (
     <section className="container mx-auto px-6 py-20" ref={ref}>

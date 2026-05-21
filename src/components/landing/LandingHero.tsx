@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { ArrowRight, Sword } from "lucide-react";
 import LandingHeroVisual from "@/components/landing/LandingHeroVisual";
 
@@ -36,10 +37,79 @@ const taglineWord = {
   },
 };
 
+// Parallax layer positions — deterministic so SSR + client agree.
+// xPct/yPct are % of the hero section; size in px; tone drives color.
+type Speck = { xPct: number; yPct: number; size: number; tone: string; pulse?: boolean };
+
+// Deep background — small distant "stars", indigo + white, lower density
+const BG_STARS: Speck[] = [
+  { xPct: 8,  yPct: 18, size: 2, tone: "bg-indigo-300/40", pulse: true },
+  { xPct: 22, yPct: 8,  size: 1, tone: "bg-white/40" },
+  { xPct: 38, yPct: 32, size: 2, tone: "bg-indigo-300/30" },
+  { xPct: 52, yPct: 14, size: 1, tone: "bg-white/30", pulse: true },
+  { xPct: 68, yPct: 6,  size: 2, tone: "bg-indigo-400/35" },
+  { xPct: 78, yPct: 26, size: 1, tone: "bg-white/35" },
+  { xPct: 88, yPct: 12, size: 2, tone: "bg-indigo-300/40", pulse: true },
+  { xPct: 12, yPct: 64, size: 1, tone: "bg-white/30" },
+  { xPct: 30, yPct: 78, size: 2, tone: "bg-indigo-300/30" },
+  { xPct: 46, yPct: 88, size: 1, tone: "bg-white/35", pulse: true },
+  { xPct: 62, yPct: 72, size: 2, tone: "bg-indigo-400/35" },
+  { xPct: 82, yPct: 84, size: 1, tone: "bg-white/30" },
+];
+
+// Foreground — closer "rune motes", amber + indigo, drift in front of content
+const FG_MOTES: Speck[] = [
+  { xPct: 14, yPct: 36, size: 3, tone: "bg-amber-400/60", pulse: true },
+  { xPct: 28, yPct: 56, size: 2, tone: "bg-indigo-400/55" },
+  { xPct: 40, yPct: 22, size: 3, tone: "bg-amber-400/55", pulse: true },
+  { xPct: 56, yPct: 48, size: 2, tone: "bg-amber-300/55" },
+  { xPct: 72, yPct: 38, size: 3, tone: "bg-indigo-400/55", pulse: true },
+  { xPct: 86, yPct: 58, size: 2, tone: "bg-amber-400/50" },
+  { xPct: 18, yPct: 82, size: 3, tone: "bg-amber-400/55" },
+  { xPct: 64, yPct: 78, size: 2, tone: "bg-indigo-400/50", pulse: true },
+];
+
 export default function LandingHero() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const reduceMotion = useReducedMotion();
+
+  // Scroll progress through the hero (0 at top of hero, 1 when bottom hits top).
+  // Drives the parallax layer offsets.
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"],
+  });
+
+  // Background drifts DOWN as we scroll up = slower than content (deep / far)
+  const bgY = useTransform(scrollYProgress, [0, 1], [0, 80]);
+  // Foreground drifts UP faster than content (near / drifting forward)
+  const fgY = useTransform(scrollYProgress, [0, 1], [0, -160]);
+
   return (
-    <section className="container mx-auto px-6 pt-20 pb-24 max-w-6xl relative">
-      <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
+    <section ref={sectionRef} className="container mx-auto px-6 pt-20 pb-24 max-w-6xl relative">
+      {/* ── Parallax depth: background "stars" layer (slower) ── */}
+      {!reduceMotion && (
+        <motion.div
+          aria-hidden
+          style={{ y: bgY }}
+          className="hidden md:block absolute inset-0 z-0 pointer-events-none"
+        >
+          {BG_STARS.map((s, i) => (
+            <span
+              key={`bg-${i}`}
+              className={`absolute rounded-full ${s.tone} ${s.pulse ? "motion-safe:animate-pulse" : ""}`}
+              style={{
+                left: `${s.xPct}%`,
+                top: `${s.yPct}%`,
+                width: s.size,
+                height: s.size,
+              }}
+            />
+          ))}
+        </motion.div>
+      )}
+
+      <div className="relative z-10 grid md:grid-cols-2 gap-12 md:gap-16 items-center">
         {/* ── Left: text column ── */}
         <div className="flex flex-col items-start">
           {/* Eyebrow — rank-chip vocabulary, matches dashboard/profile heroes */}
@@ -141,6 +211,33 @@ export default function LandingHero() {
           <LandingHeroVisual />
         </motion.div>
       </div>
+
+      {/* ── Parallax depth: foreground "rune motes" layer (faster) ──
+          Sits in front of content with low-alpha colors + pointer-events-none
+          so it adds drifting depth without blocking clicks. */}
+      {!reduceMotion && (
+        <motion.div
+          aria-hidden
+          style={{ y: fgY }}
+          className="hidden md:block absolute inset-0 z-20 pointer-events-none"
+        >
+          {FG_MOTES.map((s, i) => (
+            <span
+              key={`fg-${i}`}
+              className={`absolute ${s.tone} ${s.pulse ? "motion-safe:animate-pulse" : ""}`}
+              style={{
+                left: `${s.xPct}%`,
+                top: `${s.yPct}%`,
+                width: s.size,
+                height: s.size,
+                // Rotated squares feel like rune particles (pixel-art motif)
+                transform: "rotate(45deg)",
+                filter: "blur(0.3px)",
+              }}
+            />
+          ))}
+        </motion.div>
+      )}
     </section>
   );
 }

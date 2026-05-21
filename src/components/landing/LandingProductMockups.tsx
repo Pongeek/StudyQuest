@@ -1,3 +1,7 @@
+"use client";
+
+import { useRef } from "react";
+import { motion, useInView } from "framer-motion";
 import { Skull, Zap, Play, CheckCircle, Lock, Star, Trophy } from "lucide-react";
 
 // ─── Shared micro-utility ────────────────────────────────────────────────────
@@ -161,24 +165,45 @@ const mockups = [
 ];
 
 export default function LandingProductMockups() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const isInView = useInView(sectionRef, { once: true, margin: "-30% 0px -30% 0px" });
+
   return (
-    <section className="container mx-auto px-6 py-20">
+    <section ref={sectionRef} className="container mx-auto px-6 py-20">
       <div className="text-center mb-14">
-        <p className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3">
+        <motion.p
+          initial={{ opacity: 0, y: 14 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3"
+        >
           PRODUCT PREVIEW
-        </p>
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+        </motion.p>
+        <motion.h2
+          initial={{ opacity: 0, y: 18 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          className="text-3xl md:text-4xl font-bold text-white mb-4"
+        >
           See What You&apos;re Walking Into
-        </h2>
-        <p className="text-slate-400 max-w-md mx-auto text-sm">
+        </motion.h2>
+        <motion.p
+          initial={{ opacity: 0, y: 14 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.45, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          className="text-slate-400 max-w-md mx-auto text-sm"
+        >
           Three surfaces, one coherent adventure. Your dashboard, your map, and the boss fight waiting at the end.
-        </p>
+        </motion.p>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-        {mockups.map(({ title, caption, component }) => (
-          <div
+        {mockups.map(({ title, caption, component }, i) => (
+          <motion.div
             key={title}
+            initial={{ opacity: 0, y: 30, scale: 0.96 }}
+            animate={isInView ? { opacity: 1, y: 0, scale: 1 } : {}}
+            transition={{ duration: 0.55, delay: 0.3 + i * 0.12, ease: [0.22, 1, 0.36, 1] }}
             className="group flex flex-col gap-3"
           >
             <div className="rpg-card rounded-2xl p-5 tilt-card sparkle-hover flex-1 relative overflow-hidden">
@@ -207,7 +232,7 @@ export default function LandingProductMockups() {
 
             {/* Caption */}
             <p className="font-pixel text-[9px] tracking-wider text-slate-500 text-center">{caption.toUpperCase()}</p>
-          </div>
+          </motion.div>
         ))}
       </div>
     </section>

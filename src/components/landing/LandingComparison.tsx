@@ -1,3 +1,7 @@
+"use client";
+
+import { useRef } from "react";
+import { motion, useInView } from "framer-motion";
 import { Zap } from "lucide-react";
 import AnimatedCounter from "@/components/effects/AnimatedCounter";
 
@@ -18,20 +22,38 @@ const NEW_ITEMS = [
 ];
 
 export default function LandingComparison() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const isInView = useInView(sectionRef, { once: true, margin: "-30% 0px -30% 0px" });
+
   return (
-    <section className="container mx-auto px-6 py-20 max-w-5xl">
+    <section ref={sectionRef} className="container mx-auto px-6 py-20 max-w-5xl">
       <div className="text-center mb-14">
-        <p className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3">
+        <motion.p
+          initial={{ opacity: 0, y: 14 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3"
+        >
           WHY THIS HITS DIFFERENT
-        </p>
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+        </motion.p>
+        <motion.h2
+          initial={{ opacity: 0, y: 18 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          className="text-3xl md:text-4xl font-bold text-white mb-4"
+        >
           Old Way vs. Quest Way
-        </h2>
+        </motion.h2>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Old way — muted slate, nail-less to convey "the dead path" */}
-        <div className="rpg-card rounded-2xl p-7 space-y-4 opacity-75 relative overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1 hover:opacity-90 hover:shadow-[0_18px_44px_-14px_rgba(100,116,139,0.35)]">
+        <motion.div
+          initial={{ opacity: 0, x: -24 }}
+          animate={isInView ? { opacity: 0.75, x: 0 } : {}}
+          transition={{ duration: 0.55, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          className="rpg-card rounded-2xl p-7 space-y-4 relative overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1 hover:opacity-90 hover:shadow-[0_18px_44px_-14px_rgba(100,116,139,0.35)]"
+        >
           {/* Slate accent line + nails (muted) */}
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-slate-600/30 to-transparent" />
           <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-slate-600 z-[1]" />
@@ -66,10 +88,15 @@ export default function LandingComparison() {
             </div>
             <span className="text-slate-500 text-sm">¯\_(ツ)_/¯</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* Quest way — gold-tier card with amber pixel-nails */}
-        <div className="rpg-card-gold rounded-2xl p-7 space-y-4 relative overflow-hidden transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-[0_22px_56px_-16px_rgba(245,158,11,0.45)]">
+        <motion.div
+          initial={{ opacity: 0, x: 24 }}
+          animate={isInView ? { opacity: 1, x: 0 } : {}}
+          transition={{ duration: 0.55, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="rpg-card-gold rounded-2xl p-7 space-y-4 relative overflow-hidden transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-[0_22px_56px_-16px_rgba(245,158,11,0.45)]"
+        >
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
           <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
           <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
@@ -110,7 +137,7 @@ export default function LandingComparison() {
               className="font-pixel text-[18px] tracking-wider text-amber-300 tabular-nums"
             />
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );

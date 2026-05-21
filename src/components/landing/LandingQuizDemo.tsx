@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useRef, useState } from "react";
+import { motion, AnimatePresence, useInView } from "framer-motion";
 import { CheckCircle, XCircle, Zap, RotateCcw, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,10 @@ const QUESTION = {
 type AnswerState = "idle" | "correct" | "wrong";
 
 export default function LandingQuizDemo() {
+  const sectionRef = useRef<HTMLElement>(null);
+  // Centered-band threshold so animation fires when section is genuinely in view
+  const isInView = useInView(sectionRef, { once: true, margin: "-30% 0px -30% 0px" });
+
   const [selected, setSelected] = useState<string | null>(null);
   const [answered, setAnswered] = useState(false);
   const [state, setState] = useState<AnswerState>("idle");
@@ -46,22 +50,42 @@ export default function LandingQuizDemo() {
   const isCorrect = state === "correct";
 
   return (
-    <section className="container mx-auto px-6 py-20 max-w-2xl">
-      {/* Section header */}
+    <section ref={sectionRef} className="container mx-auto px-6 py-20 max-w-2xl">
+      {/* Section header — eyebrow → H2 → caption cascade on scroll-in */}
       <div className="text-center mb-10">
-        <p className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3">
+        <motion.p
+          initial={{ opacity: 0, y: 14 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3"
+        >
           LIVE DEMO
-        </p>
-        <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
+        </motion.p>
+        <motion.h2
+          initial={{ opacity: 0, y: 18 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          className="text-3xl md:text-4xl font-bold mb-4 text-white"
+        >
           A Taste of Combat
-        </h2>
-        <p className="text-slate-400 text-sm leading-relaxed max-w-md mx-auto">
+        </motion.h2>
+        <motion.p
+          initial={{ opacity: 0, y: 14 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.45, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          className="text-slate-400 text-sm leading-relaxed max-w-md mx-auto"
+        >
           Here&apos;s what answering a question feels like. Click an option below.
-        </p>
+        </motion.p>
       </div>
 
       {/* Quiz card — pixel-bordered with indigo nails */}
-      <div className="relative rpg-card rounded-2xl p-6 sm:p-8 space-y-5 overflow-hidden">
+      <motion.div
+        initial={{ opacity: 0, y: 24, scale: 0.98 }}
+        animate={isInView ? { opacity: 1, y: 0, scale: 1 } : {}}
+        transition={{ duration: 0.55, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="relative rpg-card rounded-2xl p-6 sm:p-8 space-y-5 overflow-hidden"
+      >
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-400/40 to-transparent" />
         <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
         <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
@@ -246,12 +270,17 @@ export default function LandingQuizDemo() {
             </motion.div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Upsell nudge */}
-      <p className="text-center text-xs text-slate-600 mt-6">
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={isInView ? { opacity: 1 } : {}}
+        transition={{ duration: 0.5, delay: 0.55 }}
+        className="text-center text-xs text-slate-600 mt-6"
+      >
         In the real app, open-answer questions are graded by AI with personalised feedback.
-      </p>
+      </motion.p>
     </section>
   );
 }

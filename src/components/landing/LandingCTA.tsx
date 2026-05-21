@@ -46,7 +46,9 @@ function ParticleBurst({ active }: { active: boolean }) {
 
 export default function LandingCTA() {
   const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
+  // Tightened: only fire when the CTA card is centered in viewport, not just
+  // poking in from the bottom. Matches the rest of the landing-page rhythm.
+  const isInView = useInView(ref, { once: true, margin: "-30% 0px -30% 0px" });
 
   const [hovering, setHovering] = useState(false);
   const [burst, setBurst] = useState(false);
