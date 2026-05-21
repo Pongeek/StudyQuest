@@ -1102,104 +1102,178 @@
    violet = mystery/grimoire, purple = epic rewards, amber = XP/gold.
    ============================================================================= */
 
+/* ── Deep space base gradient ── */
+.bg-deep-space {
+  background: radial-gradient(
+    ellipse at 28% 18%,
+    #0f0b25 0%,
+    #070518 30%,
+    #020617 60%,
+    #02030f 100%
+  );
+}
+
+/* ── Isometric mesh grid — 80px, three directions ── */
+.isometric-grid {
+  background-image:
+    repeating-linear-gradient(
+       60deg,
+       rgba(99, 102, 241, 0.032) 0px,
+       rgba(99, 102, 241, 0.032) 1px,
+       transparent 1px,
+       transparent 80px
+    ),
+    repeating-linear-gradient(
+      -60deg,
+       rgba(99, 102, 241, 0.032) 0px,
+       rgba(99, 102, 241, 0.032) 1px,
+       transparent 1px,
+       transparent 80px
+    ),
+    repeating-linear-gradient(
+       0deg,
+       rgba(99, 102, 241, 0.018) 0px,
+       rgba(99, 102, 241, 0.018) 1px,
+       transparent 1px,
+       transparent 80px
+    );
+  animation: iso-pulse 9s ease-in-out infinite;
+}
+
+@keyframes iso-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1;   }
+}
+
+/* ── Film grain noise overlay ── */
+.noise-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23n)' opacity='0.09'/%3E%3C/svg%3E");
+  background-size: 250px 250px;
+  mix-blend-mode: overlay;
+}
+
+/* ── Aurora orbs — larger, richer, screen-blended at container level ── */
 .aurora-orb {
   position: absolute;
   border-radius: 50%;
   will-change: transform;
 }
 
-/* Indigo — 640×640, anchored top-right, drifts diagonally */
+/* Indigo — 880×880, top-right, primary quest color */
 .aurora-orb-indigo {
-  width: 640px;
-  height: 640px;
-  top: -160px;
-  right: -160px;
+  width: 880px;
+  height: 880px;
+  top: -220px;
+  right: -200px;
   background: radial-gradient(
     circle at center,
-    rgba(99, 102, 241, 0.16) 0%,
-    rgba(99, 102, 241, 0.08) 40%,
-    transparent 70%
-  );
-  filter: blur(72px);
-}
-
-/* Violet — 520×520, anchored bottom-left, drifts upward */
-.aurora-orb-violet {
-  width: 520px;
-  height: 520px;
-  bottom: -120px;
-  left: -100px;
-  background: radial-gradient(
-    circle at center,
-    rgba(139, 92, 246, 0.14) 0%,
-    rgba(139, 92, 246, 0.06) 45%,
-    transparent 70%
+    rgba(99, 102, 241, 0.42) 0%,
+    rgba(99, 102, 241, 0.18) 40%,
+    transparent 68%
   );
   filter: blur(80px);
 }
 
-/* Purple — 380×380, mid-screen, slow drift */
-.aurora-orb-purple {
-  width: 380px;
-  height: 380px;
-  top: 38%;
-  left: 32%;
+/* Violet — 760×760, bottom-left, mystery/grimoire */
+.aurora-orb-violet {
+  width: 760px;
+  height: 760px;
+  bottom: -180px;
+  left: -160px;
   background: radial-gradient(
     circle at center,
-    rgba(168, 85, 247, 0.10) 0%,
-    rgba(168, 85, 247, 0.04) 50%,
-    transparent 70%
+    rgba(139, 92, 246, 0.36) 0%,
+    rgba(139, 92, 246, 0.14) 45%,
+    transparent 68%
+  );
+  filter: blur(90px);
+}
+
+/* Purple — 600×600, mid-screen drift */
+.aurora-orb-purple {
+  width: 600px;
+  height: 600px;
+  top: 35%;
+  left: 30%;
+  background: radial-gradient(
+    circle at center,
+    rgba(168, 85, 247, 0.28) 0%,
+    rgba(168, 85, 247, 0.10) 50%,
+    transparent 68%
+  );
+  filter: blur(70px);
+}
+
+/* Amber — 420×420, upper-left, XP/gold accent */
+.aurora-orb-amber {
+  width: 420px;
+  height: 420px;
+  top: 10%;
+  left: 6%;
+  background: radial-gradient(
+    circle at center,
+    rgba(245, 158, 11, 0.24) 0%,
+    rgba(245, 158, 11, 0.08) 50%,
+    transparent 68%
   );
   filter: blur(60px);
 }
 
-/* Amber — 260×260, upper-left, warm XP accent */
-.aurora-orb-amber {
-  width: 260px;
-  height: 260px;
-  top: 12%;
-  left: 8%;
+/* Teal — 560×560, bottom-right, new accent */
+.aurora-orb-teal {
+  width: 560px;
+  height: 560px;
+  bottom: -100px;
+  right: 5%;
   background: radial-gradient(
     circle at center,
-    rgba(245, 158, 11, 0.08) 0%,
-    rgba(245, 158, 11, 0.03) 50%,
-    transparent 70%
+    rgba(20, 184, 166, 0.20) 0%,
+    rgba(20, 184, 166, 0.07) 50%,
+    transparent 68%
   );
-  filter: blur(50px);
+  filter: blur(75px);
 }
 
 @keyframes aurora-1 {
-  0%,  100% { transform: translate(0px,   0px)  scale(1);    }
-  25%        { transform: translate(-50px, 35px)  scale(1.04); }
-  50%        { transform: translate(30px,  55px)  scale(0.97); }
-  75%        { transform: translate(55px,  -25px) scale(1.02); }
+  0%,  100% { transform: translate(0px,    0px)   scale(1);    }
+  25%        { transform: translate(-70px,  50px)  scale(1.06); }
+  50%        { transform: translate(45px,   80px)  scale(0.96); }
+  75%        { transform: translate(75px,  -35px)  scale(1.03); }
 }
 
 @keyframes aurora-2 {
-  0%,  100% { transform: translate(0px,   0px)   scale(1);    }
-  30%        { transform: translate(60px,  -50px)  scale(1.06); }
-  60%        { transform: translate(-40px, 45px)   scale(0.96); }
-  80%        { transform: translate(20px,  -30px)  scale(1.03); }
+  0%,  100% { transform: translate(0px,    0px)   scale(1);    }
+  30%        { transform: translate(80px,  -70px)  scale(1.08); }
+  60%        { transform: translate(-55px,  60px)  scale(0.95); }
+  80%        { transform: translate(30px,  -45px)  scale(1.04); }
 }
 
 @keyframes aurora-3 {
-  0%,  100% { transform: translate(0px,   0px)   scale(1);    }
-  40%        { transform: translate(-70px, -45px)  scale(1.08); }
-  70%        { transform: translate(50px,  30px)   scale(0.94); }
+  0%,  100% { transform: translate(0px,    0px)   scale(1);    }
+  40%        { transform: translate(-90px, -60px)  scale(1.10); }
+  70%        { transform: translate(65px,   45px)  scale(0.93); }
 }
 
 @keyframes aurora-4 {
-  0%,  100% { transform: translate(0px,  0px)  scale(1);    }
-  50%        { transform: translate(45px, 60px) scale(1.05); }
+  0%,  100% { transform: translate(0px,   0px)   scale(1);    }
+  50%        { transform: translate(60px,  80px)  scale(1.07); }
 }
 
-.animate-aurora-1 { animation: aurora-1 24s ease-in-out infinite; }
-.animate-aurora-2 { animation: aurora-2 30s ease-in-out infinite; }
-.animate-aurora-3 { animation: aurora-3 21s ease-in-out infinite; }
-.animate-aurora-4 { animation: aurora-4 38s ease-in-out infinite; }
+@keyframes aurora-5 {
+  0%,  100% { transform: translate(0px,    0px)   scale(1);    }
+  35%        { transform: translate(-50px, -60px)  scale(1.05); }
+  65%        { transform: translate(40px,   30px)  scale(0.97); }
+}
+
+.animate-aurora-1 { animation: aurora-1 26s ease-in-out infinite; }
+.animate-aurora-2 { animation: aurora-2 32s ease-in-out infinite; }
+.animate-aurora-3 { animation: aurora-3 23s ease-in-out infinite; }
+.animate-aurora-4 { animation: aurora-4 40s ease-in-out infinite; }
+.animate-aurora-5 { animation: aurora-5 35s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .aurora-orb { animation: none !important; }
+  .aurora-orb      { animation: none !important; }
+  .isometric-grid  { animation: none; opacity: 0.7; }
 }
 
 /* ===== Tier 1 dopamine — XPBurst floating label ===== */
@@ -1626,9 +1700,41 @@
   user-select: none;
 }
 
+/* ── Level frame — breathing amber glow variant ── */
+@keyframes lvl-glow-breathe {
+  0%, 100% {
+    box-shadow:
+      inset 0 0 0 1px rgba(99,102,241,0.10),
+      inset 0 1px 0 rgba(255,255,255,0.05),
+      0 0 24px rgba(99,102,241,0.10),
+      0 4px 24px rgba(0,0,0,0.70);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px rgba(99,102,241,0.22),
+      inset 0 1px 0 rgba(255,255,255,0.07),
+      0 0 36px rgba(99,102,241,0.26),
+      0 4px 28px rgba(0,0,0,0.72);
+  }
+}
+.hud-level-glow {
+  animation: lvl-glow-breathe 4s ease-in-out infinite;
+}
+
+/* ── Rank chip — pulsing border ── */
+@keyframes chip-border-pulse {
+  0%, 100% { border-color: rgba(99,102,241,0.26); }
+  50%       { border-color: rgba(99,102,241,0.50); }
+}
+.rank-chip-shimmer {
+  animation: chip-border-pulse 3s ease-in-out infinite;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .pixel-xp-bar-fill::before { animation: none; }
+  .hud-level-glow             { animation: none; }
+  .rank-chip-shimmer          { animation: none; }
 }
 
 /* ============================================================================

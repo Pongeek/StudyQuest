@@ -11,9 +11,9 @@ import GrimoireWidget from "@/components/dashboard/GrimoireWidget";
 import StreakWarningBanner from "@/components/dashboard/StreakWarningBanner";
 import ExamCountdownCard from "@/components/dashboard/ExamCountdownCard";
 import QuestBoard from "@/components/gamification/QuestBoard";
-import AnimatedCounter from "@/components/effects/AnimatedCounter";
+import DashboardHeroCard from "@/components/dashboard/DashboardHeroCard";
 import { cn } from "@/lib/utils";
-import { calculateLevel, xpProgressInCurrentLevel, getLevelTitle } from "@/lib/xp";
+import { calculateLevel, xpProgressInCurrentLevel } from "@/lib/xp";
 import {
   generateStudyPlan,
   type StudyPlan,
@@ -334,149 +334,14 @@ export default async function DashboardPage() {
       )}
 
       {/* ── Hero Stats Bar ── */}
-      <div
-        className="rpg-card rounded-2xl overflow-hidden animate-slide-up relative"
-        style={{ animationDelay: "0.05s" }}
-      >
-        {/* Dot-matrix texture overlay */}
-        <div className="absolute inset-0 hud-hero-texture rounded-2xl" />
-
-        {/* Top: level frame + user info + button */}
-        <div className="relative px-5 pt-5 pb-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="flex items-start gap-4 flex-1 min-w-0">
-
-            {/* Pixel level frame */}
-            <div className="hud-level-frame">
-              <span className="hud-level-label">LVL</span>
-              <span className="hud-level-number">{level}</span>
-            </div>
-
-            {/* User info block */}
-            <div className="flex-1 min-w-0 pt-1">
-              {/* Rank chip */}
-              <div className="rank-chip mb-2.5">
-                <span aria-hidden="true" className="opacity-50">&#9670;</span>
-                <span>{getLevelTitle(level).toUpperCase()}</span>
-                <span aria-hidden="true" className="opacity-50">&#9670;</span>
-              </div>
-
-              {/* Name */}
-              <h1 className="text-2xl sm:text-3xl font-bold text-white truncate leading-tight tracking-tight">
-                {dbUser.name.split(" ")[0] || "Adventurer"}
-              </h1>
-
-              {/* Status line */}
-              <p className="text-slate-500 text-sm mt-1 mb-3">
-                {studiedToday
-                  ? `Today's quest complete · ${streak}-day streak burning`
-                  : "Your adventure continues..."}
-              </p>
-
-              {/* Pixel XP bar */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="stat-label text-amber-500/70">XP to next level</span>
-                  <span className="text-[11px] text-slate-400 tabular-nums font-medium">
-                    {xpProgress.current.toLocaleString()} / {xpProgress.needed.toLocaleString()}
-                  </span>
-                </div>
-                <div
-                  className="pixel-xp-bar"
-                  role="progressbar"
-                  aria-valuenow={xpProgress.percentage}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label={`XP progress to level ${level + 1}: ${xpProgress.percentage}% complete`}
-                >
-                  <div
-                    className="pixel-xp-bar-fill"
-                    style={{ width: `${xpProgress.percentage}%` }}
-                  />
-                </div>
-                <div className="flex justify-between mt-1.5">
-                  <span className="stat-label text-slate-600">LV.{level}</span>
-                  <span className="stat-label text-indigo-400/50">
-                    {100 - xpProgress.percentage}% to go
-                  </span>
-                  <span className="stat-label text-slate-600">LV.{level + 1}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* New Course button */}
-          <Link href="/dashboard/courses/new" className="shrink-0 self-start sm:self-auto mt-1">
-            <Button className="w-full sm:w-auto bg-indigo-500 hover:bg-indigo-400 text-white gap-2 font-medium">
-              <Plus className="w-4 h-4" /> New Course
-            </Button>
-          </Link>
-        </div>
-
-        {/* Stat HUD grid */}
-        <div className="relative grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/[0.06] border-t border-white/[0.06]">
-
-          {/* Mastered Topics */}
-          <div className="bg-slate-950/95 px-5 py-4">
-            <div className="stat-label text-emerald-400 mb-2.5">Mastered</div>
-            <AnimatedCounter
-              value={dbUser.topics_mastered || 0}
-              duration={0.8}
-              format={false}
-              className="font-bold text-white text-2xl leading-none tracking-tight"
-            />
-            <div className="stat-label text-slate-500 mt-2">Topics</div>
-          </div>
-
-          {/* Total XP */}
-          <div className="bg-slate-950/95 px-5 py-4">
-            <div className="stat-label text-amber-400 mb-2.5">Total XP</div>
-            <AnimatedCounter
-              value={dbUser.total_xp || 0}
-              duration={1}
-              format={false}
-              className="font-bold text-amber-400 text-2xl leading-none tracking-tight"
-            />
-            <div className="stat-label text-slate-500 mt-2">Points</div>
-          </div>
-
-          {/* Streak */}
-          <div className="bg-slate-950/95 px-5 py-4">
-            <div
-              className={cn(
-                "stat-label mb-2.5",
-                isHotStreak ? "text-orange-400" : "text-slate-400"
-              )}
-            >
-              Streak
-            </div>
-            <div
-              className={cn(
-                "text-2xl font-bold leading-none tracking-tight",
-                isHotStreak ? "text-orange-400 animate-fire-glow" : "text-white"
-              )}
-            >
-              {streak}
-              <span className="text-sm font-medium text-slate-500 ml-0.5">d</span>
-            </div>
-            <div className="stat-label text-slate-500 mt-2">
-              {isHotStreak ? "Hot 🔥" : "Days"}
-            </div>
-          </div>
-
-          {/* Sessions */}
-          <div className="bg-slate-950/95 px-5 py-4">
-            <div className="stat-label text-slate-400 mb-2.5">Sessions</div>
-            <AnimatedCounter
-              value={totalSessions}
-              duration={1}
-              format={false}
-              className="font-bold text-white text-2xl leading-none tracking-tight"
-            />
-            <div className="stat-label text-slate-500 mt-2">Completed</div>
-          </div>
-
-        </div>
-      </div>
+      <DashboardHeroCard
+        level={level}
+        xpProgress={xpProgress}
+        dbUser={dbUser}
+        studiedToday={studiedToday}
+        streak={streak}
+        isHotStreak={isHotStreak}
+      />
 
       {/* ── Exam countdowns + auto-generated study plans ──
             One card per course with exam_date set, sorted by urgency
