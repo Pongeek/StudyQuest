@@ -11,13 +11,21 @@ import LandingProductMockups from "@/components/landing/LandingProductMockups";
 import LandingStory from "@/components/landing/LandingStory";
 import LandingComparison from "@/components/landing/LandingComparison";
 import LandingCTA from "@/components/landing/LandingCTA";
+import LandingQuestPath from "@/components/landing/LandingQuestPath";
+import SmoothScroll from "@/components/landing/SmoothScroll";
 import AuroraBackground from "@/components/effects/AuroraBackground";
 
 export default async function LandingPage() {
   const { userId } = await auth();
   if (userId) redirect("/dashboard");
   return (
-    <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-white overflow-x-clip">
+      {/* Smooth-scroll engine (Lenis) — landing page scope only */}
+      <SmoothScroll />
+
+      {/* Side-rail quest path — draws itself as user scrolls */}
+      <LandingQuestPath />
+
       {/* ── Ambient atmosphere — pixel grid + CRT scanlines + aurora orbs.
             Layer order matches dashboard/layout.tsx for a unified look. */}
       <div className="fixed inset-0 pixel-grid opacity-70 pointer-events-none" />

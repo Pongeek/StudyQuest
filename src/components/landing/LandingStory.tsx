@@ -1,7 +1,14 @@
 "use client";
 
+// ─── LandingStory ────────────────────────────────────────────────────────────
+// Sticky scrollytelling for the 4-step story. Desktop: visual column is pinned
+// in place while step text scrolls past on the left; the right visual cross-
+// fades between the 4 mini-cards based on which step is currently centered in
+// the viewport. Mobile falls back to the inline stacked layout (sticky doesn't
+// behave well in narrow viewports).
+
 import { useRef, useEffect, useState } from "react";
-import { motion, useInView } from "framer-motion";
+import { motion, useInView, AnimatePresence } from "framer-motion";
 import { Skull, Zap, CheckCircle, Play, FileText } from "lucide-react";
 
 // ─── Section 1: Upload your course ───────────────────────────────────────────
@@ -242,91 +249,127 @@ function BossVisual({ inView }: { inView: boolean }) {
   );
 }
 
-// ─── Individual story section (each owns its own useInView hook) ─────────────
+// ─── Section data ────────────────────────────────────────────────────────────
 
-interface StorySectionData {
+interface StoryStep {
   label: string;
   title: string;
   body: string;
   Visual: (props: { inView: boolean }) => React.ReactNode;
-  flip: boolean;
 }
 
-function StorySection({ label, title, body, Visual, flip }: StorySectionData) {
+const STEPS: StoryStep[] = [
+  {
+    label: "STEP 1",
+    title: "Upload Your Course",
+    body: "Drop any PDF — lecture slides, textbooks, study guides. Claude AI reads every page and extracts all the testable concepts in seconds.",
+    Visual: UploadVisual,
+  },
+  {
+    label: "STEP 2",
+    title: "AI Builds Your Map",
+    body: "The AI organises topics into episodes with a visual course map. You can see exactly what you know, what you're working on, and what's coming next.",
+    Visual: MapBuildVisual,
+  },
+  {
+    label: "STEP 3",
+    title: "Take Quizzes, Earn XP",
+    body: "Every question you answer earns XP and raises your mastery level on that topic. AI grades open-answer questions with detailed personalised feedback.",
+    Visual: XpVisual,
+  },
+  {
+    label: "STEP 4",
+    title: "Face the Episode Boss",
+    body: "When you've covered all topics in an episode, a Boss Fight unlocks — 13 comprehensive questions that test everything at once. Defeat it and claim major XP.",
+    Visual: BossVisual,
+  },
+];
+
+// ─── StepText (left column) — tracks its own viewport position ───────────────
+
+interface StepTextProps {
+  step: StoryStep;
+  index: number;
+  onActiveChange: (index: number) => void;
+}
+
+function StepText({ step, index, onActiveChange }: StepTextProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-120px" });
+  // Active = step's center is within the middle band of the viewport.
+  // Wider margin (-30%) than before so adjacent steps still register during
+  // fast scroll instead of leaving the visual blank.
+  const inView = useInView(ref, { margin: "-30% 0px -30% 0px" });
+
+  useEffect(() => {
+    if (inView) onActiveChange(index);
+  }, [inView, index, onActiveChange]);
 
   return (
     <div
       ref={ref}
-      className={`flex flex-col gap-10 md:flex-row md:items-center ${flip ? "md:flex-row-reverse" : ""}`}
+      className="min-h-[70vh] flex flex-col justify-center space-y-4 py-12"
     >
-      {/* Text column */}
-      <motion.div
-        initial={{ opacity: 0, x: flip ? 30 : -30 }}
-        animate={inView ? { opacity: 1, x: 0 } : {}}
-        transition={{ duration: 0.5 }}
-        className="flex-1 space-y-4"
+      <motion.span
+        initial={{ opacity: 0, y: 15 }}
+        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0.35, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="font-pixel text-[9px] tracking-wider text-indigo-400 flex items-center gap-2"
       >
-        <span className="font-pixel text-[9px] tracking-wider text-indigo-400">
-          {label.toUpperCase()}
-        </span>
-        <h3 className="text-2xl md:text-3xl font-bold text-white">{title}</h3>
-        <p className="text-slate-400 leading-relaxed text-sm md:text-base">{body}</p>
-      </motion.div>
-
-      {/* Visual column */}
-      <motion.div
-        initial={{ opacity: 0, x: flip ? -30 : 30 }}
-        animate={inView ? { opacity: 1, x: 0 } : {}}
-        transition={{ duration: 0.5, delay: 0.15 }}
-        className="flex justify-center md:justify-start flex-shrink-0"
+        <span className="inline-block w-3 h-3 bg-indigo-400" />
+        {step.label}
+      </motion.span>
+      <motion.h3
+        initial={{ opacity: 0, y: 15 }}
+        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0.4, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
+        className="text-3xl md:text-4xl font-bold text-white tracking-tight"
       >
-        <Visual inView={inView} />
-      </motion.div>
+        {step.title}
+      </motion.h3>
+      <motion.p
+        initial={{ opacity: 0, y: 15 }}
+        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0.3, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="text-slate-400 leading-relaxed text-base md:text-lg max-w-md"
+      >
+        {step.body}
+      </motion.p>
     </div>
   );
 }
 
-// ─── Story sections data ──────────────────────────────────────────────────────
+// ─── Mobile-only inline section (sticky doesn't play well in narrow viewports) ──
 
-const SECTIONS: StorySectionData[] = [
-  {
-    label: "Step 1",
-    title: "Upload Your Course",
-    body: "Drop any PDF — lecture slides, textbooks, study guides. Claude AI reads every page and extracts all the testable concepts in seconds.",
-    Visual: UploadVisual,
-    flip: false,
-  },
-  {
-    label: "Step 2",
-    title: "AI Builds Your Map",
-    body: "The AI organises topics into episodes with a visual course map. You can see exactly what you know, what you're working on, and what's coming next.",
-    Visual: MapBuildVisual,
-    flip: true,
-  },
-  {
-    label: "Step 3",
-    title: "Take Quizzes, Earn XP",
-    body: "Every question you answer earns XP and raises your mastery level on that topic. AI grades open-answer questions with detailed personalised feedback.",
-    Visual: XpVisual,
-    flip: false,
-  },
-  {
-    label: "Step 4",
-    title: "Face the Episode Boss",
-    body: "When you've covered all topics in an episode, a Boss Fight unlocks — 13 comprehensive questions that test everything at once. Defeat it and claim major XP.",
-    Visual: BossVisual,
-    flip: true,
-  },
-];
+function MobileStepInline({ step, index }: { step: StoryStep; index: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-120px" });
 
-// ─── Main export ──────────────────────────────────────────────────────────────
+  return (
+    <div ref={ref} className="space-y-6">
+      <div className="space-y-3">
+        <span className="font-pixel text-[9px] tracking-wider text-indigo-400 flex items-center gap-2">
+          <span className="inline-block w-3 h-3 bg-indigo-400" />
+          {step.label}
+        </span>
+        <h3 className="text-2xl font-bold text-white">{step.title}</h3>
+        <p className="text-slate-400 leading-relaxed text-sm">{step.body}</p>
+      </div>
+      <div className="flex justify-center">
+        <step.Visual inView={inView} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Main export ─────────────────────────────────────────────────────────────
 
 export default function LandingStory() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const ActiveVisual = STEPS[activeIndex].Visual;
+
   return (
-    <section className="container mx-auto px-6 py-20 max-w-5xl">
-      <div className="text-center mb-20">
+    <section className="container mx-auto px-6 py-20 max-w-6xl">
+      <div className="text-center mb-16 md:mb-20">
         <p className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3">
           HOW IT WORKS
         </p>
@@ -338,9 +381,69 @@ export default function LandingStory() {
         </p>
       </div>
 
-      <div className="space-y-32">
-        {SECTIONS.map((section) => (
-          <StorySection key={section.title} {...section} />
+      {/* ── Desktop: sticky scrollytelling ──
+          Grid cells stretch to match (default items-stretch), so the right
+          column inherits the full height of the 4-step left column. Sticky
+          element then has proper scroll room. */}
+      <div className="hidden md:grid md:grid-cols-2 md:gap-16 lg:gap-24">
+        {/* Left column — step text blocks scroll normally */}
+        <div>
+          {STEPS.map((step, i) => (
+            <StepText
+              key={step.title}
+              step={step}
+              index={i}
+              onActiveChange={setActiveIndex}
+            />
+          ))}
+        </div>
+
+        {/* Right column wrapper — full column height, sticky child pins to viewport */}
+        <div className="relative">
+          <div className="sticky top-[18vh] h-[64vh] flex items-center justify-center">
+            <div className="relative w-72 flex items-center justify-center">
+              <AnimatePresence initial={false}>
+                <motion.div
+                  key={activeIndex}
+                  initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.96, position: "absolute" }}
+                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <ActiveVisual inView={true} />
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Step indicator dots — pixel chips on the right edge of the visual */}
+              <div className="absolute -right-8 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-[2]">
+                {STEPS.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-2 h-2 transition-all duration-300 ${
+                      i === activeIndex
+                        ? "bg-amber-400"
+                        : i < activeIndex
+                        ? "bg-indigo-400"
+                        : "bg-slate-700"
+                    }`}
+                    style={{
+                      transform:
+                        i === activeIndex
+                          ? "rotate(45deg) scale(1.5)"
+                          : "rotate(45deg)",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Mobile: stacked inline (no sticky) ── */}
+      <div className="md:hidden space-y-20">
+        {STEPS.map((step, i) => (
+          <MobileStepInline key={step.title} step={step} index={i} />
         ))}
       </div>
     </section>
