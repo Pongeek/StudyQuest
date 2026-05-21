@@ -871,6 +871,37 @@
   z-index: 50;
 }
 
+/* Boss stage card — whole-card screen-glitch when a hit lands.
+   Uses transform + filter only (GPU, no layout). Pairs with the
+   existing boss-hit skull animation for a layered "damage" feel. */
+@keyframes boss-stage-glitch {
+  0%   { transform: translate(0, 0);    filter: none; }
+  8%   { transform: translate(-7px, 0); filter: brightness(1.7) hue-rotate(18deg) saturate(1.6); }
+  18%  { transform: translate(5px, 1px);  filter: brightness(1.35) hue-rotate(-14deg); }
+  30%  { transform: translate(-3px, 0); filter: brightness(1.15); }
+  42%  { transform: translate(2px, 0);  filter: none; }
+  100% { transform: translate(0, 0);    filter: none; }
+}
+.boss-stage-glitch {
+  animation: boss-stage-glitch 0.38s ease-out forwards;
+}
+
+/* Hero-damage veil — brief red wash over the viewport when boss counters.
+   Fixed so it covers everything, dims fast to avoid distraction. */
+@keyframes hero-damage-flash {
+  0%   { opacity: 0; }
+  18%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+.hero-damage-flash {
+  animation: hero-damage-flash 0.55s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boss-stage-glitch  { animation: none !important; }
+  .hero-damage-flash  { animation: none !important; opacity: 0 !important; }
+}
+
 /* ===== Brand mark — animated logo (emblem-assembly loop) =====
    Used by <AnimatedStudyQuestMark/>. Eight-second loop that builds the mark
    from nothing every cycle:
@@ -1062,6 +1093,113 @@
     rgba(0, 0, 0, 0.18) 90%,
     rgba(0, 0, 0, 0.38) 100%
   );
+}
+
+/* ===== Aurora Background — animated gradient orbs ================================
+   Replaces the canvas-based FloatingParticles. Four radial gradient blobs drift
+   slowly across the screen using transform-only animations (GPU compositor thread,
+   no layout thrashing). Each orb's color maps to an RPG semantic: indigo = quests,
+   violet = mystery/grimoire, purple = epic rewards, amber = XP/gold.
+   ============================================================================= */
+
+.aurora-orb {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+/* Indigo — 640×640, anchored top-right, drifts diagonally */
+.aurora-orb-indigo {
+  width: 640px;
+  height: 640px;
+  top: -160px;
+  right: -160px;
+  background: radial-gradient(
+    circle at center,
+    rgba(99, 102, 241, 0.16) 0%,
+    rgba(99, 102, 241, 0.08) 40%,
+    transparent 70%
+  );
+  filter: blur(72px);
+}
+
+/* Violet — 520×520, anchored bottom-left, drifts upward */
+.aurora-orb-violet {
+  width: 520px;
+  height: 520px;
+  bottom: -120px;
+  left: -100px;
+  background: radial-gradient(
+    circle at center,
+    rgba(139, 92, 246, 0.14) 0%,
+    rgba(139, 92, 246, 0.06) 45%,
+    transparent 70%
+  );
+  filter: blur(80px);
+}
+
+/* Purple — 380×380, mid-screen, slow drift */
+.aurora-orb-purple {
+  width: 380px;
+  height: 380px;
+  top: 38%;
+  left: 32%;
+  background: radial-gradient(
+    circle at center,
+    rgba(168, 85, 247, 0.10) 0%,
+    rgba(168, 85, 247, 0.04) 50%,
+    transparent 70%
+  );
+  filter: blur(60px);
+}
+
+/* Amber — 260×260, upper-left, warm XP accent */
+.aurora-orb-amber {
+  width: 260px;
+  height: 260px;
+  top: 12%;
+  left: 8%;
+  background: radial-gradient(
+    circle at center,
+    rgba(245, 158, 11, 0.08) 0%,
+    rgba(245, 158, 11, 0.03) 50%,
+    transparent 70%
+  );
+  filter: blur(50px);
+}
+
+@keyframes aurora-1 {
+  0%,  100% { transform: translate(0px,   0px)  scale(1);    }
+  25%        { transform: translate(-50px, 35px)  scale(1.04); }
+  50%        { transform: translate(30px,  55px)  scale(0.97); }
+  75%        { transform: translate(55px,  -25px) scale(1.02); }
+}
+
+@keyframes aurora-2 {
+  0%,  100% { transform: translate(0px,   0px)   scale(1);    }
+  30%        { transform: translate(60px,  -50px)  scale(1.06); }
+  60%        { transform: translate(-40px, 45px)   scale(0.96); }
+  80%        { transform: translate(20px,  -30px)  scale(1.03); }
+}
+
+@keyframes aurora-3 {
+  0%,  100% { transform: translate(0px,   0px)   scale(1);    }
+  40%        { transform: translate(-70px, -45px)  scale(1.08); }
+  70%        { transform: translate(50px,  30px)   scale(0.94); }
+}
+
+@keyframes aurora-4 {
+  0%,  100% { transform: translate(0px,  0px)  scale(1);    }
+  50%        { transform: translate(45px, 60px) scale(1.05); }
+}
+
+.animate-aurora-1 { animation: aurora-1 24s ease-in-out infinite; }
+.animate-aurora-2 { animation: aurora-2 30s ease-in-out infinite; }
+.animate-aurora-3 { animation: aurora-3 21s ease-in-out infinite; }
+.animate-aurora-4 { animation: aurora-4 38s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-orb { animation: none !important; }
 }
 
 /* ===== Tier 1 dopamine — XPBurst floating label ===== */

@@ -28,11 +28,8 @@ export default async function DashboardLayout({
       <div className="fixed inset-0 pixel-grid opacity-70 pointer-events-none" />
       <div className="fixed inset-0 pixel-scanlines opacity-60 pointer-events-none" />
       <div className="fixed inset-0 pixel-vignette pointer-events-none" />
-      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[150px] pointer-events-none" />
-      <div className="fixed bottom-0 left-0 w-[400px] h-[400px] bg-violet-600/5 rounded-full blur-[150px] pointer-events-none" />
-      {/* Ambient floating particles — rendered at the layout level so every
-          authenticated screen (dashboard, profile, course, quiz, exam) has the
-          same atmosphere. */}
+      {/* Aurora orbs — four slow-drifting gradient blobs; replaces the old
+          static corner blobs + canvas particle layer. */}
       <DashboardAnimations />
       {/* Daily Scroll of Wisdom — client component, self-fetches, shows once per day */}
       <ScrollOfWisdom />

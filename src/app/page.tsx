@@ -11,21 +11,19 @@ import LandingProductMockups from "@/components/landing/LandingProductMockups";
 import LandingStory from "@/components/landing/LandingStory";
 import LandingComparison from "@/components/landing/LandingComparison";
 import LandingCTA from "@/components/landing/LandingCTA";
-import FloatingParticles from "@/components/effects/FloatingParticles";
+import AuroraBackground from "@/components/effects/AuroraBackground";
 
 export default async function LandingPage() {
   const { userId } = await auth();
   if (userId) redirect("/dashboard");
   return (
     <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
-      {/* ── Ambient atmosphere — pixel grid + CRT scanlines under the
-            existing radial glows. Same layer order as dashboard/layout.tsx. */}
+      {/* ── Ambient atmosphere — pixel grid + CRT scanlines + aurora orbs.
+            Layer order matches dashboard/layout.tsx for a unified look. */}
       <div className="fixed inset-0 pixel-grid opacity-70 pointer-events-none" />
       <div className="fixed inset-0 pixel-scanlines opacity-60 pointer-events-none" />
       <div className="fixed inset-0 pixel-vignette pointer-events-none" />
-      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[150px] pointer-events-none" />
-      <div className="fixed bottom-0 left-0 w-[400px] h-[400px] bg-violet-600/5 rounded-full blur-[150px] pointer-events-none" />
-      <FloatingParticles count={25} hue={240} />
+      <AuroraBackground />
 
       <div className="relative z-10">
         {/* Nav */}

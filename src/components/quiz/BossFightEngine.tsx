@@ -1073,6 +1073,14 @@ function BossFightEngineInner({
           all combat UI; LevelUpOverlay/Achievement overlays sit above it. */}
       <GradingOverlay show={isFinalizing} kind="boss" />
 
+      {/* Hero-damage veil — red wash when boss counters (bossAnim === "laugh") */}
+      {bossAnim === "laugh" && (
+        <div
+          aria-hidden
+          className="hero-damage-flash fixed inset-0 bg-red-500/15 pointer-events-none z-50"
+        />
+      )}
+
       {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
         <button
@@ -1093,8 +1101,13 @@ function BossFightEngineInner({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="rpg-card rounded-2xl p-5 mb-6 relative overflow-hidden"
+        className={cn(
+          "rpg-card rounded-2xl p-5 mb-6 relative overflow-hidden",
+          bossAnim === "hit" && "boss-stage-glitch"
+        )}
       >
+        {/* CRT scanline overlay — gives the boss arena an old-arcade-monitor feel */}
+        <div aria-hidden className="pixel-scanlines opacity-50 absolute inset-0 pointer-events-none z-[1]" />
         <div className="flex items-center gap-4">
           {/* Boss skull (anim target) */}
           <div className="relative shrink-0">
