@@ -62,7 +62,7 @@ export default function LandingFeatures() {
             initial={{ opacity: 0, y: 30 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.5, delay: i * 0.15 }}
-            className="rpg-card rounded-2xl p-7 group sparkle-hover tilt-card relative overflow-hidden"
+            className="rpg-card rounded-2xl p-7 group sparkle-hover tilt-card relative overflow-hidden transition-shadow duration-300 ease-out hover:shadow-[0_18px_50px_-12px_rgba(99,102,241,0.35)]"
           >
             {/* Pixel nail corners — feature-color, ties to family */}
             <span aria-hidden className={`absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[1] ${nail}`} />

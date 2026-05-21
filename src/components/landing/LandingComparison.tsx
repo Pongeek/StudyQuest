@@ -1,4 +1,5 @@
 import { Zap } from "lucide-react";
+import AnimatedCounter from "@/components/effects/AnimatedCounter";
 
 const OLD_ITEMS = [
   { emoji: "📖", text: "Re-read notes until they blur" },
@@ -30,7 +31,7 @@ export default function LandingComparison() {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Old way — muted slate, nail-less to convey "the dead path" */}
-        <div className="rpg-card rounded-2xl p-7 space-y-4 opacity-75 relative overflow-hidden">
+        <div className="rpg-card rounded-2xl p-7 space-y-4 opacity-75 relative overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1 hover:opacity-90 hover:shadow-[0_18px_44px_-14px_rgba(100,116,139,0.35)]">
           {/* Slate accent line + nails (muted) */}
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-slate-600/30 to-transparent" />
           <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-slate-600 z-[1]" />
@@ -68,7 +69,7 @@ export default function LandingComparison() {
         </div>
 
         {/* Quest way — gold-tier card with amber pixel-nails */}
-        <div className="rpg-card-gold rounded-2xl p-7 space-y-4 relative overflow-hidden">
+        <div className="rpg-card-gold rounded-2xl p-7 space-y-4 relative overflow-hidden transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-[0_22px_56px_-16px_rgba(245,158,11,0.45)]">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
           <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
           <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
@@ -100,9 +101,14 @@ export default function LandingComparison() {
             <div className="font-pixel text-[9px] tracking-wider text-amber-400/90 mb-1">
               PREDICTED SCORE
             </div>
-            <span className="font-pixel text-[18px] tracking-wider text-amber-300 tabular-nums">
-              87%
-            </span>
+            <AnimatedCounter
+              value={87}
+              suffix="%"
+              format={false}
+              duration={1.4}
+              delay={0.3}
+              className="font-pixel text-[18px] tracking-wider text-amber-300 tabular-nums"
+            />
           </div>
         </div>
       </div>

@@ -12,6 +12,30 @@ const FEATURE_PILLS: Array<{ label: string; icon: string; tone: string }> = [
   { label: "EXAM PREP",       icon: "📝", tone: "text-emerald-400" },
 ];
 
+// Word-by-word reveal for the H1 tagline. Last two words ("an Adventure")
+// get the indigo accent to match the original styling.
+const TAGLINE_WORDS: Array<{ text: string; tone?: string }> = [
+  { text: "Turn" },
+  { text: "Studying" },
+  { text: "into" },
+  { text: "an", tone: "text-indigo-400" },
+  { text: "Adventure", tone: "text-indigo-400" },
+];
+
+const taglineContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.09, delayChildren: 0.15 } },
+};
+
+const taglineWord = {
+  hidden: { opacity: 0, y: 28 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
+  },
+};
+
 export default function LandingHero() {
   return (
     <section className="container mx-auto px-6 pt-20 pb-24 max-w-6xl relative">
@@ -31,15 +55,21 @@ export default function LandingHero() {
           </motion.div>
 
           <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-5xl md:text-6xl font-extrabold mb-6 leading-[1.1] tracking-tight"
+            variants={taglineContainer}
+            initial="hidden"
+            animate="show"
+            className="text-5xl md:text-6xl font-extrabold mb-6 leading-[1.1] tracking-tight flex flex-wrap gap-x-[0.27em]"
           >
-            Turn Studying into{" "}
-            <span className="text-indigo-400">
-              an Adventure
-            </span>
+            {TAGLINE_WORDS.map((word, i) => (
+              <span key={i} className="inline-block overflow-hidden">
+                <motion.span
+                  variants={taglineWord}
+                  className={`inline-block ${word.tone ?? ""}`}
+                >
+                  {word.text}
+                </motion.span>
+              </span>
+            ))}
           </motion.h1>
 
           <motion.p

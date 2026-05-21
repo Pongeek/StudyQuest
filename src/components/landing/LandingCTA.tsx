@@ -78,7 +78,7 @@ export default function LandingCTA() {
         initial={{ opacity: 0, y: 30 }}
         animate={isInView ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.6 }}
-        className="relative pixel-border text-amber-500/80 p-12 sm:p-16 max-w-2xl mx-auto bg-slate-900/95"
+        className="relative pixel-border text-amber-500/80 p-12 sm:p-16 max-w-2xl mx-auto bg-slate-900/95 transition-shadow duration-300 ease-out hover:shadow-[0_24px_60px_-18px_rgba(245,158,11,0.5)]"
       >
         {/* Pixel nail corners — amber, marks final CTA as featured */}
         <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
