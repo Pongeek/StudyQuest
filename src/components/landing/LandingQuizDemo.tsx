@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, XCircle, Zap, RotateCcw, Swords } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const QUESTION = {
@@ -50,8 +49,8 @@ export default function LandingQuizDemo() {
     <section className="container mx-auto px-6 py-20 max-w-2xl">
       {/* Section header */}
       <div className="text-center mb-10">
-        <p className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-3">
-          Live Demo
+        <p className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3">
+          LIVE DEMO
         </p>
         <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
           A Taste of Combat
@@ -61,14 +60,20 @@ export default function LandingQuizDemo() {
         </p>
       </div>
 
-      {/* Quiz card */}
-      <div className="rpg-card rounded-2xl p-6 sm:p-8 space-y-5">
+      {/* Quiz card — pixel-bordered with indigo nails */}
+      <div className="relative rpg-card rounded-2xl p-6 sm:p-8 space-y-5 overflow-hidden">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-400/40 to-transparent" />
+        <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
+        <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
+        <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
+        <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
+
         {/* Type badge */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold px-3 py-1 rounded-full border bg-blue-500/10 border-blue-500/20 text-blue-400">
-            Multiple Choice
+        <div className="relative z-[1] flex items-center gap-2">
+          <span className="font-pixel text-[9px] tracking-wider px-2 py-1 pixel-border bg-blue-500/10 text-blue-400 inline-flex items-center">
+            MULTIPLE CHOICE
           </span>
-          <span className="text-xs text-slate-600 font-medium">Q1</span>
+          <span className="font-pixel text-[9px] tracking-wider text-slate-600">Q1</span>
         </div>
 
         {/* Question stem */}
@@ -95,24 +100,41 @@ export default function LandingQuizDemo() {
                 disabled={answered}
                 onClick={() => handleSelect(letter)}
                 className={cn(
-                  "w-full px-4 py-3 sm:px-5 sm:py-4 rounded-xl border transition-all duration-200 text-sm text-left flex items-start gap-3",
+                  "w-full px-4 py-3 sm:px-5 sm:py-4 pixel-border transition-all duration-200 text-sm text-left flex items-start gap-3 relative",
                   optionState === "default" &&
-                    "border-slate-700/50 bg-slate-800/30 text-slate-300 hover:border-indigo-500/50 hover:bg-indigo-500/5 hover:text-white",
+                    "bg-slate-800/30 text-slate-500/60 hover:text-indigo-500/80 hover:bg-indigo-500/5",
                   optionState === "selected" &&
-                    "border-indigo-500/60 bg-indigo-600/15 text-white",
+                    "bg-indigo-600/15 text-indigo-500/80",
                   optionState === "correct" &&
-                    "border-green-500/60 bg-green-500/10 text-green-300 glow-green",
+                    "bg-green-500/10 text-green-500/80 glow-green",
                   optionState === "wrong" &&
-                    "border-red-500/60 bg-red-500/10 text-red-300 glow-red animate-shake",
+                    "bg-red-500/10 text-red-500/80 glow-red animate-shake",
                   answered &&
                     optionState === "default" &&
                     "opacity-40 cursor-not-allowed"
                 )}
               >
-                <span className="font-mono text-xs opacity-50 mt-0.5 flex-shrink-0">
-                  {letter}.
+                <span
+                  className={cn(
+                    "font-pixel text-[11px] tracking-wider mt-0.5 flex-shrink-0",
+                    optionState === "default" && "text-slate-500/70",
+                    optionState === "selected" && "text-indigo-300",
+                    optionState === "correct" && "text-green-300",
+                    optionState === "wrong" && "text-red-300"
+                  )}
+                >
+                  {letter}
                 </span>
-                <span>{text}</span>
+                <span
+                  className={cn(
+                    optionState === "default" && "text-slate-300",
+                    optionState === "selected" && "text-white",
+                    optionState === "correct" && "text-green-200",
+                    optionState === "wrong" && "text-red-200"
+                  )}
+                >
+                  {text}
+                </span>
               </button>
             );
           })}
@@ -121,14 +143,24 @@ export default function LandingQuizDemo() {
         {/* Submit / feedback */}
         <div className="pt-1 space-y-4">
           {!answered ? (
-            <Button
-              onClick={handleSubmit}
-              disabled={!selected}
-              className="bg-indigo-500 hover:bg-indigo-400 text-white font-medium px-8 gap-2 transition-colors duration-150"
-            >
-              <Swords className="w-4 h-4" />
-              Submit Answer
-            </Button>
+            <div className={cn(
+              "inline-block transition-transform duration-100",
+              selected && "hover:translate-y-0.5 active:translate-y-1"
+            )}>
+              <button
+                onClick={handleSubmit}
+                disabled={!selected}
+                className={cn(
+                  "px-6 py-3 flex items-center gap-2 font-pixel text-[11px] tracking-wider",
+                  selected
+                    ? "bg-indigo-500 text-white shadow-[0_4px_0_0_#312e81] hover:shadow-[0_2px_0_0_#312e81] active:shadow-[0_0_0_0_#312e81]"
+                    : "bg-slate-800 text-slate-600 shadow-[0_4px_0_0_#0f172a] cursor-not-allowed opacity-60"
+                )}
+              >
+                <Swords className="w-4 h-4" />
+                SUBMIT ANSWER
+              </button>
+            </div>
           ) : (
             <AnimatePresence>
               <motion.div
@@ -136,10 +168,10 @@ export default function LandingQuizDemo() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={cn(
-                  "rounded-xl p-5 space-y-3 border animate-score-burst",
+                  "p-5 space-y-3 pixel-border animate-score-burst",
                   isCorrect
-                    ? "bg-green-500/10 border-green-500/20"
-                    : "bg-red-500/10 border-red-500/20"
+                    ? "bg-green-500/10 text-green-500/80"
+                    : "bg-red-500/10 text-red-500/80"
                 )}
               >
                 <div className="flex items-center justify-between">
@@ -169,10 +201,10 @@ export default function LandingQuizDemo() {
                         type: "spring",
                         damping: 12,
                       }}
-                      className="flex items-center gap-1 text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full"
+                      className="inline-flex items-center gap-1 pixel-border bg-amber-500/10 text-amber-400 px-2.5 py-1"
                     >
                       <Zap className="w-3 h-3" />
-                      +25 XP
+                      <span className="font-pixel text-[10px] tracking-wider">+25 XP</span>
                     </motion.span>
                   )}
                 </div>
@@ -185,8 +217,8 @@ export default function LandingQuizDemo() {
 
                 {!isCorrect && (
                   <div className="pt-3 border-t border-slate-700/50">
-                    <p className="text-xs text-slate-500 mb-1 font-semibold uppercase tracking-wider">
-                      Correct answer
+                    <p className="font-pixel text-[9px] tracking-wider text-slate-500 mb-1">
+                      CORRECT ANSWER
                     </p>
                     <p className="text-sm text-white">
                       B. Show progression through XP, levels, and a course map

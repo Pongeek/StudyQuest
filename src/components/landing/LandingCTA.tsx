@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
-import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, Sword } from "lucide-react";
 
 // Small radial burst using JSX-based motion divs (no canvas)
 const PARTICLE_COUNT = 12;
@@ -79,16 +78,30 @@ export default function LandingCTA() {
         initial={{ opacity: 0, y: 30 }}
         animate={isInView ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.6 }}
-        className="relative rounded-2xl p-12 sm:p-16 max-w-2xl mx-auto overflow-hidden border border-white/[0.07] bg-white/[0.03]"
+        className="relative pixel-border text-amber-500/80 p-12 sm:p-16 max-w-2xl mx-auto bg-slate-900/95"
       >
-        <div className="relative z-10">
+        {/* Pixel nail corners — amber, marks final CTA as featured */}
+        <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+        <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+        <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+        <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+
+        <div className="relative z-[1]">
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            transition={{ delay: 0.15 }}
+            className="font-pixel text-[9px] tracking-wider text-amber-400/90 mb-3"
+          >
+            READY TO BEGIN
+          </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 15 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: 0.2 }}
             className="text-3xl md:text-4xl font-bold mb-4 text-white tracking-tight"
           >
-            Ready to Begin?
+            Your adventure awaits
           </motion.h2>
           <motion.p
             initial={{ opacity: 0 }}
@@ -107,13 +120,15 @@ export default function LandingCTA() {
             onMouseLeave={handleMouseLeave}
           >
             <ParticleBurst active={burst} />
-            <Link href="/sign-up">
-              <Button
-                size="lg"
-                className="bg-indigo-500 hover:bg-indigo-400 text-white font-medium text-lg px-10 py-7 transition-colors duration-150"
-              >
-                Start for Free <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
+            <Link
+              href="/sign-up"
+              className="pixel-focus outline-none transition-transform duration-100 hover:translate-y-0.5 active:translate-y-1"
+            >
+              <div className="px-7 py-4 flex items-center justify-center gap-2 font-pixel text-[11px] tracking-wider bg-amber-500 text-slate-950 shadow-[0_4px_0_0_#78350f] hover:shadow-[0_2px_0_0_#78350f] active:shadow-[0_0_0_0_#78350f]">
+                <Sword className="w-4 h-4" aria-hidden />
+                START FOR FREE
+                <ArrowRight className="w-4 h-4" aria-hidden />
+              </div>
             </Link>
           </motion.div>
         </div>

@@ -21,41 +21,50 @@ function UploadVisual({ inView }: { inView: boolean }) {
   }, [inView]);
 
   return (
-    <div className="rpg-card rounded-2xl p-5 space-y-4 w-72">
-      {/* Drop zone */}
-      <div className="border-2 border-dashed border-indigo-500/30 rounded-xl p-6 flex flex-col items-center gap-2 bg-indigo-500/5">
-        <FileText className="w-8 h-8 text-indigo-400" />
-        <p className="text-xs text-slate-400 font-medium">Drop your PDF here</p>
-      </div>
+    <div className="relative bg-slate-900/95 pixel-border text-indigo-500/80 p-5 space-y-4 w-72">
+      {/* Pixel nails */}
+      <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
+      <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
+      <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
+      <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
 
-      {/* Uploaded file row */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={inView ? { opacity: 1, y: 0 } : {}}
-        transition={{ delay: 0.4 }}
-        className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.07] rounded-lg px-3 py-2"
-      >
-        <FileText className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-white truncate">course.pdf</p>
-          <p className="text-[10px] text-slate-500">5 MB</p>
+      <div className="relative z-[1] space-y-4">
+        {/* Drop zone */}
+        <div className="pixel-border border-dashed text-indigo-500/40 bg-indigo-500/5 p-6 flex flex-col items-center gap-2">
+          <FileText className="w-8 h-8 text-indigo-400" />
+          <p className="font-pixel text-[9px] tracking-wider text-indigo-300/80">DROP YOUR PDF</p>
         </div>
-        <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-      </motion.div>
 
-      {/* Question count */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={inView ? { opacity: 1 } : {}}
-        transition={{ delay: 0.6 }}
-        className="flex items-center gap-2"
-      >
-        <Zap className="w-3.5 h-3.5 text-amber-400" />
-        <p className="text-xs text-slate-400">
-          AI extracted{" "}
-          <span className="text-amber-400 font-bold tabular-nums">{count}</span> questions
-        </p>
-      </motion.div>
+        {/* Uploaded file row */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ delay: 0.4 }}
+          className="flex items-center gap-3 pixel-border bg-white/[0.03] text-white/30 px-3 py-2"
+        >
+          <FileText className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-white truncate">course.pdf</p>
+            <p className="font-pixel text-[8px] tracking-wider text-slate-500">5 MB</p>
+          </div>
+          <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+        </motion.div>
+
+        {/* Question count */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={inView ? { opacity: 1 } : {}}
+          transition={{ delay: 0.6 }}
+          className="flex items-center gap-2"
+        >
+          <Zap className="w-3.5 h-3.5 text-amber-400" />
+          <p className="text-xs text-slate-400">
+            AI extracted{" "}
+            <span className="font-pixel text-[12px] tracking-wider text-amber-400 tabular-nums">{count}</span>{" "}
+            questions
+          </p>
+        </motion.div>
+      </div>
     </div>
   );
 }
@@ -71,12 +80,21 @@ const MAP_TOPICS = [
 
 function MapBuildVisual({ inView }: { inView: boolean }) {
   return (
-    <div className="rpg-card rounded-2xl p-5 space-y-2 w-72">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-7 h-7 bg-indigo-500 rounded-lg flex items-center justify-center text-xs font-extrabold text-white">
+    <div className="relative bg-slate-900/95 pixel-border text-indigo-500/80 p-5 space-y-2 w-72">
+      {/* Pixel nails */}
+      <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
+      <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
+      <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
+      <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
+
+      <div className="relative z-[1] flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 pixel-border bg-indigo-500 text-white flex items-center justify-center text-xs font-extrabold">
           1
         </div>
-        <p className="text-xs font-bold text-white">Episode 1 · Biology</p>
+        <div className="min-w-0">
+          <div className="font-pixel text-[8px] tracking-wider text-indigo-400/90">EPISODE 1</div>
+          <p className="text-xs font-bold text-white truncate">Biology</p>
+        </div>
       </div>
 
       {MAP_TOPICS.map((t) => (
@@ -85,7 +103,7 @@ function MapBuildVisual({ inView }: { inView: boolean }) {
           initial={{ opacity: 0, x: -12 }}
           animate={inView ? { opacity: 1, x: 0 } : {}}
           transition={{ delay: t.delay + 0.3, duration: 0.3 }}
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border ${t.border}`}
+          className={`relative z-[1] flex items-center gap-2.5 px-3 py-2 rounded-xl border ${t.border}`}
         >
           <div className="w-5 h-5 rounded-full bg-white/[0.04] border border-white/[0.07] flex items-center justify-center flex-shrink-0">
             <Play className="w-2.5 h-2.5 text-indigo-400" />
@@ -101,50 +119,58 @@ function MapBuildVisual({ inView }: { inView: boolean }) {
 
 function XpVisual({ inView }: { inView: boolean }) {
   return (
-    <div className="rpg-card rounded-2xl p-5 space-y-4 w-72">
-      {/* XP bar */}
-      <div>
-        <div className="flex justify-between text-xs mb-1.5">
-          <span className="text-slate-500 font-medium flex items-center gap-1">
-            <Zap className="w-3 h-3 text-amber-400" /> XP Progress
-          </span>
-          <span className="text-amber-400 font-bold">Lv.3</span>
+    <div className="relative bg-slate-900/95 pixel-border text-amber-500/80 p-5 space-y-4 w-72">
+      {/* Pixel nails */}
+      <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+      <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+      <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+      <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+
+      <div className="relative z-[1] space-y-4">
+        {/* XP bar — segmented pixel arcade bar (matches real dashboard) */}
+        <div>
+          <div className="flex justify-between mb-1.5">
+            <span className="font-pixel text-[9px] tracking-wider text-amber-500/70 flex items-center gap-1.5">
+              <Zap className="w-3 h-3" /> XP PROGRESS
+            </span>
+            <span className="font-pixel text-[10px] tracking-wider text-amber-400 tabular-nums">LV.3</span>
+          </div>
+          <div className="pixel-xp-bar">
+            <motion.div
+              className="pixel-xp-bar-fill"
+              initial={{ width: "0%" }}
+              animate={inView ? { width: "78%" } : {}}
+              transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
+            />
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className="font-pixel text-[8px] tracking-wider text-slate-600 tabular-nums">234 XP</span>
+            <span className="font-pixel text-[8px] tracking-wider text-slate-600 tabular-nums">300 XP</span>
+          </div>
         </div>
-        <div className="h-3 bg-white/[0.06] rounded-full overflow-hidden">
-          <motion.div
-            className="h-full xp-shimmer rounded-full"
-            initial={{ width: "0%" }}
-            animate={inView ? { width: "78%" } : {}}
-            transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
-          />
-        </div>
-        <div className="flex justify-between text-[10px] text-slate-600 mt-1">
-          <span>234 XP</span>
-          <span>300 XP</span>
-        </div>
+
+        {/* XP pill burst — pixel-bordered + pixel-font */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={inView ? { opacity: 1, scale: 1 } : {}}
+          transition={{ delay: 0.9, type: "spring", damping: 10 }}
+          className="flex items-center justify-center gap-2 pixel-border bg-amber-500/10 text-amber-400 px-5 py-2"
+        >
+          <Zap className="w-4 h-4" />
+          <span className="font-pixel text-[11px] tracking-wider">+25 XP EARNED</span>
+        </motion.div>
+
+        {/* Correct answer indicator */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ delay: 1.2 }}
+          className="flex items-center gap-2 text-xs text-green-300 pixel-border bg-green-500/10 px-3 py-2"
+        >
+          <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+          <span>Correct! Photosynthesis mastered.</span>
+        </motion.div>
       </div>
-
-      {/* XP pill burst */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={inView ? { opacity: 1, scale: 1 } : {}}
-        transition={{ delay: 0.9, type: "spring", damping: 10 }}
-        className="flex items-center justify-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-5 py-2"
-      >
-        <Zap className="w-4 h-4 text-amber-400" />
-        <span className="text-amber-400 font-bold text-sm">+25 XP earned!</span>
-      </motion.div>
-
-      {/* Correct answer indicator */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={inView ? { opacity: 1, y: 0 } : {}}
-        transition={{ delay: 1.2 }}
-        className="flex items-center gap-2 text-xs text-green-300 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2"
-      >
-        <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-        <span>Correct! Photosynthesis mastered.</span>
-      </motion.div>
     </div>
   );
 }
@@ -153,50 +179,65 @@ function XpVisual({ inView }: { inView: boolean }) {
 
 function BossVisual({ inView }: { inView: boolean }) {
   return (
-    <div className="rpg-card rounded-2xl p-5 space-y-4 w-72">
-      {/* Boss tile */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={inView ? { opacity: 1, scale: 1 } : {}}
-        transition={{ delay: 0.3, type: "spring", damping: 14 }}
-        className="flex items-center gap-3 px-4 py-4 rounded-xl border border-red-500/30 bg-red-950/15"
-      >
-        <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center flex-shrink-0">
-          <Skull className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <p className="text-sm font-extrabold text-white">Episode Boss Fight</p>
-          <p className="text-xs text-slate-400 mt-0.5">13 trials · Cover all topics</p>
-        </div>
-      </motion.div>
+    <div className="relative bg-slate-900/95 pixel-border text-red-500/80 p-5 space-y-4 w-72">
+      {/* Pixel nails — red, boss fight signature */}
+      <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-red-400 z-[1]" />
+      <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-400 z-[1]" />
+      <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-red-400 z-[1]" />
+      <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-red-400 z-[1]" />
 
-      {/* HP bar */}
-      <div>
-        <div className="flex justify-between text-[10px] mb-1">
-          <span className="text-slate-500">Boss HP</span>
-          <span className="text-red-400 font-bold">100%</span>
+      <div className="relative z-[1] space-y-4">
+        {/* Boss tile — pixel-bordered */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={inView ? { opacity: 1, scale: 1 } : {}}
+          transition={{ delay: 0.3, type: "spring", damping: 14 }}
+          className="flex items-center gap-3 px-4 py-4 pixel-border bg-red-950/15 text-red-500/60"
+        >
+          <div className="w-12 h-12 pixel-border bg-red-600 text-white flex items-center justify-center flex-shrink-0">
+            <Skull className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="font-pixel text-[9px] tracking-wider text-red-400/90 mb-0.5">BOSS FIGHT</div>
+            <p className="text-sm font-extrabold text-white">Episode Boss</p>
+            <p className="text-xs text-slate-400 mt-0.5">13 trials · all topics</p>
+          </div>
+        </motion.div>
+
+        {/* HP bar */}
+        <div>
+          <div className="flex justify-between mb-1">
+            <span className="font-pixel text-[8px] tracking-wider text-slate-500">BOSS HP</span>
+            <span className="font-pixel text-[10px] tracking-wider text-red-400 tabular-nums">100%</span>
+          </div>
+          <div className="h-2 bg-white/[0.06] rounded-[2px] overflow-hidden border border-red-500/20">
+            <div className="h-full bg-red-600 w-full" />
+          </div>
         </div>
-        <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
-          <div className="h-full bg-red-600 rounded-full w-full" />
+
+        {/* Reward preview */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={inView ? { opacity: 1 } : {}}
+          transition={{ delay: 0.8 }}
+          className="flex items-center gap-2 text-xs"
+        >
+          <Zap className="w-3.5 h-3.5 text-amber-400" />
+          <span className="text-slate-400">Defeat for</span>
+          <span className="font-pixel text-[10px] tracking-wider text-amber-400 tabular-nums">+150 XP</span>
+        </motion.div>
+
+        {/* Chunky pixel-shadow Engage Boss CTA */}
+        <div className="w-full transition-transform duration-100 hover:translate-y-0.5 active:translate-y-1">
+          <button
+            type="button"
+            className="w-full py-3 bg-amber-500 text-slate-950 font-pixel text-[10px] tracking-wider flex items-center justify-center gap-1.5 shadow-[0_4px_0_0_#78350f] hover:shadow-[0_2px_0_0_#78350f] active:shadow-[0_0_0_0_#78350f]"
+          >
+            <Skull className="w-3.5 h-3.5" />
+            ENGAGE BOSS
+          </button>
         </div>
       </div>
-
-      {/* Reward preview */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={inView ? { opacity: 1 } : {}}
-        transition={{ delay: 0.8 }}
-        className="flex items-center gap-2 text-xs"
-      >
-        <Zap className="w-3.5 h-3.5 text-amber-400" />
-        <span className="text-slate-400">Defeat the boss for</span>
-        <span className="text-amber-400 font-bold">+150 XP</span>
-      </motion.div>
-
-      <button className="w-full py-2.5 bg-amber-500 text-slate-950 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5">
-        <Skull className="w-3.5 h-3.5" />
-        Engage Boss
-      </button>
     </div>
   );
 }
@@ -227,8 +268,8 @@ function StorySection({ label, title, body, Visual, flip }: StorySectionData) {
         transition={{ duration: 0.5 }}
         className="flex-1 space-y-4"
       >
-        <span className="text-xs font-bold uppercase tracking-widest text-indigo-400">
-          {label}
+        <span className="font-pixel text-[9px] tracking-wider text-indigo-400">
+          {label.toUpperCase()}
         </span>
         <h3 className="text-2xl md:text-3xl font-bold text-white">{title}</h3>
         <p className="text-slate-400 leading-relaxed text-sm md:text-base">{body}</p>
@@ -286,8 +327,8 @@ export default function LandingStory() {
   return (
     <section className="container mx-auto px-6 py-20 max-w-5xl">
       <div className="text-center mb-20">
-        <p className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-3">
-          How It Works
+        <p className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3">
+          HOW IT WORKS
         </p>
         <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
           Your Quest Begins Here

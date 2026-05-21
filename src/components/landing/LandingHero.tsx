@@ -2,9 +2,15 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Zap, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, Sword } from "lucide-react";
 import LandingHeroVisual from "@/components/landing/LandingHeroVisual";
+
+const FEATURE_PILLS: Array<{ label: string; icon: string; tone: string }> = [
+  { label: "XP SYSTEM",       icon: "⚡", tone: "text-amber-400" },
+  { label: "5 MASTERY TIERS", icon: "🏆", tone: "text-amber-400" },
+  { label: "AI GRADING",      icon: "🧠", tone: "text-indigo-400" },
+  { label: "EXAM PREP",       icon: "📝", tone: "text-emerald-400" },
+];
 
 export default function LandingHero() {
   return (
@@ -12,14 +18,16 @@ export default function LandingHero() {
       <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
         {/* ── Left: text column ── */}
         <div className="flex flex-col items-start">
+          {/* Eyebrow — rank-chip vocabulary, matches dashboard/profile heroes */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-5 py-2 mb-8 text-sm text-indigo-300 backdrop-blur-sm sparkle-hover"
+            className="rank-chip rank-chip-shimmer mb-8"
           >
-            <Zap className="w-3.5 h-3.5 text-indigo-400" />
-            AI-Powered Learning RPG
+            <span aria-hidden="true" className="opacity-50">&#9670;</span>
+            <span>AI-POWERED LEARNING RPG</span>
+            <span aria-hidden="true" className="opacity-50">&#9670;</span>
           </motion.div>
 
           <motion.h1
@@ -44,53 +52,50 @@ export default function LandingHero() {
             boss fights, and intelligent questions. Earn XP, level up, and master any subject.
           </motion.p>
 
+          {/* CTAs — chunky pixel-shadow press buttons matching Today's Mission */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-4"
+            className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
           >
-            <Link href="/sign-up">
-              <Button
-                size="lg"
-                className="bg-indigo-500 hover:bg-indigo-400 text-white font-medium text-lg px-10 py-7 transition-colors duration-150"
-              >
-                Start Your Quest <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
+            <Link
+              href="/sign-up"
+              className="pixel-focus outline-none transition-transform duration-100 hover:translate-y-0.5 active:translate-y-1"
+            >
+              <div className="px-6 py-4 flex items-center justify-center gap-2 font-pixel text-[11px] tracking-wider bg-indigo-500 text-white shadow-[0_4px_0_0_#312e81] hover:shadow-[0_2px_0_0_#312e81] active:shadow-[0_0_0_0_#312e81]">
+                <Sword className="w-4 h-4" aria-hidden />
+                START YOUR QUEST
+                <ArrowRight className="w-4 h-4" aria-hidden />
+              </div>
             </Link>
-            <Link href="/sign-in">
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-slate-700/50 text-slate-300 hover:bg-white/5 hover:border-slate-500 text-lg px-10 py-7 transition-colors duration-150"
-              >
-                Sign In
-              </Button>
+            <Link
+              href="/sign-in"
+              className="pixel-focus outline-none transition-transform duration-100 hover:translate-y-0.5 active:translate-y-1"
+            >
+              <div className="px-6 py-4 flex items-center justify-center gap-2 font-pixel text-[11px] tracking-wider pixel-border bg-slate-900/80 text-slate-300 shadow-[0_4px_0_0_#0f172a] hover:shadow-[0_2px_0_0_#0f172a] active:shadow-[0_0_0_0_#0f172a]">
+                SIGN IN
+              </div>
             </Link>
           </motion.div>
 
-          {/* Feature pills */}
+          {/* Feature pills — pixel-bordered pixel-font chips */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.5 }}
-            className="flex items-center gap-3 mt-10 flex-wrap"
+            className="flex items-center gap-2.5 mt-10 flex-wrap"
           >
-            {[
-              { label: "XP System", icon: "⚡" },
-              { label: "5 Mastery Tiers", icon: "🏆" },
-              { label: "AI Grading", icon: "🧠" },
-              { label: "Exam Prep", icon: "📝" },
-            ].map(({ label, icon }, i) => (
+            {FEATURE_PILLS.map(({ label, icon, tone }, i) => (
               <motion.div
                 key={label}
                 initial={{ opacity: 0, y: 10, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ delay: 0.7 + i * 0.1, type: "spring" }}
-                className="flex items-center gap-2 text-sm text-slate-400 bg-slate-800/40 border border-slate-700/30 rounded-full px-4 py-2 backdrop-blur-sm"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 pixel-border bg-slate-900/60 ${tone}`}
               >
-                <span className="text-base">{icon}</span>
-                <span className="font-medium">{label}</span>
+                <span className="text-[13px] leading-none" aria-hidden>{icon}</span>
+                <span className="font-pixel text-[9px] tracking-wider">{label}</span>
               </motion.div>
             ))}
           </motion.div>

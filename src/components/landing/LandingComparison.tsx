@@ -20,8 +20,8 @@ export default function LandingComparison() {
   return (
     <section className="container mx-auto px-6 py-20 max-w-5xl">
       <div className="text-center mb-14">
-        <p className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-3">
-          Why This Hits Different
+        <p className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3">
+          WHY THIS HITS DIFFERENT
         </p>
         <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
           Old Way vs. Quest Way
@@ -29,13 +29,25 @@ export default function LandingComparison() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Old way */}
-        <div className="rpg-card rounded-2xl p-7 space-y-4 opacity-75">
+        {/* Old way — muted slate, nail-less to convey "the dead path" */}
+        <div className="rpg-card rounded-2xl p-7 space-y-4 opacity-75 relative overflow-hidden">
+          {/* Slate accent line + nails (muted) */}
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-slate-600/30 to-transparent" />
+          <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-slate-600 z-[1]" />
+          <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-slate-600 z-[1]" />
+          <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-slate-600 z-[1]" />
+          <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-slate-600 z-[1]" />
+
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center text-sm">
+            <div className="w-9 h-9 pixel-border bg-slate-700/40 text-slate-500 flex items-center justify-center text-sm">
               😩
             </div>
-            <h3 className="font-bold text-slate-400 text-base">How You Study Now</h3>
+            <div className="min-w-0">
+              <div className="font-pixel text-[9px] tracking-wider text-slate-500/90">
+                OLD WAY
+              </div>
+              <h3 className="font-bold text-slate-400 text-base">How You Study Now</h3>
+            </div>
           </div>
 
           <ul className="space-y-3">
@@ -48,19 +60,31 @@ export default function LandingComparison() {
           </ul>
 
           <div className="pt-4 border-t border-slate-800/60">
-            <p className="text-xs text-slate-600 font-medium">
-              Predicted exam score: <span className="text-slate-500">¯\_(ツ)_/¯</span>
-            </p>
+            <div className="font-pixel text-[9px] tracking-wider text-slate-600 mb-1">
+              PREDICTED SCORE
+            </div>
+            <span className="text-slate-500 text-sm">¯\_(ツ)_/¯</span>
           </div>
         </div>
 
-        {/* New way */}
-        <div className="rpg-card-gold rounded-2xl p-7 space-y-4">
+        {/* Quest way — gold-tier card with amber pixel-nails */}
+        <div className="rpg-card-gold rounded-2xl p-7 space-y-4 relative overflow-hidden">
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+          <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+          <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+          <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+          <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" />
+            <div className="w-9 h-9 pixel-border bg-indigo-500 text-white flex items-center justify-center">
+              <Zap className="w-4 h-4" />
             </div>
-            <h3 className="font-bold text-white text-base">How You&apos;ll Study with StudyQuest</h3>
+            <div className="min-w-0">
+              <div className="font-pixel text-[9px] tracking-wider text-amber-400/90">
+                QUEST WAY
+              </div>
+              <h3 className="font-bold text-white text-base">With StudyQuest</h3>
+            </div>
           </div>
 
           <ul className="space-y-3">
@@ -73,10 +97,12 @@ export default function LandingComparison() {
           </ul>
 
           <div className="pt-4 border-t border-amber-500/20">
-            <p className="text-xs text-amber-400 font-bold">
-              Predicted exam score:{" "}
-              <span className="text-amber-300 text-sm font-extrabold">87%</span>
-            </p>
+            <div className="font-pixel text-[9px] tracking-wider text-amber-400/90 mb-1">
+              PREDICTED SCORE
+            </div>
+            <span className="font-pixel text-[18px] tracking-wider text-amber-300 tabular-nums">
+              87%
+            </span>
           </div>
         </div>
       </div>
