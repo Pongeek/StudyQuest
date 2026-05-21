@@ -18,7 +18,6 @@ import {
   ArrowRight,
   ScrollText,
   Crown,
-  Swords,
   Gem,
   Shield,
   Check,
@@ -30,6 +29,8 @@ import {
   getLevelTitle,
 } from "@/lib/xp";
 import { cn } from "@/lib/utils";
+import ProfileHeroCard from "@/components/profile/ProfileHeroCard";
+import QuestPulse from "@/components/profile/QuestPulse";
 
 export default async function ProfilePage() {
   const { userId } = await auth();
@@ -195,172 +196,60 @@ export default async function ProfilePage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-8">
 
-      {/* ─── HERO — pixel-elegant HUD card (matches dashboard) ─── */}
-      <section className="rpg-card rounded-2xl overflow-hidden relative animate-slide-up">
-        {/* Dot-matrix texture */}
-        <div className="absolute inset-0 hud-hero-texture rounded-2xl" />
-
-        {/* Header strip */}
-        <div className="relative px-5 sm:px-7 pt-4 pb-3 flex items-center justify-between gap-3 border-b border-white/[0.05]">
-          <span className="stat-label text-amber-400/80 flex items-center gap-2">
-            <Swords className="w-3.5 h-3.5" />
-            Adventurer Profile
-          </span>
-          {memberSince && (
-            <span className="text-[11px] text-slate-500 font-medium tracking-wide">
-              Joined{" "}
-              {memberSince.toLocaleDateString(undefined, {
+      {/* ─── HERO — pixel-elegant HUD card (matches dashboard animations) ─── */}
+      <ProfileHeroCard
+        level={level}
+        rankTitle={rankTitle}
+        xpProgress={xpProgress}
+        name={dbUser.name as string}
+        email={(dbUser.email as string) || null}
+        memberSinceLabel={
+          memberSince
+            ? memberSince.toLocaleDateString("en-US", {
                 month: "short",
                 year: "numeric",
-              })}
-            </span>
-          )}
-        </div>
-
-        {/* Level frame + identity + XP bar */}
-        <div className="relative px-5 sm:px-7 pt-5 pb-6 flex items-start gap-4">
-
-          {/* Pixel level frame */}
-          <div className="hud-level-frame" aria-label={`Level ${level}`}>
-            <span className="hud-level-label">LVL</span>
-            <span className="hud-level-number">{level}</span>
-          </div>
-
-          {/* Identity + XP */}
-          <div className="flex-1 min-w-0 pt-1">
-            {/* Rank chip */}
-            <div className="rank-chip mb-2.5">
-              <span aria-hidden="true" className="opacity-50">&#9670;</span>
-              <span>{rankTitle.toUpperCase()}</span>
-              <span aria-hidden="true" className="opacity-50">&#9670;</span>
-            </div>
-
-            {/* Name */}
-            <h1 className="text-2xl sm:text-3xl font-bold text-white truncate leading-tight tracking-tight">
-              {dbUser.name || "Adventurer"}
-            </h1>
-
-            {/* Email or spacer */}
-            {dbUser.email ? (
-              <p className="text-slate-500 text-sm mt-1 mb-3 truncate">{dbUser.email}</p>
-            ) : (
-              <div className="mb-3" />
-            )}
-
-            {/* Pixel XP bar */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="stat-label text-amber-500/70">XP Progress</span>
-                <span className="text-[11px] text-slate-400 tabular-nums font-medium">
-                  {xpProgress.current.toLocaleString()} / {xpProgress.needed.toLocaleString()}
-                </span>
-              </div>
-              <div
-                className="pixel-xp-bar"
-                role="progressbar"
-                aria-valuenow={xpProgress.percentage}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`XP progress to level ${level + 1}: ${xpProgress.percentage}% complete`}
-              >
-                <div
-                  className="pixel-xp-bar-fill"
-                  style={{ width: `${xpProgress.percentage}%` }}
-                />
-              </div>
-              <div className="flex justify-between mt-1.5">
-                <span className="stat-label text-slate-600">LV.{level}</span>
-                <span className="stat-label text-indigo-400/50">
-                  {100 - xpProgress.percentage}% to next rank
-                </span>
-                <span className="stat-label text-slate-600">LV.{level + 1}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Stat grid — Total XP · Streak · Sessions · Trophies */}
-        <div className="relative grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.06] border-t border-white/[0.06]">
-
-          {/* Total XP */}
-          <div className="bg-slate-950/95 px-5 py-4">
-            <div className="stat-label text-amber-400 mb-2.5">Total XP</div>
-            <div className="font-bold text-amber-400 text-2xl leading-none tracking-tight tabular-nums">
-              {totalXp.toLocaleString()}
-            </div>
-            <div className="stat-label text-slate-500 mt-2">Battle Spoils</div>
-          </div>
-
-          {/* Streak */}
-          <div className="bg-slate-950/95 px-5 py-4">
-            <div className={cn(
-              "stat-label mb-2.5",
-              isHotStreak ? "text-orange-400" : currentStreak > 0 ? "text-orange-400" : "text-slate-400"
-            )}>
-              Streak
-            </div>
-            <div className={cn(
-              "text-2xl font-bold leading-none tracking-tight",
-              currentStreak > 0 ? (isHotStreak ? "text-orange-400 animate-fire-glow" : "text-orange-400") : "text-white"
-            )}>
-              {currentStreak > 0 ? currentStreak : "—"}
-              {currentStreak > 0 && (
-                <span className="text-sm font-medium text-slate-500 ml-0.5">d</span>
-              )}
-            </div>
-            <div className="stat-label text-slate-500 mt-2">{streakHint}</div>
-          </div>
-
-          {/* Sessions */}
-          <div className="bg-slate-950/95 px-5 py-4">
-            <div className="stat-label text-slate-400 mb-2.5">Sessions</div>
-            <div className="font-bold text-white text-2xl leading-none tracking-tight tabular-nums">
-              {totalSessions || 0}
-            </div>
-            <div className="stat-label text-slate-500 mt-2">Quests Logged</div>
-          </div>
-
-          {/* Trophies */}
-          <div className="bg-slate-950/95 px-5 py-4">
-            <div className="stat-label text-purple-400 mb-2.5">Trophies</div>
-            <div className="font-bold text-white text-2xl leading-none tracking-tight tabular-nums">
-              {earnedCount}
-              <span className="text-slate-600 text-lg font-normal">/{totalAchievements}</span>
-            </div>
-            <div className="stat-label text-slate-500 mt-2">Hall of Honor</div>
-          </div>
-
-        </div>
-      </section>
+              })
+            : null
+        }
+        totalXp={totalXp}
+        currentStreak={currentStreak}
+        isHotStreak={isHotStreak}
+        streakHint={streakHint}
+        totalSessions={totalSessions || 0}
+        earnedCount={earnedCount}
+        totalAchievements={totalAchievements}
+      />
 
       {/* ─── STUDY ACTIVITY HEATMAP ─── */}
       <section>
         <header className="flex items-center gap-3 mb-4 px-1">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{
-              background: "rgba(99,102,241,0.08)",
-              border: "1px solid rgba(99,102,241,0.20)",
-            }}
-          >
-            <Zap className="w-4 h-4 text-indigo-400" />
+          <div className="w-9 h-9 pixel-border bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+            <Zap className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-[0.28em] font-bold text-indigo-400/80">
-              Activity Log
+            <div className="font-pixel text-[9px] tracking-wider text-indigo-400/90">
+              ACTIVITY LOG
             </div>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
               Study Activity
             </h2>
           </div>
         </header>
-        <StudyHeatmap data={heatmapData} />
+        <QuestPulse data={heatmapData} currentStreak={currentStreak} />
       </section>
 
       {/* ─── ACHIEVEMENTS ─── */}
       <section>
         {/* Header with progress ring */}
-        <div className="rpg-card rounded-2xl p-5 sm:p-6 mb-4 flex items-center gap-5 sm:gap-6">
+        <div className="rpg-card rounded-2xl p-5 sm:p-6 mb-4 flex items-center gap-5 sm:gap-6 relative overflow-hidden">
+          {/* Amber accent line — trophy stamp feel */}
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
+          {/* Pixel nails — amber, trophy stamp */}
+          <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+          <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+          <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+          <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+
           <div className="achievement-ring-wrap">
             <svg className="achievement-ring-svg" viewBox="0 0 132 132">
               <defs>
@@ -383,16 +272,16 @@ export default async function ProfilePage() {
                 <div className="text-3xl font-extrabold text-white tabular-nums tracking-tight leading-none">
                   {earnedCount}
                 </div>
-                <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-amber-400/75 mt-1.5">
-                  of {totalAchievements}
+                <div className="font-pixel text-[9px] tracking-wider text-amber-400/75 mt-1.5">
+                  OF {totalAchievements}
                 </div>
               </div>
             </div>
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.28em] font-bold text-amber-400/80 flex items-center gap-2 mb-2">
-              <Crown className="w-3.5 h-3.5" />
-              The Trophy Case
+            <div className="font-pixel text-[9px] tracking-wider text-amber-400/90 flex items-center gap-2 mb-2">
+              <Crown className="w-3 h-3" />
+              THE TROPHY CASE
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
               Honors &amp; Relics
@@ -408,10 +297,10 @@ export default async function ProfilePage() {
         {/* Earned */}
         {earnedAchievementsList.length > 0 && (
           <>
-            <div className="text-[10px] uppercase tracking-[0.28em] font-bold text-amber-400/80 mb-3 flex items-center gap-2 px-1">
+            <div className="font-pixel text-[9px] tracking-wider text-amber-400/90 mb-3 flex items-center gap-2 px-1">
               <Sparkles className="w-3 h-3" />
-              Earned
-              <span className="text-slate-700">·</span>
+              EARNED
+              <span className="text-slate-700">&middot;</span>
               <span className="text-slate-500 tabular-nums">{earnedAchievementsList.length}</span>
             </div>
             <div className="grid sm:grid-cols-2 gap-3 mb-6">
@@ -425,10 +314,10 @@ export default async function ProfilePage() {
         {/* Locked */}
         {lockedAchievementsList.length > 0 && (
           <>
-            <div className="text-[10px] uppercase tracking-[0.28em] font-bold text-slate-500 mb-3 flex items-center gap-2 px-1">
+            <div className="font-pixel text-[9px] tracking-wider text-slate-500 mb-3 flex items-center gap-2 px-1">
               <Lock className="w-3 h-3" />
-              Sealed Chests
-              <span className="text-slate-700">·</span>
+              SEALED CHESTS
+              <span className="text-slate-700">&middot;</span>
               <span className="text-slate-600 tabular-nums">{lockedAchievementsList.length}</span>
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
@@ -445,15 +334,12 @@ export default async function ProfilePage() {
         <section>
           <header className="flex items-center justify-between gap-3 mb-4 px-1">
             <div className="flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.18)" }}
-              >
-                <Star className="w-4 h-4 text-emerald-400" />
+              <div className="w-9 h-9 pixel-border bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+                <Star className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.28em] font-bold text-emerald-400/80">
-                  Skill Constellations
+                <div className="font-pixel text-[9px] tracking-wider text-emerald-400/90">
+                  SKILL CONSTELLATIONS
                 </div>
                 <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
                   Mastered Topics
@@ -520,15 +406,12 @@ export default async function ProfilePage() {
       <section>
         <header className="flex items-center justify-between gap-3 mb-4 px-1">
           <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center"
-              style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.22)" }}
-            >
-              <ScrollText className="w-4 h-4 text-indigo-400" />
+            <div className="w-9 h-9 pixel-border bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+              <ScrollText className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-[10px] uppercase tracking-[0.28em] font-bold text-indigo-400/80">
-                Adventurer&apos;s Diary
+              <div className="font-pixel text-[9px] tracking-wider text-indigo-400/90">
+                ADVENTURER&apos;S DIARY
               </div>
               <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
                 Recent Quests
@@ -578,13 +461,13 @@ export default async function ProfilePage() {
                         {failing && <X className="w-3.5 h-3.5" strokeWidth={3} />}
                         <span>{score}%</span>
                       </div>
-                      <div className="text-[10px] uppercase tracking-[0.15em] font-bold text-slate-500 mt-0.5">
-                        Score
+                      <div className="font-pixel text-[9px] tracking-wider text-slate-500 mt-0.5">
+                        SCORE
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-1">
-                      <Zap className="w-3 h-3 text-amber-400" />
-                      <span className="text-[12px] font-bold text-amber-300 tabular-nums">
+                    <div className="inline-flex items-center gap-1 pixel-border bg-amber-500/10 text-amber-400 px-2.5 py-1">
+                      <Zap className="w-3 h-3" />
+                      <span className="font-pixel text-[10px] tracking-wider tabular-nums">
                         +{s.xp_earned ?? 0}
                       </span>
                     </div>
@@ -683,127 +566,3 @@ function ChestCard({
   );
 }
 
-// ─── Study Heatmap ────────────────────────────────────────────────────────────
-
-const HEATMAP_WEEKS = 26;
-
-function StudyHeatmap({ data }: { data: Record<string, number> }) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const start = new Date(today);
-  start.setDate(start.getDate() - (HEATMAP_WEEKS * 7 - 1));
-  start.setDate(start.getDate() - start.getDay());
-
-  const columns: Array<Array<{ dateStr: string; count: number; isFuture: boolean }>> = [];
-  const cursor = new Date(start);
-
-  while (columns.length < HEATMAP_WEEKS + 1) {
-    const week: Array<{ dateStr: string; count: number; isFuture: boolean }> = [];
-    for (let d = 0; d < 7; d++) {
-      const dateStr = cursor.toISOString().slice(0, 10);
-      week.push({ dateStr, count: data[dateStr] ?? 0, isFuture: cursor > today });
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    columns.push(week);
-  }
-
-  const visibleColumns = columns.slice(-HEATMAP_WEEKS);
-
-  function cellColor(count: number, isFuture: boolean): string {
-    if (isFuture) return "bg-white/[0.02]";
-    if (count === 0) return "bg-white/[0.06]";
-    if (count === 1) return "bg-indigo-900/80";
-    if (count <= 3) return "bg-indigo-700/80";
-    if (count <= 6) return "bg-indigo-500";
-    return "bg-indigo-400";
-  }
-
-  const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  const monthLabels: (string | null)[] = visibleColumns.map((col, i) => {
-    const m = new Date(col[0].dateStr + "T12:00:00").toLocaleDateString(undefined, { month: "short" });
-    if (i === 0) return m;
-    const prev = new Date(visibleColumns[i - 1][0].dateStr + "T12:00:00").toLocaleDateString(undefined, { month: "short" });
-    return m !== prev ? m : null;
-  });
-
-  const totalActiveDays = Object.keys(data).length;
-  const totalSessionCount = Object.values(data).reduce((s, n) => s + n, 0);
-  const bestDay = Object.values(data).reduce((m, n) => Math.max(m, n), 0);
-
-  const LEGEND = ["bg-white/[0.06]", "bg-indigo-900/80", "bg-indigo-700/80", "bg-indigo-500", "bg-indigo-400"];
-
-  return (
-    <div className="rpg-card rounded-2xl p-5 sm:p-6">
-      <div className="flex items-center gap-3 mb-4 text-xs text-slate-500 font-medium flex-wrap">
-        <span>
-          <span className="text-white font-bold tabular-nums">{totalActiveDays}</span>{" "}
-          active day{totalActiveDays !== 1 ? "s" : ""}
-        </span>
-        <span className="text-slate-700">·</span>
-        <span>
-          <span className="text-white font-bold tabular-nums">{totalSessionCount}</span>{" "}
-          session{totalSessionCount !== 1 ? "s" : ""}
-        </span>
-        {bestDay > 0 && (
-          <>
-            <span className="text-slate-700">·</span>
-            <span>
-              <span className="text-indigo-400 font-bold tabular-nums">{bestDay}</span> best day
-            </span>
-          </>
-        )}
-        <span className="text-slate-700">·</span>
-        <span>last 6 months</span>
-      </div>
-
-      <div className="flex gap-[3px] mb-1.5 pl-8">
-        {visibleColumns.map((_, i) => (
-          <div
-            key={i}
-            className="flex-1 min-w-0 text-[9px] text-slate-500 font-medium overflow-visible whitespace-nowrap"
-          >
-            {monthLabels[i] ?? ""}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex flex-col gap-[3px]">
-        {DAY_LABELS.map((label, rowIdx) => (
-          <div key={label} className="flex items-center gap-[3px]">
-            <span className="w-8 text-right pr-1.5 text-[9px] text-slate-600 font-medium shrink-0 leading-none">
-              {[1, 3, 5].includes(rowIdx) ? label : ""}
-            </span>
-            {visibleColumns.map((col, colIdx) => {
-              const cell = col[rowIdx];
-              return (
-                <div
-                  key={colIdx}
-                  title={
-                    cell.isFuture ? "" :
-                    cell.count === 0 ? cell.dateStr :
-                    `${cell.dateStr} — ${cell.count} session${cell.count !== 1 ? "s" : ""}`
-                  }
-                  className={cn(
-                    "flex-1 aspect-square rounded-[2px] transition-colors duration-150 min-w-0",
-                    cellColor(cell.count, cell.isFuture),
-                    !cell.isFuture && cell.count > 0 && "hover:ring-1 hover:ring-indigo-400/50 cursor-default"
-                  )}
-                />
-              );
-            })}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-1.5 mt-3 pl-8">
-        <span className="text-[9px] text-slate-600">Less</span>
-        {LEGEND.map((cls, i) => (
-          <div key={i} className={cn("w-3 h-3 rounded-[2px]", cls)} />
-        ))}
-        <span className="text-[9px] text-slate-600">More</span>
-      </div>
-    </div>
-  );
-}
