@@ -12,6 +12,7 @@ import LandingStory from "@/components/landing/LandingStory";
 import LandingComparison from "@/components/landing/LandingComparison";
 import LandingCTA from "@/components/landing/LandingCTA";
 import LandingQuestPath from "@/components/landing/LandingQuestPath";
+import LandingFooter from "@/components/landing/LandingFooter";
 import SmoothScroll from "@/components/landing/SmoothScroll";
 import AuroraBackground from "@/components/effects/AuroraBackground";
 
@@ -73,11 +74,7 @@ export default async function LandingPage() {
         <LandingComparison />
         <LandingCTA />
 
-        <footer className="container mx-auto px-6 py-8 text-center border-t-2 border-slate-800/50">
-          <span className="font-pixel text-[10px] text-slate-600 tracking-tight">
-            STUDYQUEST &copy; {new Date().getFullYear()} · TURN STUDYING INTO AN ADVENTURE
-          </span>
-        </footer>
+        <LandingFooter />
       </div>
     </div>
   );
