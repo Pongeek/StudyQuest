@@ -31,7 +31,14 @@ export default function MarkdownContent({ children, className }: MarkdownContent
     <div className={cn("markdown-quiz", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+        rehypePlugins={[
+          // strict: "ignore" silences "Unrecognized Unicode character" warnings
+          // when AI-generated content accidentally places Hebrew/CJK inside
+          // $...$ math delimiters (e.g. malformed `$q_0$$ Hebrew text`).
+          // throwOnError: false renders unparseable math as plain text instead
+          // of crashing the component.
+          [rehypeKatex, { strict: "ignore", throwOnError: false }],
+        ]}
         components={{
           p: ({ children: pChildren }) => (
             <p className="leading-relaxed my-2 first:mt-0 last:mb-0">{pChildren}</p>

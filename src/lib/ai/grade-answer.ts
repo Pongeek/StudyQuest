@@ -82,18 +82,41 @@ Score from 0.0 to 1.0:
 - 0.5-0.69: Partial, shows some understanding but missing important aspects
 - 0.0-0.49: Insufficient, significant misconceptions or missing key concepts
 
-Return ONLY a JSON object (no markdown):
-{
-  "score": 0.85,
-  "feedback": "Encouraging, specific feedback in 2-3 sentences. Mention what they got right, what they missed, and a hint about the gap."
-}
+Call the submit_grade tool with the score and feedback.
 
 IMPORTANT: Write the feedback in the SAME LANGUAGE as the question and student answer. If they are in Hebrew, respond in Hebrew.`,
   });
 
+  // Tool use enforces the response schema at the API layer — no JSON.parse,
+  // no escape-character bugs on Hebrew/LaTeX feedback. Anthropic validates
+  // the returned object against `input_schema` before delivering it.
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 512,
+    tools: [
+      {
+        name: "submit_grade",
+        description: "Submit the graded score and feedback for the student's answer.",
+        input_schema: {
+          type: "object",
+          properties: {
+            score: {
+              type: "number",
+              minimum: 0,
+              maximum: 1,
+              description: "Score between 0.0 and 1.0 per the rubric above.",
+            },
+            feedback: {
+              type: "string",
+              description:
+                "Encouraging, specific feedback in 2-3 sentences. Mention what they got right, what they missed, and a hint about the gap. Same language as the student's answer.",
+            },
+          },
+          required: ["score", "feedback"],
+        },
+      },
+    ],
+    tool_choice: { type: "tool", name: "submit_grade" },
     messages: [
       {
         role: "user",
@@ -102,23 +125,15 @@ IMPORTANT: Write the feedback in the SAME LANGUAGE as the question and student a
     ],
   });
 
-  const content = message.content[0];
-  if (content.type !== "text") throw new Error("Unexpected response type");
-
-  const jsonText = content.text.trim();
-  try {
-    const result = JSON.parse(jsonText);
-    return {
-      score: Math.max(0, Math.min(1, Number(result.score))),
-      feedback: result.feedback || "",
-    };
-  } catch {
-    const match = jsonText.match(/\{[\s\S]*\}/);
-    if (!match) return { score: 0, feedback: "Could not evaluate answer. Please try again." };
-    const result = JSON.parse(match[0]);
-    return {
-      score: Math.max(0, Math.min(1, Number(result.score))),
-      feedback: result.feedback || "",
-    };
+  const toolUse = message.content.find(
+    (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+  );
+  if (!toolUse) {
+    return { score: 0, feedback: "Could not evaluate answer. Please try again." };
   }
+  const input = toolUse.input as { score: number; feedback: string };
+  return {
+    score: Math.max(0, Math.min(1, Number(input.score))),
+    feedback: input.feedback || "",
+  };
 }

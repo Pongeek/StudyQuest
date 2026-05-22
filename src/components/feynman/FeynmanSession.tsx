@@ -4,9 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, Sparkles, ArrowLeft, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useSound } from "@/lib/useSound";
 import { XPBurstProvider, useXPBurst } from "@/components/effects/XPBurst";
@@ -148,7 +146,7 @@ function FeynmanSessionInner({
   return (
     <div className="flex flex-col h-[calc(100vh-10rem)] max-h-[800px] max-w-2xl mx-auto">
 
-      {/* ── Header ── */}
+      {/* ── Header — pixel-border avatar tile + pixel-font eyebrow ── */}
       <div className="flex items-center gap-3 mb-4 shrink-0">
         <button
           onClick={handleGoBack}
@@ -157,23 +155,27 @@ function FeynmanSessionInner({
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="w-9 h-9 rounded-xl bg-purple-950/60 border border-purple-700/40 flex items-center justify-center text-lg glow-purple">
+        <div
+          className="w-10 h-10 pixel-border text-purple-500/80 bg-purple-500/15 flex items-center justify-center text-lg shrink-0"
+          aria-hidden
+        >
           🎓
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold text-white truncate">Feynman Mode</h1>
+          <p className="font-pixel text-[9px] tracking-wider text-purple-400/90 mb-0.5">
+            FEYNMAN MODE
+          </p>
           <p className="text-xs text-slate-400 truncate">{topicTitle}</p>
         </div>
         {turnCount > 0 && (
-          <Badge
-            variant="outline"
+          <span
             className={cn(
-              "text-xs shrink-0 border-slate-700 transition-colors",
-              canEvaluate ? "border-amber-700/60 text-amber-400" : "text-slate-400"
+              "inline-flex items-center px-2 py-0.5 pixel-border font-pixel text-[8px] tracking-wider shrink-0 transition-colors duration-200",
+              canEvaluate ? "text-amber-400" : "text-slate-400"
             )}
           >
-            Exchange {turnCount}
-          </Badge>
+            EXCHANGE {turnCount}
+          </span>
         )}
       </div>
 
@@ -189,7 +191,10 @@ function FeynmanSessionInner({
               className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}
             >
               {msg.role === "assistant" && (
-                <div className="w-8 h-8 rounded-full bg-purple-950/60 border border-purple-700/40 flex items-center justify-center text-sm shrink-0 mt-0.5">
+                <div
+                  className="w-8 h-8 pixel-border text-purple-500/70 bg-purple-500/15 flex items-center justify-center text-sm shrink-0 mt-0.5"
+                  aria-hidden
+                >
                   🎓
                 </div>
               )}
@@ -206,7 +211,10 @@ function FeynmanSessionInner({
                 {msg.content}
               </div>
               {msg.role === "user" && (
-                <div className="w-8 h-8 rounded-full bg-indigo-950/60 border border-indigo-700/40 flex items-center justify-center text-sm shrink-0 mt-0.5">
+                <div
+                  className="w-8 h-8 pixel-border text-indigo-500/70 bg-indigo-500/15 flex items-center justify-center text-sm shrink-0 mt-0.5"
+                  aria-hidden
+                >
                   👤
                 </div>
               )}
@@ -221,7 +229,10 @@ function FeynmanSessionInner({
             animate={{ opacity: 1 }}
             className="flex gap-3 justify-start"
           >
-            <div className="w-8 h-8 rounded-full bg-purple-950/60 border border-purple-700/40 flex items-center justify-center text-sm shrink-0">
+            <div
+              className="w-8 h-8 pixel-border text-purple-500/70 bg-purple-500/15 flex items-center justify-center text-sm shrink-0"
+              aria-hidden
+            >
               🎓
             </div>
             <div className="bg-slate-800/70 border border-slate-700/50 rounded-2xl rounded-tl-sm px-4 py-3">
@@ -239,7 +250,7 @@ function FeynmanSessionInner({
           </motion.div>
         )}
 
-        {/* Evaluation result */}
+        {/* Evaluation result — Tier B+ with state-driven chrome (green on pass, red on fail) */}
         <AnimatePresence>
           {phase === "result" && result && (
             <motion.div
@@ -247,66 +258,122 @@ function FeynmanSessionInner({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ type: "spring", damping: 16, stiffness: 200 }}
               className={cn(
-                "rpg-card rounded-2xl p-6 border text-center space-y-4",
-                result.passed
-                  ? "border-green-700/40 bg-green-950/20"
-                  : "border-red-800/30 bg-red-950/10"
+                "relative bg-slate-900/95 px-6 py-6 pixel-border text-center space-y-4 transition-colors duration-300",
+                result.passed ? "text-green-500/80" : "text-red-500/80"
               )}
             >
-              <div className="text-4xl">
-                {result.passed ? "🎉" : "📖"}
-              </div>
-              <div>
+              {/* Pixel nail corners — state-colored (green on pass / red on fail) */}
+              <span
+                aria-hidden
+                className={cn(
+                  "absolute top-1.5 left-1.5 w-1.5 h-1.5 transition-colors duration-300",
+                  result.passed ? "bg-green-400" : "bg-red-400"
+                )}
+              />
+              <span
+                aria-hidden
+                className={cn(
+                  "absolute top-1.5 right-1.5 w-1.5 h-1.5 transition-colors duration-300",
+                  result.passed ? "bg-green-400" : "bg-red-400"
+                )}
+              />
+              <span
+                aria-hidden
+                className={cn(
+                  "absolute bottom-1.5 left-1.5 w-1.5 h-1.5 transition-colors duration-300",
+                  result.passed ? "bg-green-400" : "bg-red-400"
+                )}
+              />
+              <span
+                aria-hidden
+                className={cn(
+                  "absolute bottom-1.5 right-1.5 w-1.5 h-1.5 transition-colors duration-300",
+                  result.passed ? "bg-green-400" : "bg-red-400"
+                )}
+              />
+
+              <div className="text-4xl">{result.passed ? "🎉" : "📖"}</div>
+              <div className="space-y-2">
+                <p
+                  className={cn(
+                    "font-pixel text-[9px] tracking-wider",
+                    result.passed ? "text-green-400/90" : "text-red-400/90"
+                  )}
+                >
+                  {result.passed ? "UNDERSTANDING CONFIRMED" : "KEEP TEACHING"}
+                </p>
                 <h3 className={cn("text-lg font-bold", result.passed ? "text-green-400" : "text-slate-200")}>
-                  {result.passed ? "You passed! Understanding confirmed." : "Keep studying — you'll get there."}
+                  {result.passed ? "You passed!" : "Almost there — try again"}
                 </h3>
-                <p className="text-slate-300 text-sm leading-relaxed mt-2">{result.feedback}</p>
+                <p className="text-slate-300 text-sm leading-relaxed">{result.feedback}</p>
               </div>
 
-              {/* XP earned */}
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-amber-400 font-bold text-lg">+{result.xpEarned} XP</span>
-                {result.passed && <span className="text-xs text-slate-400">earned</span>}
+              {/* XP earned — amber stays amber (XP semantic), not green */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 pixel-border text-amber-400">
+                <span className="font-pixel text-[10px] tracking-wider">+{result.xpEarned} XP</span>
+                {result.passed && <span className="text-[10px] text-slate-400 font-pixel">EARNED</span>}
               </div>
 
               {/* Achievement(s) */}
               {result.newAchievements.length > 0 && (
                 <div className="flex flex-col items-center gap-1">
                   {result.newAchievements.map((a) => (
-                    <div key={a.slug} className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-1.5">
+                    <div
+                      key={a.slug}
+                      className="flex items-center gap-2 bg-amber-500/10 px-3 py-1.5 pixel-border text-amber-500/80"
+                    >
                       <span>{a.icon}</span>
-                      <span className="text-amber-400 text-xs font-semibold">{a.name} unlocked!</span>
+                      <span className="font-pixel text-[9px] tracking-wider text-amber-400">
+                        {a.name.toUpperCase()} UNLOCKED
+                      </span>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Action buttons */}
+              {/* Action buttons — chunky pixel-shadow */}
               <div className="flex flex-col sm:flex-row gap-2 justify-center pt-1">
                 {result.passed ? (
-                  <Button
-                    className="bg-green-600 hover:bg-green-500 text-white gap-2"
+                  <button
                     onClick={() => { router.refresh(); handleGoBack(); }}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-2 px-5 py-2.5 font-pixel text-[10px] tracking-wider",
+                      "bg-green-500 text-white shadow-[0_4px_0_0_#14532d]",
+                      "hover:shadow-[0_2px_0_0_#14532d] hover:translate-y-0.5",
+                      "active:shadow-[0_0_0_0_#14532d] active:translate-y-1",
+                      "transition-transform duration-100 pixel-focus outline-none"
+                    )}
                   >
-                    <Sparkles className="w-4 h-4" />
-                    Back to Topic
-                  </Button>
+                    <Sparkles className="w-4 h-4" aria-hidden />
+                    BACK TO TOPIC
+                  </button>
                 ) : (
                   <>
-                    <Button
-                      variant="outline"
-                      className="border-slate-700 text-slate-300 gap-2"
+                    <button
                       onClick={handleRetry}
+                      className={cn(
+                        "inline-flex items-center justify-center gap-2 px-5 py-2.5 font-pixel text-[10px] tracking-wider",
+                        "bg-slate-800 text-slate-300 shadow-[0_4px_0_0_#0f172a]",
+                        "hover:shadow-[0_2px_0_0_#0f172a] hover:translate-y-0.5",
+                        "active:shadow-[0_0_0_0_#0f172a] active:translate-y-1",
+                        "transition-transform duration-100 pixel-focus outline-none"
+                      )}
                     >
-                      <RotateCcw className="w-4 h-4" />
-                      Try Again
-                    </Button>
-                    <Button
+                      <RotateCcw className="w-4 h-4" aria-hidden />
+                      TRY AGAIN
+                    </button>
+                    <button
                       onClick={() => { router.refresh(); handleGoBack(); }}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white"
+                      className={cn(
+                        "inline-flex items-center justify-center gap-2 px-5 py-2.5 font-pixel text-[10px] tracking-wider",
+                        "bg-indigo-500 text-white shadow-[0_4px_0_0_#312e81]",
+                        "hover:shadow-[0_2px_0_0_#312e81] hover:translate-y-0.5",
+                        "active:shadow-[0_0_0_0_#312e81] active:translate-y-1",
+                        "transition-transform duration-100 pixel-focus outline-none"
+                      )}
                     >
-                      Back to Topic
-                    </Button>
+                      BACK TO TOPIC
+                    </button>
                   </>
                 )}
               </div>
@@ -320,7 +387,7 @@ function FeynmanSessionInner({
       {/* ── Input area ── */}
       {phase === "chat" && (
         <div className="shrink-0 mt-4 space-y-2">
-          {/* Evaluate button — shows after 3 turns */}
+          {/* Evaluate button — shows after 3 turns. Chunky amber pixel-shadow CTA. */}
           <AnimatePresence>
             {canEvaluate && (
               <motion.div
@@ -328,14 +395,21 @@ function FeynmanSessionInner({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
               >
-                <Button
+                <button
                   onClick={handleEvaluate}
                   disabled={phase !== "chat"}
-                  className="w-full bg-amber-600 hover:bg-amber-500 text-white gap-2 border border-amber-500/40"
+                  className={cn(
+                    "w-full inline-flex items-center justify-center gap-2 px-5 py-3 font-pixel text-[10px] tracking-wider",
+                    "bg-amber-500 text-slate-950 shadow-[0_4px_0_0_#78350f]",
+                    "hover:shadow-[0_2px_0_0_#78350f] hover:translate-y-0.5",
+                    "active:shadow-[0_0_0_0_#78350f] active:translate-y-1",
+                    "disabled:opacity-50 disabled:translate-y-0 disabled:shadow-[0_4px_0_0_#78350f]",
+                    "transition-transform duration-100 pixel-focus outline-none"
+                  )}
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Am I ready? Evaluate my explanation →
-                </Button>
+                  <Sparkles className="w-4 h-4" aria-hidden />
+                  AM I READY? EVALUATE →
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -358,18 +432,25 @@ function FeynmanSessionInner({
               className="flex-1 resize-none bg-slate-900/60 border-slate-700/60 text-slate-100
                          placeholder:text-slate-600 focus:border-indigo-500/60 rounded-xl text-sm"
             />
-            <Button
+            <button
               onClick={sendMessage}
               disabled={!input.trim() || isLoading}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white h-10 px-3 rounded-xl"
               aria-label="Send"
+              className={cn(
+                "inline-flex items-center justify-center h-10 px-4 font-pixel text-[10px] tracking-wider",
+                "bg-indigo-500 text-white shadow-[0_4px_0_0_#312e81]",
+                "hover:shadow-[0_2px_0_0_#312e81] hover:translate-y-0.5",
+                "active:shadow-[0_0_0_0_#312e81] active:translate-y-1",
+                "disabled:opacity-40 disabled:translate-y-0 disabled:shadow-[0_4px_0_0_#312e81]",
+                "transition-transform duration-100 pixel-focus outline-none"
+              )}
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Send className="w-4 h-4" />
               )}
-            </Button>
+            </button>
           </div>
 
           {/* Helper hint */}

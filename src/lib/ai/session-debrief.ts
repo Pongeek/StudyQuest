@@ -30,6 +30,38 @@ export async function generateSessionDebrief(params: {
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
+    tools: [
+      {
+        name: "submit_session_debrief",
+        description: "Submit the post-quiz coaching debrief.",
+        input_schema: {
+          type: "object",
+          properties: {
+            strengths: {
+              type: "array",
+              items: { type: "string" },
+              description: "2-3 concepts the student clearly understood. Be specific.",
+            },
+            gaps: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "1-3 specific concepts that need more work, based on wrong/partial answers. Empty array if all answers were perfect.",
+            },
+            next_topic: {
+              type: "string",
+              description: `The single best next topic from the available list, or 'Review ${topicTitle}' if they scored poorly.`,
+            },
+            reason: {
+              type: "string",
+              description: "One sentence explaining why this next topic is recommended.",
+            },
+          },
+          required: ["strengths", "gaps", "next_topic", "reason"],
+        },
+      },
+    ],
+    tool_choice: { type: "tool", name: "submit_session_debrief" },
     messages: [
       {
         role: "user",
@@ -40,18 +72,9 @@ ${resultsText}
 
 Available next topics to recommend from: ${availableNextTopics.join(", ") || "None (course complete)"}
 
-Based on the quiz results, provide a brief debrief. Return ONLY this JSON (no markdown):
-{
-  "strengths": ["2-3 concepts the student clearly understood"],
-  "gaps": ["1-3 specific concepts that need more work, based on wrong/partial answers"],
-  "next_topic": "The single best next topic from the available list, or 'Review ${topicTitle}' if they scored poorly",
-  "reason": "One sentence explaining why this next topic is recommended"
-}
+Call the submit_session_debrief tool with the analysis.
 
 Rules:
-- strengths: be specific about what concepts they demonstrated knowledge of
-- gaps: identify specific knowledge gaps from wrong/partial answers, not just "needs improvement"
-- If all answers were correct (score 1.0), gaps should be empty []
 - next_topic must be from the available topics list or "Review ${topicTitle}"
 - Keep everything concise and actionable
 - IMPORTANT: Write all text in the SAME LANGUAGE as the topic and quiz content. If they are in Hebrew, write in Hebrew.`,
@@ -59,22 +82,16 @@ Rules:
     ],
   });
 
-  const content = message.content[0];
-  if (content.type !== "text") throw new Error("Unexpected response type");
-
-  const jsonText = content.text.trim();
-  try {
-    return JSON.parse(jsonText) as SessionDebrief;
-  } catch {
-    const match = jsonText.match(/\{[\s\S]*\}/);
-    if (!match) {
-      return {
-        strengths: ["Quiz completed"],
-        gaps: [],
-        next_topic: availableNextTopics[0] || topicTitle,
-        reason: "Continue to the next topic.",
-      };
-    }
-    return JSON.parse(match[0]) as SessionDebrief;
+  const toolUse = message.content.find(
+    (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+  );
+  if (!toolUse) {
+    return {
+      strengths: ["Quiz completed"],
+      gaps: [],
+      next_topic: availableNextTopics[0] || topicTitle,
+      reason: "Continue to the next topic.",
+    };
   }
+  return toolUse.input as SessionDebrief;
 }

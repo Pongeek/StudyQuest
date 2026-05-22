@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle, XCircle, ArrowRight, Loader2,
   Swords, Shield, Skull, Zap, Trophy, RotateCcw, Sparkles,
-  Flame, Star, BookOpen, ChevronLeft, Target,
+  Flame, Star, BookOpen, ChevronLeft, Target, DoorOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -234,6 +234,16 @@ function BossFightEngineInner({
 
   // ── Phase state machine ──
   const [phase, setPhase] = useState<Phase>("lobby");
+
+  // Leave-Boss confirmation banner — non-destructive abandon
+  // (answers stay saved; session can be resumed by URL).
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // Handle Leave-Boss confirm → back to the course map. Hoisted above
+  // early returns (rules-of-hooks); see lobby/victory branches.
+  const handleLeaveConfirm = useCallback(() => {
+    router.push(`/dashboard/courses/${courseId}`);
+  }, [router, courseId]);
 
   // ── Combat state ──
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -1082,19 +1092,70 @@ function BossFightEngineInner({
       )}
 
       {/* Top bar */}
-      <div className="flex items-center justify-between mb-6">
-        <button
-          onClick={() => setPhase("lobby")}
-          className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors border border-slate-700/50 rounded-lg px-3 py-1.5"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Retreat
-        </button>
+      <div className="flex items-center justify-between mb-6 gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPhase("lobby")}
+            className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors border border-slate-700/50 rounded-lg px-3 py-1.5"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Retreat
+          </button>
+          {/* Leave — full abandon, navigates back to the course map.
+              Different from Retreat (which just returns to the lobby). */}
+          <button
+            type="button"
+            onClick={() => setShowLeaveConfirm(true)}
+            aria-label="Leave boss fight"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-red-400 hover:bg-red-500/10 border border-white/[0.07] hover:border-red-500/30 rounded-lg px-2.5 py-1.5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+          >
+            <DoorOpen className="w-3.5 h-3.5" />
+            Leave
+          </button>
+        </div>
         <TrialDots total={totalTrials} current={currentIdx} results={results} />
         <span className="text-xs text-slate-500 tabular-nums">
           {currentIdx + 1}/{totalTrials}
         </span>
       </div>
+
+      {/* ===== Leave Confirmation Banner ===== */}
+      <AnimatePresence>
+        {showLeaveConfirm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden mb-4"
+          >
+            <div className="rpg-card rounded-xl p-4 border-2 border-red-500/30 bg-red-500/[0.04]">
+              <p className="text-sm text-slate-300 mb-3">
+                Leave this boss fight? Your progress is{" "}
+                <strong className="text-white">saved automatically</strong> —
+                you can rematch the boss from the course map.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowLeaveConfirm(false)}
+                  className="border-white/[0.08] text-slate-300 hover:bg-white/[0.04] hover:text-white"
+                >
+                  Stay
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleLeaveConfirm}
+                  className="bg-red-500/90 hover:bg-red-500 text-white gap-1.5"
+                >
+                  <DoorOpen className="w-3.5 h-3.5" />
+                  Leave Fight
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Boss stage card */}
       <motion.div

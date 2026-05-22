@@ -76,6 +76,36 @@ export async function evaluateFeynmanSession(params: {
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 300,
+    tools: [
+      {
+        name: "submit_feynman_evaluation",
+        description: "Submit the evaluation of the student's teach-back session.",
+        input_schema: {
+          type: "object",
+          properties: {
+            passed: {
+              type: "boolean",
+              description:
+                "true if the student showed reasonable understanding of the core concepts (score >= 0.6).",
+            },
+            score: {
+              type: "number",
+              minimum: 0,
+              maximum: 1,
+              description:
+                "0.0-1.0. 0.6 = basic understanding, 0.8 = solid, 1.0 = excellent.",
+            },
+            feedback: {
+              type: "string",
+              description:
+                "2-3 sentences. What they explained well, what they missed. Same language as the student's messages.",
+            },
+          },
+          required: ["passed", "score", "feedback"],
+        },
+      },
+    ],
+    tool_choice: { type: "tool", name: "submit_feynman_evaluation" },
     messages: [
       {
         role: "user",
@@ -88,36 +118,25 @@ Here is the full teaching conversation:
 ${formatted}
 ---
 
-Evaluate ONLY the Student's messages. Did they demonstrate genuine understanding?
-- passed: true if the student showed reasonable understanding of the core concepts (score >= 0.6)
-- score: 0.0–1.0 (0.6 = basic understanding, 0.8 = solid, 1.0 = excellent)
-- feedback: 2–3 sentences. What they explained well, what they missed. Write in the SAME LANGUAGE as the student's messages.
-
-Return ONLY valid JSON (no markdown):
-{"passed": true, "score": 0.75, "feedback": "..."}`,
+Evaluate ONLY the Student's messages. Did they demonstrate genuine understanding? Call the submit_feynman_evaluation tool with the result.`,
       },
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") throw new Error("Unexpected response type");
-
-  const jsonText = content.text.trim();
-  try {
-    const result = JSON.parse(jsonText);
-    return {
-      passed: Boolean(result.passed),
-      score: Math.max(0, Math.min(1, Number(result.score))),
-      feedback: result.feedback ?? "",
-    };
-  } catch {
-    const match = jsonText.match(/\{[\s\S]*\}/);
-    if (!match) return { passed: false, score: 0, feedback: "Could not evaluate. Please try again." };
-    const result = JSON.parse(match[0]);
-    return {
-      passed: Boolean(result.passed),
-      score: Math.max(0, Math.min(1, Number(result.score))),
-      feedback: result.feedback ?? "",
-    };
+  const toolUse = response.content.find(
+    (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+  );
+  if (!toolUse) {
+    return { passed: false, score: 0, feedback: "Could not evaluate. Please try again." };
   }
+  const input = toolUse.input as {
+    passed: boolean;
+    score: number;
+    feedback: string;
+  };
+  return {
+    passed: Boolean(input.passed),
+    score: Math.max(0, Math.min(1, Number(input.score))),
+    feedback: input.feedback ?? "",
+  };
 }

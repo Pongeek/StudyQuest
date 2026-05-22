@@ -124,7 +124,15 @@ export default function ScrollOfWisdom() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Parchment-style card */}
-            <div className="rpg-card-gold rounded-2xl p-8 sm:p-10 flex flex-col gap-6 text-center shadow-2xl border border-amber-500/30">
+            <div className="relative rpg-card-gold rounded-2xl p-8 sm:p-10 flex flex-col gap-6 text-center shadow-2xl border border-amber-500/30">
+
+              {/* Amber pixel "scroll pins" at corners — subtle pixel-art accent
+                  that ties the parchment to the rest of the app's pixel chrome
+                  without breaking the medieval/scroll aesthetic. */}
+              <span aria-hidden className="absolute top-2 left-2 w-1.5 h-1.5 bg-amber-400" />
+              <span aria-hidden className="absolute top-2 right-2 w-1.5 h-1.5 bg-amber-400" />
+              <span aria-hidden className="absolute bottom-2 left-2 w-1.5 h-1.5 bg-amber-400" />
+              <span aria-hidden className="absolute bottom-2 right-2 w-1.5 h-1.5 bg-amber-400" />
 
               {/* Decorative top ornament */}
               <div className="flex items-center gap-3">
@@ -176,18 +184,24 @@ export default function ScrollOfWisdom() {
                 <div className="flex-1 h-px bg-gradient-to-l from-transparent via-amber-500/30 to-amber-500/50" />
               </div>
 
-              {/* Dismiss button */}
+              {/* Dismiss button — chunky amber pixel-shadow CTA matching the
+                  rest of the dashboard's pixel vocabulary. Keeps rounded edges
+                  to harmonize with the parchment card's curved shape. */}
               <motion.button
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5, duration: 0.3 }}
                 onClick={handleDismiss}
                 disabled={dismissing}
-                className="mx-auto px-6 py-2.5 rounded-xl border border-amber-500/40 text-amber-400 text-sm font-medium
-                           hover:bg-amber-500/10 hover:border-amber-400/60 active:scale-95
-                           transition-all duration-150 disabled:opacity-50"
+                className="mx-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg
+                           font-pixel text-[10px] tracking-wider
+                           bg-amber-500 text-slate-950 shadow-[0_4px_0_0_#78350f]
+                           hover:shadow-[0_2px_0_0_#78350f] hover:translate-y-0.5
+                           active:shadow-[0_0_0_0_#78350f] active:translate-y-1
+                           disabled:opacity-50 disabled:translate-y-0 disabled:shadow-[0_4px_0_0_#78350f]
+                           transition-transform duration-100 pixel-focus outline-none"
               >
-                Seal the Scroll 🪄
+                SEAL THE SCROLL 🪄
               </motion.button>
 
               {/* Subtle hint */}

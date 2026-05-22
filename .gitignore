@@ -50,3 +50,10 @@ next-env.d.ts
 # AI assistant local state (do NOT commit — contains session data)
 .claude/
 .cursor/
+
+*storybook.log
+storybook-static
+
+# Dev tool artifacts (browser captures, generated assets, scratch screenshots)
+.playwright-mcp/
+generated_imgs/

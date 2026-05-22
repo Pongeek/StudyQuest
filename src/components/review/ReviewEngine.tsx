@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -13,6 +13,9 @@ import {
   Check,
   X,
   Flag,
+  ChevronLeft,
+  ChevronRight,
+  DoorOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -120,8 +123,42 @@ function ReviewEngineInner({
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [navDirection, setNavDirection] = useState<1 | -1>(1);
   const navScrollRef = useRef<HTMLDivElement>(null);
+  const dotRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  // Leave-review confirmation banner state — non-destructive abandon
+  // (answers stay saved; session can be resumed by URL).
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   const [completeData, setCompleteData] = useState<CompleteData | null>(null);
+
+  // ─── Navigator scroll behavior ───
+  // Auto-scroll the current dot into the visible area when it changes.
+  // Hoisted above early returns (rules-of-hooks); see completeData branch.
+  useEffect(() => {
+    const btn = dotRefs.current[currentIdx];
+    if (btn) {
+      btn.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [currentIdx]);
+
+  // Manual chevron scroll (left / right) for click-to-scroll discovery.
+  // Hoisted above early returns (rules-of-hooks).
+  const scrollNavBy = useCallback((direction: 1 | -1) => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    const amount = Math.max(140, Math.round(el.clientWidth * 0.7));
+    el.scrollBy({ left: amount * direction, behavior: "smooth" });
+  }, []);
+
+  // Handle Leave-Review confirm → back to the review landing.
+  // Hoisted above early returns (rules-of-hooks).
+  const handleLeaveConfirm = useCallback(() => {
+    router.push(`/dashboard/review`);
+  }, [router]);
 
   const currentQuestion = questions[currentIdx];
 
@@ -357,19 +394,32 @@ function ReviewEngineInner({
         <div className="p-4 space-y-3">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Brain className="w-4 h-4 text-cyan-400" />
+            <div className="flex items-center gap-2 min-w-0">
+              <Brain className="w-4 h-4 text-cyan-400 flex-shrink-0" />
               <span className="font-pixel text-[9px] text-cyan-400 uppercase tracking-widest">
                 Training Mode
               </span>
             </div>
-            <span className="text-sm font-bold text-slate-400 tabular-nums flex-shrink-0">
-              <span className={cn(
-                answeredCount === questions.length ? "text-green-400" : "text-cyan-400"
-              )}>{answeredCount}</span>
-              <span className="text-slate-600 mx-0.5">/</span>
-              {questions.length}
-            </span>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <span className="text-sm font-bold text-slate-400 tabular-nums">
+                <span className={cn(
+                  answeredCount === questions.length ? "text-green-400" : "text-cyan-400"
+                )}>{answeredCount}</span>
+                <span className="text-slate-600 mx-0.5">/</span>
+                {questions.length}
+              </span>
+              {/* Leave Review — opens the confirmation banner below. Non-
+                  destructive: answers stay saved, session preserved. */}
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(true)}
+                aria-label="Leave review"
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-red-400 hover:bg-red-500/10 border border-white/[0.07] hover:border-red-500/30 rounded-lg px-2.5 py-1 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+              >
+                <DoorOpen className="w-3.5 h-3.5" />
+                Leave
+              </button>
+            </div>
           </div>
 
           {/* Topic indicator for current question */}
@@ -390,11 +440,20 @@ function ReviewEngineInner({
             </span>
           </div>
 
-          {/* Question dots + finish button */}
-          <div className="flex items-center gap-2">
+          {/* Question dots + chevron scroll buttons + finish button */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => scrollNavBy(-1)}
+              aria-label="Scroll question list left"
+              className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
             <div
               ref={navScrollRef}
-              className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-2 px-1 flex-1 min-w-0"
+              className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-2 px-1 flex-1 min-w-0 scroll-smooth"
             >
               {questions.map((q, idx) => {
                 const status = getDotStatus(idx);
@@ -402,6 +461,7 @@ function ReviewEngineInner({
                 return (
                   <button
                     key={q.id}
+                    ref={(el) => { dotRefs.current[idx] = el; }}
                     onClick={() => navigateTo(idx)}
                     disabled={isGrading}
                     aria-label={`Question ${idx + 1} — ${status}`}
@@ -442,12 +502,21 @@ function ReviewEngineInner({
               })}
             </div>
 
+            <button
+              type="button"
+              onClick={() => scrollNavBy(1)}
+              aria-label="Scroll question list right"
+              className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+
             <Button
               onClick={handleFinishClick}
               disabled={isGrading}
               size="sm"
               className={cn(
-                "flex-shrink-0 gap-1.5 text-xs font-bold transition-all duration-150 rounded-lg",
+                "flex-shrink-0 gap-1.5 text-xs font-bold transition-all duration-150 rounded-lg ml-1",
                 unansweredCount === 0
                   ? "bg-emerald-500 hover:bg-emerald-400 text-white"
                   : "bg-cyan-500 hover:bg-cyan-400 text-slate-950"
@@ -459,6 +528,44 @@ function ReviewEngineInner({
           </div>
         </div>
       </div>
+
+      {/* ===== Leave Confirmation Banner ===== */}
+      <AnimatePresence>
+        {showLeaveConfirm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="rpg-card rounded-xl p-4 border-2 border-red-500/30 bg-red-500/[0.04]">
+              <p className="text-sm text-slate-300 mb-3">
+                Leave this review session? Your answers are{" "}
+                <strong className="text-white">saved automatically</strong> —
+                pick it back up from the review page later.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowLeaveConfirm(false)}
+                  className="border-white/[0.08] text-slate-300 hover:bg-white/[0.04] hover:text-white"
+                >
+                  Stay
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleLeaveConfirm}
+                  className="bg-red-500/90 hover:bg-red-500 text-white gap-1.5"
+                >
+                  <DoorOpen className="w-3.5 h-3.5" />
+                  Leave Review
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ===== Finish confirmation ===== */}
       <AnimatePresence>

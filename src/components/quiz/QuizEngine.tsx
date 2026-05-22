@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -13,6 +13,9 @@ import {
   Check,
   X,
   Flag,
+  ChevronLeft,
+  ChevronRight,
+  DoorOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -159,8 +162,44 @@ function QuizEngineInner({
   // Direction of navigation for animation
   const [navDirection, setNavDirection] = useState<1 | -1>(1);
 
-  // Ref for scrollable navigator
+  // Ref for scrollable navigator + per-dot refs so we can auto-scroll the
+  // current question into view on long quizzes.
   const navScrollRef = useRef<HTMLDivElement>(null);
+  const dotRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  // Leave-quiz confirmation banner state — abandoning is non-destructive
+  // (answers stay saved; user can resume by revisiting the topic URL later).
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // ─── Navigator scroll behavior ───
+  // Auto-scroll the current dot into the visible area when it changes.
+  // Hoisted above early returns (rules-of-hooks); see debrief/null branches.
+  useEffect(() => {
+    const btn = dotRefs.current[currentIdx];
+    if (btn) {
+      btn.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [currentIdx]);
+
+  // Manual chevron-arrow scroll (left / right) for click-to-scroll discovery.
+  // Hoisted above early returns (rules-of-hooks).
+  const scrollNavBy = useCallback((direction: 1 | -1) => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    const amount = Math.max(140, Math.round(el.clientWidth * 0.7));
+    el.scrollBy({ left: amount * direction, behavior: "smooth" });
+  }, []);
+
+  // Handle Leave-Quiz confirm → back to the topic landing. Session row stays
+  // (not completed); the user can resume by revisiting the URL later.
+  // Hoisted above early returns (rules-of-hooks).
+  const handleLeaveConfirm = useCallback(() => {
+    router.push(`/dashboard/courses/${courseId}/topics/${topicId}`);
+  }, [router, courseId, topicId]);
 
   const currentQuestion = questions[currentIdx];
 
@@ -544,29 +583,54 @@ function QuizEngineInner({
 
           <div className="p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Swords className="w-4 h-4 text-indigo-400" />
+              <div className="flex items-center gap-2 min-w-0">
+                <Swords className="w-4 h-4 text-indigo-400 flex-shrink-0" />
                 <span className="text-sm text-slate-400 font-medium truncate">{topicTitle}</span>
               </div>
-              <span className="text-sm font-bold text-slate-400 tabular-nums flex-shrink-0">
-                <span className={cn(
-                  answeredCount === questions.length ? "text-green-400" : "text-indigo-400"
-                )}>{answeredCount}</span>
-                <span className="text-slate-600 mx-0.5">/</span>
-                {questions.length}
-              </span>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <span className="text-sm font-bold text-slate-400 tabular-nums">
+                  <span className={cn(
+                    answeredCount === questions.length ? "text-green-400" : "text-indigo-400"
+                  )}>{answeredCount}</span>
+                  <span className="text-slate-600 mx-0.5">/</span>
+                  {questions.length}
+                </span>
+                {/* Leave Quiz — opens the confirmation banner below. Non-
+                    destructive: answers stay saved, session row preserved. */}
+                <button
+                  type="button"
+                  onClick={() => setShowLeaveConfirm(true)}
+                  aria-label="Leave quiz"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-red-400 hover:bg-red-500/10 border border-white/[0.07] hover:border-red-500/30 rounded-lg px-2.5 py-1 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                >
+                  <DoorOpen className="w-3.5 h-3.5" />
+                  Leave
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Dot navigator — chevron buttons for click-to-scroll discovery
+                + auto-scroll-into-view on the current dot when navigating. */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => scrollNavBy(-1)}
+                aria-label="Scroll question list left"
+                className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
               <div
                 ref={navScrollRef}
-                className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-2 px-1 flex-1 min-w-0"
+                className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-2 px-1 flex-1 min-w-0 scroll-smooth"
               >
                 {questions.map((q, idx) => {
                   const status = getDotStatus(idx);
                   return (
                     <button
                       key={q.id}
+                      ref={(el) => { dotRefs.current[idx] = el; }}
                       onClick={() => navigateTo(idx)}
                       disabled={isGrading}
                       aria-label={`Question ${idx + 1} — ${status}`}
@@ -597,12 +661,21 @@ function QuizEngineInner({
                 })}
               </div>
 
+              <button
+                type="button"
+                onClick={() => scrollNavBy(1)}
+                aria-label="Scroll question list right"
+                className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.04] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
               <Button
                 onClick={handleFinishClick}
                 disabled={isGrading}
                 size="sm"
                 className={cn(
-                  "flex-shrink-0 gap-1.5 text-xs font-bold transition-all duration-150 rounded-lg",
+                  "flex-shrink-0 gap-1.5 text-xs font-bold transition-all duration-150 rounded-lg ml-1",
                   unansweredCount === 0
                     ? "bg-emerald-500 hover:bg-emerald-400 text-white"
                     : "bg-indigo-500 hover:bg-indigo-400 text-white"
@@ -614,6 +687,44 @@ function QuizEngineInner({
             </div>
           </div>
         </div>
+
+        {/* ===== Leave Confirmation Banner ===== */}
+        <AnimatePresence>
+          {showLeaveConfirm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="rpg-card rounded-xl p-4 border-2 border-red-500/30 bg-red-500/[0.04]">
+                <p className="text-sm text-slate-300 mb-3">
+                  Leave this quiz? Your answers are{" "}
+                  <strong className="text-white">saved automatically</strong> —
+                  you can resume from the topic page any time.
+                </p>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowLeaveConfirm(false)}
+                    className="border-white/[0.08] text-slate-300 hover:bg-white/[0.04] hover:text-white"
+                  >
+                    Stay
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleLeaveConfirm}
+                    className="bg-red-500/90 hover:bg-red-500 text-white gap-1.5"
+                  >
+                    <DoorOpen className="w-3.5 h-3.5" />
+                    Leave Quiz
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ===== Finish Confirmation Dialog ===== */}
         <AnimatePresence>

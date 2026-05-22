@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MarkdownContent from "@/components/quiz/MarkdownContent";
+import MarkdownInline from "@/components/quiz/MarkdownInline";
 
 function isRTL(text: string): boolean {
   return /[֐-׿؀-ۿ]/.test(text);
@@ -317,7 +318,7 @@ export default async function SessionReviewPage({
                             {isUserChoice && !isCorrectOpt && (
                               <XCircle className="w-3 h-3 inline mr-1.5" />
                             )}
-                            {opt}
+                            <MarkdownInline>{opt}</MarkdownInline>
                           </div>
                         );
                       })}

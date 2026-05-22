@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import Confetti from "@/components/effects/Confetti";
 import AnimatedCounter from "@/components/effects/AnimatedCounter";
 import MarkdownContent from "@/components/quiz/MarkdownContent";
+import MarkdownInline from "@/components/quiz/MarkdownInline";
 
 function isRTL(text: string): boolean {
   return /[֐-׿؀-ۿ]/.test(text);
@@ -298,7 +299,9 @@ export default function ExamDebrief({
                         >
                           {letter}
                         </span>
-                        <span className="flex-1">{body}</span>
+                        <span className="flex-1">
+                          <MarkdownInline>{body}</MarkdownInline>
+                        </span>
                         {isCorrectOption && (
                           <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                         )}

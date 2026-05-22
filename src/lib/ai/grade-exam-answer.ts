@@ -60,18 +60,40 @@ ${assistedExtra}
 
 Score from 0.0 to 1.0 based on accuracy and completeness relative to the marks available.
 
-Return ONLY a JSON object (no markdown):
-{
-  "score": 0.75,
-  "feedback": "Your feedback here"
-}
+Call the submit_exam_grade tool with the score and feedback.
 
 IMPORTANT: Write feedback in the SAME LANGUAGE as the question and student answer.`,
   });
 
+  // Tool use enforces schema at the API layer — no JSON parsing of
+  // free-form text means no bad-escaped-character bugs on Hebrew/LaTeX.
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
+    tools: [
+      {
+        name: "submit_exam_grade",
+        description: "Submit the graded score and feedback for the exam answer.",
+        input_schema: {
+          type: "object",
+          properties: {
+            score: {
+              type: "number",
+              minimum: 0,
+              maximum: 1,
+              description: "Score between 0.0 and 1.0 per the rubric and marks available.",
+            },
+            feedback: {
+              type: "string",
+              description:
+                "Feedback for the student. Length depends on mode: 1-2 sentences in timed, 4-6 sentences in assisted. Same language as the student's answer.",
+            },
+          },
+          required: ["score", "feedback"],
+        },
+      },
+    ],
+    tool_choice: { type: "tool", name: "submit_exam_grade" },
     messages: [
       {
         role: "user",
@@ -80,25 +102,17 @@ IMPORTANT: Write feedback in the SAME LANGUAGE as the question and student answe
     ],
   });
 
-  const content = message.content[0];
-  if (content.type !== "text") throw new Error("Unexpected response type");
-
-  const jsonText = content.text.trim();
-  try {
-    const result = JSON.parse(jsonText);
-    return {
-      score: Math.max(0, Math.min(1, Number(result.score))),
-      feedback: result.feedback || "",
-    };
-  } catch {
-    const match = jsonText.match(/\{[\s\S]*\}/);
-    if (!match) return { score: 0, feedback: "Could not evaluate answer." };
-    const result = JSON.parse(match[0]);
-    return {
-      score: Math.max(0, Math.min(1, Number(result.score))),
-      feedback: result.feedback || "",
-    };
+  const toolUse = message.content.find(
+    (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+  );
+  if (!toolUse) {
+    return { score: 0, feedback: "Could not evaluate answer." };
   }
+  const input = toolUse.input as { score: number; feedback: string };
+  return {
+    score: Math.max(0, Math.min(1, Number(input.score))),
+    feedback: input.feedback || "",
+  };
 }
 
 export interface ExamDebriefResult {
@@ -128,6 +142,57 @@ export async function generateExamDebrief(params: {
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
+    tools: [
+      {
+        name: "submit_exam_debrief",
+        description: "Submit the post-exam debrief analysis.",
+        input_schema: {
+          type: "object",
+          properties: {
+            predicted_score_pct: {
+              type: "number",
+              minimum: 0,
+              maximum: 100,
+              description: "Predicted exam score as a percentage (0-100).",
+            },
+            strongest_areas: {
+              type: "array",
+              items: { type: "string" },
+              description: "Topics the student demonstrated strong understanding of.",
+            },
+            critical_gaps: {
+              type: "array",
+              items: { type: "string" },
+              description: "Topics with critical gaps — brief one-line reasons.",
+            },
+            recommended_topics: {
+              type: "array",
+              items: { type: "string" },
+              description: "Topics to study next, ordered by priority.",
+            },
+            exam_readiness: {
+              type: "string",
+              enum: ["low", "moderate", "high", "ready"],
+              description: "Overall readiness level.",
+            },
+            summary: {
+              type: "string",
+              description:
+                "2-3 sentence overall assessment. Direct but encouraging. Same language as the questions.",
+            },
+          },
+          required: [
+            "predicted_score_pct",
+            "strongest_areas",
+            "critical_gaps",
+            "recommended_topics",
+            "exam_readiness",
+            "summary",
+          ],
+        },
+      },
+    ],
+    tool_choice: { type: "tool", name: "submit_exam_debrief" },
     messages: [
       {
         role: "user",
@@ -136,31 +201,17 @@ export async function generateExamDebrief(params: {
 Results:
 ${JSON.stringify(questionsWithResults, null, 2)}
 
-Return ONLY a JSON object (no markdown):
-{
-  "predicted_score_pct": 68,
-  "strongest_areas": ["topic1", "topic2"],
-  "critical_gaps": ["topic3 — brief reason"],
-  "recommended_topics": ["topic to study next", "another topic"],
-  "exam_readiness": "moderate",
-  "summary": "2-3 sentence overall assessment. Be direct but encouraging."
-}
+Call the submit_exam_debrief tool with the analysis. Mapping:
+- exam_readiness: "low" (< 50%), "moderate" (50-69%), "high" (70-84%), "ready" (85%+)
 
-exam_readiness must be one of: "low" (< 50%), "moderate" (50-69%), "high" (70-84%), "ready" (85%+)
 IMPORTANT: Write all text in the SAME LANGUAGE as the questions.`,
       },
     ],
   });
 
-  const content = message.content[0];
-  if (content.type !== "text") throw new Error("Unexpected response type");
-
-  const jsonText = content.text.trim();
-  try {
-    return JSON.parse(jsonText) as ExamDebriefResult;
-  } catch {
-    const match = jsonText.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("Could not parse exam debrief");
-    return JSON.parse(match[0]) as ExamDebriefResult;
-  }
+  const toolUse = message.content.find(
+    (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+  );
+  if (!toolUse) throw new Error("Could not parse exam debrief");
+  return toolUse.input as ExamDebriefResult;
 }

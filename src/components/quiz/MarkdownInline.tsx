@@ -26,7 +26,12 @@ export default function MarkdownInline({ children, className }: MarkdownInlinePr
     <span className={cn("inline leading-relaxed", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+        rehypePlugins={[
+          // strict: "ignore" — see MarkdownContent for rationale (silences
+          // KaTeX warnings on Hebrew chars accidentally trapped in math
+          // delimiters; throwOnError: false makes bad math fail gracefully).
+          [rehypeKatex, { strict: "ignore", throwOnError: false }],
+        ]}
         components={{
           // Map block-level containers to <span> so they're valid inside <button>
           p: ({ children: pChildren }) => <span>{pChildren}</span>,
