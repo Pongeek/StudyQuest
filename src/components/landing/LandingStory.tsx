@@ -9,7 +9,9 @@
 
 import { useRef, useEffect, useState } from "react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
-import { Skull, Zap, CheckCircle, Play, FileText } from "lucide-react";
+import { Skull, Zap, CheckCircle, Play, FileText, Trophy, RotateCcw } from "lucide-react";
+import { useBossFightDemo } from "@/components/landing/useBossFightDemo";
+import { cn } from "@/lib/utils";
 
 // ─── Section 1: Upload your course ───────────────────────────────────────────
 
@@ -185,29 +187,83 @@ function XpVisual({ inView }: { inView: boolean }) {
 // ─── Section 4: Boss fight ────────────────────────────────────────────────────
 
 function BossVisual({ inView }: { inView: boolean }) {
+  // ── Interactive boss fight mini-game ─────────────────────────────────────
+  // Each click on ENGAGE BOSS drops HP by a random 8–20%. At 0% the card
+  // flips to a victory state with a +150 XP celebration and a TRY AGAIN.
+  const { hp, isVictory, damageEvents, handleHit, reset } = useBossFightDemo();
+
+  // HP-bar fill tiers: red full → orange below 50% → critical pulse below 20%
+  const hpClass =
+    hp > 50
+      ? "bg-red-600"
+      : hp > 20
+      ? "bg-orange-500"
+      : "bg-red-500 animate-pulse";
+  const hpTextClass = hp > 50 ? "text-red-400" : hp > 20 ? "text-orange-400" : "text-red-300";
+
   return (
-    <div className="relative bg-slate-900/95 pixel-border text-red-500/80 p-5 space-y-4 w-72">
-      {/* Pixel nails — red, boss fight signature */}
-      <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-red-400 z-[1]" />
-      <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-400 z-[1]" />
-      <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-red-400 z-[1]" />
-      <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-red-400 z-[1]" />
+    <div
+      className={cn(
+        "relative bg-slate-900/95 pixel-border p-5 space-y-4 w-72 transition-colors duration-500",
+        isVictory ? "text-green-500/80" : "text-red-500/80"
+      )}
+    >
+      {/* Pixel nails — red boss-fight signature, swaps to green on victory */}
+      {(() => {
+        const nailColor = isVictory ? "bg-green-400" : "bg-red-400";
+        return (
+          <>
+            <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[1] transition-colors duration-500", nailColor)} />
+            <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5 z-[1] transition-colors duration-500", nailColor)} />
+            <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[1] transition-colors duration-500", nailColor)} />
+            <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[1] transition-colors duration-500", nailColor)} />
+          </>
+        );
+      })()}
 
       <div className="relative z-[1] space-y-4">
-        {/* Boss tile — pixel-bordered */}
+        {/* Boss tile — flips to Trophy on victory, flinches on each hit */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={inView ? { opacity: 1, scale: 1 } : {}}
           transition={{ delay: 0.3, type: "spring", damping: 14 }}
-          className="flex items-center gap-3 px-4 py-4 pixel-border bg-red-950/15 text-red-500/60"
+          className={cn(
+            "flex items-center gap-3 px-4 py-4 pixel-border transition-colors duration-300",
+            isVictory ? "bg-green-950/30 text-green-500/60" : "bg-red-950/15 text-red-500/60"
+          )}
         >
-          <div className="w-12 h-12 pixel-border bg-red-600 text-white flex items-center justify-center flex-shrink-0">
-            <Skull className="w-6 h-6" />
-          </div>
+          {/* Icon tile — key changes to retrigger spring on hit */}
+          <motion.div
+            key={isVictory ? "trophy" : `skull-${100 - hp}`}
+            initial={isVictory ? { scale: 0.6, rotate: -8 } : { scale: 0.92 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={
+              isVictory
+                ? { type: "spring", damping: 10, stiffness: 220 }
+                : { duration: 0.18, ease: "easeOut" }
+            }
+            className={cn(
+              "w-12 h-12 pixel-border text-white flex items-center justify-center flex-shrink-0",
+              isVictory ? "bg-green-500" : "bg-red-600"
+            )}
+          >
+            {isVictory ? <Trophy className="w-6 h-6" /> : <Skull className="w-6 h-6" />}
+          </motion.div>
           <div>
-            <div className="font-pixel text-[9px] tracking-wider text-red-400/90 mb-0.5">BOSS FIGHT</div>
-            <p className="text-sm font-extrabold text-white">Episode Boss</p>
-            <p className="text-xs text-slate-400 mt-0.5">13 trials · all topics</p>
+            <div
+              className={cn(
+                "font-pixel text-[9px] tracking-wider mb-0.5 transition-colors",
+                isVictory ? "text-green-400/90" : "text-red-400/90"
+              )}
+            >
+              {isVictory ? "VICTORY" : "BOSS FIGHT"}
+            </div>
+            <p className="text-sm font-extrabold text-white">
+              {isVictory ? "Boss Defeated!" : "Episode Boss"}
+            </p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {isVictory ? "+150 XP earned" : "13 trials · all topics"}
+            </p>
           </div>
         </motion.div>
 
@@ -215,34 +271,97 @@ function BossVisual({ inView }: { inView: boolean }) {
         <div>
           <div className="flex justify-between mb-1">
             <span className="font-pixel text-[8px] tracking-wider text-slate-500">BOSS HP</span>
-            <span className="font-pixel text-[10px] tracking-wider text-red-400 tabular-nums">100%</span>
+            <span className={cn("font-pixel text-[10px] tracking-wider tabular-nums transition-colors", hpTextClass)}>
+              {hp}%
+            </span>
           </div>
           <div className="h-2 bg-white/[0.06] rounded-[2px] overflow-hidden border border-red-500/20">
-            <div className="h-full bg-red-600 w-full" />
+            <motion.div
+              className={cn("h-full origin-left", hpClass)}
+              initial={{ width: "100%" }}
+              animate={{ width: `${hp}%` }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            />
           </div>
         </div>
 
-        {/* Reward preview */}
+        {/* Reward row — turns into a victorious "+150 XP earned!" on defeat */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={inView ? { opacity: 1 } : {}}
           transition={{ delay: 0.8 }}
-          className="flex items-center gap-2 text-xs"
+          className="flex items-center gap-2 text-xs h-5"
         >
-          <Zap className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-slate-400">Defeat for</span>
-          <span className="font-pixel text-[10px] tracking-wider text-amber-400 tabular-nums">+150 XP</span>
+          <Zap className={cn("w-3.5 h-3.5 transition-colors", isVictory ? "text-amber-300" : "text-amber-400")} />
+          {isVictory ? (
+            <motion.span
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", damping: 10, delay: 0.15 }}
+              className="font-pixel text-[11px] tracking-wider text-amber-300 tabular-nums"
+            >
+              +150 XP EARNED
+            </motion.span>
+          ) : (
+            <>
+              <span className="text-slate-400">Defeat for</span>
+              <span className="font-pixel text-[10px] tracking-wider text-amber-400 tabular-nums">+150 XP</span>
+            </>
+          )}
         </motion.div>
 
-        {/* Chunky pixel-shadow Engage Boss CTA */}
-        <div className="w-full transition-transform duration-100 hover:translate-y-0.5 active:translate-y-1">
-          <button
-            type="button"
-            className="w-full py-3 bg-amber-500 text-slate-950 font-pixel text-[10px] tracking-wider flex items-center justify-center gap-1.5 shadow-[0_4px_0_0_#78350f] hover:shadow-[0_2px_0_0_#78350f] active:shadow-[0_0_0_0_#78350f]"
-          >
-            <Skull className="w-3.5 h-3.5" />
-            ENGAGE BOSS
-          </button>
+        {/* CTA wrapper — relative so damage popups can position over it */}
+        <div className="relative">
+          {/* Floating damage numbers above the button */}
+          <AnimatePresence>
+            {damageEvents.map((dmg) => (
+              <motion.div
+                key={dmg.id}
+                aria-hidden
+                className="absolute left-1/2 -top-2 pointer-events-none font-pixel text-[14px] tracking-wider text-red-400"
+                style={{ x: dmg.xOffset - 16 }}
+                initial={{ opacity: 0, y: 0, scale: 0.85 }}
+                animate={{ opacity: [0, 1, 1, 0], y: -56, scale: 1.15 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.05, ease: [0.22, 1, 0.36, 1], times: [0, 0.12, 0.65, 1] }}
+              >
+                -{dmg.amount}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {!isVictory ? (
+            <div className="w-full transition-transform duration-100 hover:translate-y-0.5 active:translate-y-1">
+              <button
+                type="button"
+                onClick={handleHit}
+                className="w-full py-3 bg-amber-500 text-slate-950 font-pixel text-[10px] tracking-wider flex items-center justify-center gap-1.5 shadow-[0_4px_0_0_#78350f] hover:shadow-[0_2px_0_0_#78350f] active:shadow-[0_0_0_0_#78350f]"
+              >
+                <Skull className="w-3.5 h-3.5" />
+                ENGAGE BOSS
+              </button>
+            </div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full"
+            >
+              <div className="w-full py-3 bg-green-500 text-slate-950 font-pixel text-[10px] tracking-wider flex items-center justify-center gap-1.5 shadow-[0_4px_0_0_#14532d] glow-green">
+                <Trophy className="w-3.5 h-3.5" />
+                VICTORY!
+              </div>
+              <button
+                type="button"
+                onClick={reset}
+                className="mt-2 mx-auto flex items-center gap-1.5 text-[10px] font-pixel tracking-wider text-slate-500 hover:text-green-300 transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" />
+                TRY AGAIN
+              </button>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>

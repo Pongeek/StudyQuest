@@ -46,12 +46,12 @@ export default function LandingHeroVisual() {
   return (
     <div className="flex flex-col items-center justify-center gap-7 select-none w-full">
       {/* Character HUD card — pixel-elegant, matches dashboard/profile hero */}
-      <div className="rpg-card rounded-2xl w-full max-w-[24rem] overflow-hidden relative border border-white/[0.07]">
+      <div className="rpg-card rounded-2xl w-full max-w-[30rem] overflow-hidden relative border border-white/[0.07]">
         {/* Dot-matrix texture */}
         <div className="absolute inset-0 hud-hero-texture rounded-2xl" />
 
         {/* Top: level frame + identity */}
-        <div className="relative px-6 pt-6 pb-5 flex items-start gap-4">
+        <div className="relative px-7 pt-7 pb-6 flex items-start gap-5">
           {/* Pixel level frame */}
           <div
             className="hud-level-frame"
@@ -80,15 +80,15 @@ export default function LandingHeroVisual() {
             </div>
 
             {/* Name */}
-            <h3 className="text-xl font-bold text-white truncate leading-tight tracking-tight">
+            <h3 className="text-2xl font-bold text-white truncate leading-tight tracking-tight">
               Scholar
             </h3>
-            <p className="text-slate-500 text-xs mt-1">Adventurer</p>
+            <p className="text-slate-500 text-sm mt-1">Adventurer</p>
           </div>
         </div>
 
         {/* Pixel XP bar */}
-        <div className="relative px-6 pb-5">
+        <div className="relative px-7 pb-6">
           <div className="flex items-center justify-between mb-1.5">
             <span className="stat-label text-amber-500/70">XP</span>
             <span className="text-[11px] text-amber-300 tabular-nums font-medium">
@@ -122,18 +122,18 @@ export default function LandingHeroVisual() {
 
         {/* Stat grid — matches dashboard tile style */}
         <div className="relative grid grid-cols-2 gap-px bg-white/[0.06] border-t border-white/[0.06]">
-          <div className="bg-slate-950/95 px-5 py-4">
+          <div className="bg-slate-950/95 px-6 py-5">
             <div className="stat-label text-orange-400 mb-2">Streak</div>
-            <div className="text-2xl font-bold leading-none tracking-tight text-orange-400 animate-fire-glow">
+            <div className="text-3xl font-bold leading-none tracking-tight text-orange-400 animate-fire-glow">
               7
-              <span className="text-sm font-medium text-slate-500 ml-0.5">d</span>
+              <span className="text-base font-medium text-slate-500 ml-0.5">d</span>
             </div>
             <div className="stat-label text-slate-500 mt-2">Hot &#128293;</div>
           </div>
 
-          <div className="bg-slate-950/95 px-5 py-4">
+          <div className="bg-slate-950/95 px-6 py-5">
             <div className="stat-label text-emerald-400 mb-2">Mastered</div>
-            <div className="text-2xl font-bold leading-none tracking-tight text-white tabular-nums">
+            <div className="text-3xl font-bold leading-none tracking-tight text-white tabular-nums">
               3
             </div>
             <div className="stat-label text-slate-500 mt-2">Topics</div>
