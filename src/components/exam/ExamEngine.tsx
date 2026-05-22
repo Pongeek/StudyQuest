@@ -181,6 +181,43 @@ function ExamEngineInner({
     }
   }, [mode]);
 
+  // ─── Navigator scroll behavior ───
+  // Auto-scroll the current dot into the visible area when it changes.
+  // This handles long exams (e.g. 18+ questions) where later dots would
+  // otherwise be offscreen with no visual cue that they exist.
+  // NOTE: declared up here (not next to its usage in the JSX) because the
+  // function has several early-return branches below (debrief screen,
+  // !currentQuestion). React's rules-of-hooks require this hook to run
+  // unconditionally on every render.
+  useEffect(() => {
+    const btn = dotRefs.current[currentIdx];
+    if (btn) {
+      btn.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [currentIdx]);
+
+  // Manual chevron-arrow scroll (left / right) for click-to-scroll
+  // discovery on desktop. Scrolls by ~70% of the visible container width.
+  // Hoisted above early returns for the same reason as the useEffect above.
+  const scrollNavBy = useCallback((direction: 1 | -1) => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    const amount = Math.max(140, Math.round(el.clientWidth * 0.7));
+    el.scrollBy({ left: amount * direction, behavior: "smooth" });
+  }, []);
+
+  // Handle Leave-Exam confirm → go back to the exam landing page. The
+  // session row stays as-is (not completed). The user can resume by
+  // revisiting the same URL because /api/exams/[id] only redirects when
+  // `completed_at` is set. Hoisted above early returns (rules-of-hooks).
+  const handleLeaveConfirm = useCallback(() => {
+    router.push(`/dashboard/courses/${courseId}/exam`);
+  }, [router, courseId]);
+
   const currentQuestion = questions[currentIdx];
   const totalMarks = useMemo(() => questions.reduce((s, q) => s + q.marks, 0), [questions]);
 
@@ -513,38 +550,6 @@ function ExamEngineInner({
     center: { opacity: 1, x: 0 },
     exit: (dir: number) => ({ opacity: 0, x: dir * -40 }),
   };
-
-  // ─── Navigator scroll behavior ───
-  // Auto-scroll the current dot into the visible area when it changes.
-  // This handles long exams (e.g. 18+ questions) where later dots would
-  // otherwise be offscreen with no visual cue that they exist.
-  useEffect(() => {
-    const btn = dotRefs.current[currentIdx];
-    if (btn) {
-      btn.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "center",
-      });
-    }
-  }, [currentIdx]);
-
-  // Manual chevron-arrow scroll (left / right) for click-to-scroll
-  // discovery on desktop. Scrolls by ~70% of the visible container width.
-  const scrollNavBy = useCallback((direction: 1 | -1) => {
-    const el = navScrollRef.current;
-    if (!el) return;
-    const amount = Math.max(140, Math.round(el.clientWidth * 0.7));
-    el.scrollBy({ left: amount * direction, behavior: "smooth" });
-  }, []);
-
-  // Handle Leave-Exam confirm → go back to the exam landing page. The
-  // session row stays as-is (not completed). The user can resume by
-  // revisiting the same URL because /api/exams/[id] only redirects when
-  // `completed_at` is set.
-  const handleLeaveConfirm = useCallback(() => {
-    router.push(`/dashboard/courses/${courseId}/exam`);
-  }, [router, courseId]);
 
   return (
     <>
