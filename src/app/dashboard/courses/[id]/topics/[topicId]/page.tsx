@@ -9,6 +9,7 @@ import { MASTERY_LABELS, MASTERY_COLORS, MASTERY_BG } from "@/lib/xp";
 import { cn } from "@/lib/utils";
 import StartQuizButton from "@/components/quiz/StartQuizButton";
 import TopicPDFViewer from "@/components/course/TopicPDFViewerClient";
+import TopicMasteryPanel from "@/components/course/TopicMasteryPanel";
 
 async function getTopicData(topicId: string, courseId: string, userId: string) {
   const supabase = createServiceClient();
@@ -41,17 +42,10 @@ async function getTopicData(topicId: string, courseId: string, userId: string) {
     .select("id")
     .eq("topic_id", topicId);
 
-  // Only show COMPLETED sessions — abandoned/in-progress sessions
-  // (`completed_at IS NULL`) would 404 on the review page and PostgreSQL
-  // sorts NULLs first under DESC, so they'd land at the top of this list.
-  const { data: recentSessions } = await supabase
-    .from("quiz_sessions")
-    .select("*")
-    .eq("user_id", dbUser.id)
-    .eq("topic_id", topicId)
-    .not("completed_at", "is", null)
-    .order("completed_at", { ascending: false })
-    .limit(3);
+  // Note: Recent-session list is now owned by TopicMasteryPanel, which
+  // pulls a wider window (up to 10) plus per-session metadata. The old
+  // 3-row fetch here is intentionally gone — keeping it would duplicate
+  // queries for the same data the panel already loads.
 
   // Fetch source file info for PDF viewer
   let sourceFile: { file_id: string; file_url: string; file_name: string; page_count: number | null } | null = null;
@@ -76,7 +70,6 @@ async function getTopicData(topicId: string, courseId: string, userId: string) {
     topic,
     mastery: mastery || null,
     hasQuestions: (questions?.length ?? 0) > 0,
-    recentSessions: recentSessions || [],
     dbUserId: dbUser.id,
     courseId,
     sourceFile,
@@ -95,7 +88,7 @@ export default async function TopicPage({
   const data = await getTopicData(topicId, courseId, userId);
   if (!data) notFound();
 
-  const { topic, mastery, hasQuestions, recentSessions, sourceFile } = data;
+  const { topic, mastery, hasQuestions, sourceFile, dbUserId } = data;
   const masteryLevel = mastery?.mastery_level ?? 0;
   const keyConcepts: string[] = Array.isArray(topic.key_concepts) ? topic.key_concepts : [];
   const difficultyDots = Array.from({ length: 5 }, (_, i) => i < topic.difficulty);
@@ -281,48 +274,15 @@ export default async function TopicPage({
         </div>
       </div>
 
-      {/* Recent sessions */}
-      {recentSessions.length > 0 && (
-        <div className="rpg-card rounded-2xl p-5 sm:p-6">
-          <h2 className="font-bold text-white mb-4 flex items-center gap-2">
-            <Swords className="w-4 h-4 text-indigo-400" />
-            Recent Sessions
-          </h2>
-          <div className="space-y-2">
-            {recentSessions.map((session: any) => {
-              const score = Math.round(session.score_pct);
-              const isPassing = score >= 70;
-              return (
-                <Link
-                  key={session.id}
-                  href={`/dashboard/courses/${courseId}/topics/${topicId}/review/${session.id}`}
-                  className={cn(
-                    "flex items-center justify-between text-sm rounded-xl px-4 py-3 transition-all duration-200 group",
-                    "bg-slate-800/30 hover:bg-slate-800/50 border border-transparent hover:border-indigo-500/15"
-                  )}
-                >
-                  <span className="text-slate-500 group-hover:text-slate-400 transition-colors text-xs font-medium">
-                    {new Date(session.completed_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </span>
-                  <span className={cn(
-                    "font-extrabold tabular-nums",
-                    isPassing ? "text-green-400" : "text-white"
-                  )}>
-                    {score}%
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/15 rounded-full px-2 py-0.5">
-                      <Zap className="w-3 h-3 text-amber-400" />
-                      <span className="text-amber-400 text-xs font-bold">+{session.xp_earned}</span>
-                    </div>
-                    <ArrowLeft className="w-3.5 h-3.5 text-slate-700 group-hover:text-indigo-400 transition-all duration-200 rotate-180 group-hover:translate-x-0.5" />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Per-topic mastery view — activity tiles, score sparkline,
+          failed-question heatmap, and the full quest log (up to 10
+          sessions). Renders nothing on a brand-new topic with zero
+          completed sessions; the CTA above is the entry point in that case. */}
+      <TopicMasteryPanel
+        topicId={topicId}
+        courseId={courseId}
+        dbUserId={dbUserId}
+      />
     </div>
   );
 }
