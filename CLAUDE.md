@@ -177,9 +177,9 @@ Whenever improving the frontend, make the app feel like the user is **leveling u
 
 ---
 
-## Current State (Checkpoint — 2026-05-20)
+## Current State (Checkpoint — 2026-05-23)
 
-The MVP plus three major content layers (Scroll / Grimoire / Feynman), the exam-prep loop, the image-answer pipeline, the per-episode upload pattern, and full course/episode delete are all shipped. The app is in active polish + new-feature mode. Read this section AND the next ("What shipped in May 2026") before touching anything.
+The MVP plus three major content layers (Scroll / Grimoire / Feynman), the exam-prep loop, the image-answer pipeline, the per-episode upload pattern, full course/episode delete, the **Course Map redesign**, **per-course weekly Study Report**, and **per-topic Mastery Panel** are all shipped. The app is in active polish + new-feature mode. Read this section AND the next ("What shipped in May 2026") before touching anything.
 
 ### What's wired up
 
@@ -230,11 +230,20 @@ The migration files live in `supabase/migrations/`. Always update this list when
 
 ### Known TODOs / open threads
 
-- **Combo bonus → server XP:** currently the combo multiplier is client-side cosmetic only. The Combo Breaker achievement fires, but XP doesn't scale with combo length. Wire into `calculate.ts` or per-answer route.
-- **`longest_streak` not updated:** audit flagged that `users.longest_streak` never advances when `current_streak` exceeds it. Fix in the streak update path.
-- **Quiz + Boss navigator parity:** the chevron-arrow auto-scroll navigator and `Leave Exam` button are only in `ExamEngine`. Mirror to `QuizEngine` and `BossFightEngine` for long sessions.
-- **Orphan PDFs in storage:** when a course/episode is deleted, FK CASCADE removes DB rows but the actual files in the `course-files` Supabase Storage bucket are NOT removed. Harmless (few MB of quota) but eventually worth a sweeper.
-- **User strategic queue (not yet picked):** onboarding flow polish, daily quests generator, course-map visual redesign, smart dashboard widget. The user has also asked about making the **dashboard hero feel "elegant + a bit retro pixelated"** — design-direction task, not started.
+Audited 2026-05-23 against actual code — kept only items that are *genuinely* still open. Verify before re-adding anything you think is a bug.
+
+- **Orphan PDFs in storage:** when a course/episode is deleted, FK CASCADE removes DB rows but the actual files in the `course-files` Supabase Storage bucket are NOT removed. The `DELETE /api/courses/[id]` docstring explicitly admits this. Harmless (few MB of quota) but eventually worth a sweeper. *Still open.*
+- **Edit episode title / reorder episodes:** `/api/episodes/[id]` only supports DELETE. No `PATCH` for title, no reorder endpoint. UI also has no affordance. Lowest-priority of the queue items.
+- **Boss-fight ambient illustration (per-episode):** discussed 2026-05-23 with proof-of-concept generated via Nano Banana 2 MCP (Church-Turing Thesis boss image at `generated_imgs/`). User liked the result but deferred building the production pipeline. Path forward if revisited: migration `episodes.boss_image_url`, server route calling Gemini SDK directly (not MCP — MCP is dev-only), Supabase Storage `boss-images/` prefix, auto-trigger after episode processing, skull fallback when null.
+- **User strategic queue (not yet picked):** onboarding flow polish, daily quests generator, smart dashboard widget. Profile page also pre-dates the Tier B+ vocabulary and could use a pass.
+
+### Recently resolved (audited 2026-05-23 — don't re-add to TODO)
+
+- ✅ **Combo bonus → server XP** — `calculateSessionXp` and `calculateBossFightXp` both award a tiered combo bonus (+5%/+10%/+15% at 3+/4+/5+). Quiz and Boss complete routes pass `maxCombo` through.
+- ✅ **`longest_streak` updates** — all three complete routes (quiz / boss / review) compute `Math.max(dbUser.longest_streak || 0, newStreak)` and persist it.
+- ✅ **Quiz navigator parity** — `QuizEngine` has `scrollNavBy`, `ChevronLeft`/`ChevronRight` buttons, and a `Leave Quiz` button + confirm banner. `BossFightEngine` uses a `TrialDots` non-scrolling navigator (boss sessions are short enough that horizontal scroll isn't needed) plus a `Leave Fight` button — adequate parity by intent.
+- ✅ **Dashboard hero "elegant + retro pixelated"** — shipped as part of the dashboard hero rework. See `project_dashboard_design_tokens` memory for the Tier A vs Tier B+ vocabulary.
+- ✅ **Course Map visual redesign** — pixel-bordered episode chrome, boss-arena tile with ambient halo + scanlines + "BOSS DORMANT" copy, fixed-position chapter breadcrumb (NOT sticky in flow — avoids layout-shift wobble), 404 fix on `/dashboard/courses`. See "Course Map redesign" subsection below.
 
 ---
 
@@ -320,6 +329,32 @@ Bifurcated risk levels because a course represents weeks of progress, an episode
 - **CourseMap header split**: HTML disallows `<button>` inside `<button>`, so the episode header was split into a left clickable region (collapse toggle) + a right region containing `DeleteEpisodeButton` + chevron. The trash button uses `stopPropagation()` so opening the dialog doesn't toggle collapse.
 - **Storage caveat**: PDF files in the `course-files` bucket are NOT removed by cascade (FK CASCADE only covers DB rows). Logged as a known TODO above.
 
+### Course Map redesign + Study Report + Topic Mastery Panel (2026-05-23)
+
+Three back-to-back commits on `course-redesign` → fast-forward-merged to `main` (rollback anchor: tag `pre-course-redesign` → `aa1dfe0`).
+
+**Course Map redesign (commit `eaa09ef`)**
+- Episode cards swap `rpg-card` for `pixel-border` + 4 status-colored pixel-nail corners. Border + nails flip indigo → emerald together when an episode hits 100%.
+- Boss tile gets `py-5` height, a `.boss-arena-glow` ambient pulse behind it (red while pending via `--pending` variant, amber after victory via `--defeated`), a `pixel-scanlines` overlay, and the locked copy now reads "**BOSS DORMANT** — Master every topic above to summon the boss" instead of the flat "Complete all topics to unlock".
+- New `src/components/course/EpisodeBreadcrumb.tsx` — IntersectionObserver picks the topmost intersecting `#episode-card-{id}` and renders a chapter chip (`CH NN — Title · M/T · P%`) under the dashboard nav while you scroll inside an episode. **Critical pattern**: rendered with `position: fixed` (NOT `position: sticky` in flow) — the sticky version caused a layout-shift feedback loop that visibly wobbled the page on scroll. Outer wrapper handles positioning; `.episode-breadcrumb` is just chrome.
+- 404 fix: `/dashboard/courses` doesn't exist as an index — courses live at `/dashboard`. Two broken links repointed (`/dashboard/review/page.tsx` empty-state "Browse Courses" CTA + `TodaysMission.tsx` fallback `nextQuestHref`).
+- Tried topic-to-topic connector lines (status-colored, with a one-shot localStorage-gated wipe animation on first mastery crossing) but pulled them — read poorly at small sizes and the mastery-ring tier already telegraphs progress. The connector CSS utilities (`.connector-*`, `@keyframes connector-wipe`) are NOT in globals.css anymore. Don't add them back without a fresh design pass.
+
+**Weekly Study Report (commit `c1e4195`)**
+- `src/components/course/CourseStudyReport.tsx` is a server component that sits above the Exam Prep tile on the course detail page.
+- Aggregates last-7-days activity scoped to *this course* in parallel: `quiz_sessions` filtered by topic_id, `boss_fight_sessions` filtered by episode_id, `review_sessions` filtered in JS (topic_ids is JSONB, no `.in()`).
+- 4 stat tiles: Attempted / Accuracy / Topics / Days to Exam. Accuracy and exam-days tiles are color-coded by threshold (red/amber/emerald). Widget chrome itself flips amber when the exam is within 14 days.
+- "Needs Attention" section lists the bottom 3 topics by mastery, only when any are below Adept tier.
+- Renders null when there's no recent activity AND no exam date is set — keeps a brand-new course page clean.
+
+**Per-Topic Mastery Panel (commit `e961c95`)**
+- `src/components/course/TopicMasteryPanel.tsx` replaces the hardcoded last-3 "Recent Sessions" block on the topic detail page (`/dashboard/courses/[id]/topics/[topicId]`).
+- 4 activity tiles: Questions / Accuracy / Minutes / Sessions. Minutes computed from `completed_at - started_at` with a **per-session cap of 1 hour** so an AFK browser tab doesn't inflate the total.
+- Inline-SVG **score trajectory sparkline** — last 10 completed sessions, oldest → newest, with a dashed 50% baseline and a trend chip (RISING / DIPPING / STEADY) that only renders once 3+ sessions exist. Stroke color flips by latest score (red/amber/emerald). No charting library — pure SVG `<polyline>` + `<path>`.
+- **Stumbles heatmap** — top 8 questions failed 2+ times in this topic. Native `<details>` elements provide collapse without any client JS. Failure threshold: `ai_score < 0.5`.
+- **Quest Log** — up to 10 most-recent sessions: date · score · correct/total · duration · XP. Each row links through to its review page.
+- Dropped the page's standalone last-3 `quiz_sessions` query — the panel already fetches a wider window, one less round-trip.
+
 ### Hebrew RTL + output-language signal
 
 - `supabase/migrations/012_course_output_language.sql` — `courses.output_language TEXT` override so the user can pin a course to a specific AI output language even if the source PDF mixes scripts.
@@ -359,6 +394,9 @@ Bifurcated risk levels because a course represents weeks of progress, an episode
 - `src/components/course/CourseMap.tsx` — episode collapse + topic nodes + boss-fight node + per-episode delete button. Header is split (left collapse / right delete+chevron) due to nested-button HTML rules.
 - `src/components/course/DeleteCourseDialog.tsx`, `src/components/course/DeleteEpisodeButton.tsx` — destructive flows. Uses `@base-ui/react/dialog` via the shadcn `dialog.tsx` wrapper (`render={<Element/>}`, NOT Radix `asChild`).
 - `src/components/course/EpisodeUploadForm.tsx`, `EpisodeProcessingPoller.tsx`, `EmptyCourseForm.tsx`, `ExamDateButton.tsx` — per-episode pipeline + countdown UI.
+- `src/components/course/EpisodeBreadcrumb.tsx` — sticky chapter chip pinned under the dashboard nav while you scroll inside an episode. Rendered with `position: fixed` (NOT sticky in flow — would wobble).
+- `src/components/course/CourseStudyReport.tsx` — server component, per-course weekly study report widget. Parallel queries against quiz/boss/review/mastery, scoped to this course.
+- `src/components/course/TopicMasteryPanel.tsx` — server component on the topic detail page. Stat tiles + inline-SVG sparkline + native `<details>` stumbles heatmap + 10-row Quest Log. No charting library.
 - `src/components/scroll/ScrollOfWisdom.tsx`, `src/components/feynman/FeynmanSession.tsx`, `src/components/dashboard/GrimoireWidget.tsx` + `ExamCountdownCard.tsx` — May-2026 content layers.
 - `src/lib/ai/extract-episode.ts`, `extract-exam-questions.ts`, `grade-answer.ts`, `grade-exam-answer.ts`, `generate-scroll.ts`, `feynman-tutor.ts` — all Claude code paths. Tool use + streaming + vision blocks.
 - `src/lib/answer-image.ts` — image upload helper + Claude vision block builder.
@@ -372,12 +410,13 @@ Bifurcated risk levels because a course represents weeks of progress, an episode
 
 ### Next likely user asks
 
-The user is iterating on feel/polish + actively studying their real Automata / Computational Models course on this app (it's their primary use case, not a demo). Expect requests around:
+The user is iterating on feel/polish + actively studying their real Automata / Computational Models course on this app (it's their primary use case, not a demo). Stated focus as of 2026-05-23: "functionality of this application first to make it intuitive, fun, smart and without any bugs and security problems." Expect requests around:
 
-- **Dashboard hero "elegant + a bit retro pixelated" redesign** — explicitly mentioned; user wants the level/user-info area to look better. Subtle pixelation (a little, not maximalist), elegant rather than chaotic. Use the existing `.font-pixel`, `.pixel-xp-bar`, `.hud-level-frame`, `.stat-label` utilities — don't invent new ones unless `globals.css` truly lacks the primitive.
-- Polish on the May-2026 layers (Scroll/Grimoire/Feynman) as the user starts using them daily.
-- Exam-engine parity work (mirror navigator + Leave button to Quiz/Boss engines).
-- Onboarding / first-run polish.
-- Quality-of-life on the per-episode flow: edit episode title, reorder episodes, etc.
+- **Security / correctness audits** — sweep mutate/delete API routes for proper `user_id` ownership filters, audit `user_topic_mastery` joins (per [[feedback_curriculum_order]] memory, nested join via topic doesn't apply user filter at deepest level → potential cross-tenant leak).
+- **AI failure UX** — what does the user see when a Claude API call errors out (rate limit, timeout, budget cap)? Audit + harden.
+- **Empty-state audit** — Grimoire / Feynman / Review at zero activity: do they read as "nothing yet" or "broken"?
+- **Onboarding / first-run polish** — brand-new user lands on dashboard with no courses; current experience has zero scaffolding.
+- **Edit/reorder episodes** — last QoL item from the course-area queue. PATCH `/api/episodes/[id]` for title, plus a reorder endpoint.
+- **Boss-fight per-episode illustration** — deferred (cost concern). Path forward documented in Known TODOs.
 
 Confirm scope before refactoring large files (`ExamEngine.tsx`, `CourseMap.tsx`, `BossFightEngine.tsx`, `ReviewEngine.tsx` are all long). The user prefers tight, focused PRs over megacommits — match that cadence.
