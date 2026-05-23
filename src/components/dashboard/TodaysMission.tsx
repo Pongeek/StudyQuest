@@ -37,7 +37,7 @@ export default function TodaysMission({
   if (studiedToday) return null;
 
   const hasStreak = streak >= 1;
-  const href = nextQuestHref ?? "/dashboard/courses";
+  const href = nextQuestHref ?? "/dashboard";
 
   // Tier-based color tokens. Featured = amber (streak in danger);
   // standard = indigo (no streak yet).

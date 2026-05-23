@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { MASTERY_LABELS } from "@/lib/xp";
 import StartBossButton from "@/components/quiz/StartBossButton";
 import DeleteEpisodeButton from "@/components/course/DeleteEpisodeButton";
+import EpisodeBreadcrumb from "@/components/course/EpisodeBreadcrumb";
 import { useSound } from "@/lib/useSound";
 import { toast } from "sonner";
 
@@ -335,8 +336,16 @@ export default function CourseMap({
     };
   }, [evolutionEvent, episodes, router, pathname, playSfx]);
 
+  const breadcrumbEpisodes = episodes.map((ep) => ({
+    id: ep.id,
+    title: ep.title,
+    total: ep.topics.length,
+    completed: ep.topics.filter((t) => t.masteryLevel >= 2).length,
+  }));
+
   return (
     <div className="space-y-6">
+      <EpisodeBreadcrumb episodes={breadcrumbEpisodes} />
       {episodes.map((episode, epIdx) => {
         const completedCount = episode.topics.filter((t) => t.masteryLevel >= 2).length;
         const epProgress = episode.topics.length > 0 ? Math.round((completedCount / episode.topics.length) * 100) : 0;
@@ -345,15 +354,27 @@ export default function CourseMap({
 
         const epNailColor = isEpisodeComplete ? "bg-emerald-400" : "bg-indigo-400";
 
+        // Tier B+ pixel chrome — the outer episode card uses pixel-border
+        // (currentColor drives the border tone) so it joins the rest of the
+        // app's pixel vocabulary (dashboard hero, Grimoire, Feynman). Status
+        // flips text-* class so ALL chrome — border + nails — transitions
+        // together when the episode completes.
+        const epBorderTone = isEpisodeComplete
+          ? "text-emerald-500/80"
+          : "text-indigo-500/70";
+
         return (
           <motion.div
             key={episode.id}
+            id={`episode-card-${episode.id}`}
+            data-episode-complete={isEpisodeComplete ? "1" : "0"}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: epIdx * 0.08, duration: 0.4 }}
             className={cn(
-              "rpg-card rounded-2xl overflow-hidden transition-all duration-300 relative",
-              isEpisodeComplete && "!border-green-500/20"
+              "relative bg-slate-900/95 overflow-hidden transition-all duration-300",
+              "pixel-border",
+              epBorderTone
             )}
           >
             {/* Pixel nail corners — status-colored, ties episode card to family */}
@@ -458,17 +479,6 @@ export default function CourseMap({
 
                       return (
                         <div key={topic.id} className="relative" id={`topic-node-${topic.id}`}>
-                          {/* Vertical connector line */}
-                          {!isLast && tIdx < episode.topics.length - 1 && (
-                            <div className={cn(
-                              "absolute w-px h-[calc(100%-8px)] top-[40px]",
-                              rtl ? "right-[29px]" : "left-[29px]",
-                              topic.masteryLevel >= 2
-                                ? "bg-emerald-500/25"
-                                : "bg-indigo-500/15"
-                            )} />
-                          )}
-
                           <motion.div
                             initial={{ opacity: 0, x: rtl ? 15 : -15 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -550,29 +560,40 @@ export default function CourseMap({
                     {/* Boss fight node */}
                     {episode.bossFight && (
                       <div className="relative">
-                        {/* Connector from last topic */}
-                        {episode.topics.length > 0 && (
-                          <div className={cn(
-                            "absolute -top-1 w-px h-3",
-                            rtl ? "right-[29px]" : "left-[29px]",
-                            episode.bossFight.isDefeated
-                              ? "bg-amber-400/30"
-                              : "bg-red-500/20"
-                          )} />
-                        )}
-
                         <motion.div
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: episode.topics.length * 0.04 + 0.2, duration: 0.3 }}
+                          className="relative"
                         >
+                          {/* Ambient boss-arena pulse — sits behind the tile,
+                              red when the boss is still standing, amber after
+                              victory. The `inset: -10px` halo means only the
+                              outer ring leaks past the opaque tile background. */}
+                          {episode.bossFight.isUnlocked && (
+                            <div
+                              aria-hidden
+                              className={cn(
+                                "boss-arena-glow",
+                                episode.bossFight.isDefeated
+                                  ? "boss-arena-glow--defeated"
+                                  : "boss-arena-glow--pending"
+                              )}
+                            />
+                          )}
                           {episode.bossFight.isUnlocked ? (
                             <div className={cn(
-                              "relative px-4 py-3.5 flex items-center gap-3.5 transition-all duration-150 pixel-border bg-slate-900/95",
+                              "relative px-4 py-5 flex items-center gap-3.5 transition-all duration-150 pixel-border bg-slate-900/95 overflow-hidden",
                               episode.bossFight.isDefeated
                                 ? "text-amber-500/80"
                                 : "text-red-500/80"
                             )}>
+                              {/* CRT scanline overlay — sells the arcade-arena
+                                  feel without competing with the content. */}
+                              <div
+                                aria-hidden
+                                className="absolute inset-0 pixel-scanlines pointer-events-none opacity-50"
+                              />
                               {/* Pixel nails — red for pending, amber for victory */}
                               {(() => {
                                 const bossNail = episode.bossFight.isDefeated ? "bg-amber-400" : "bg-red-400";
@@ -628,16 +649,24 @@ export default function CourseMap({
                               )}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-3.5 px-4 py-3.5 pixel-border bg-slate-900/20 text-slate-700/60 opacity-50">
-                              <div className="w-10 h-10 pixel-border flex items-center justify-center flex-shrink-0 bg-white/[0.04] text-slate-600">
+                            <div className="relative flex items-center gap-3.5 px-4 py-5 pixel-border bg-slate-900/20 text-slate-700/60 opacity-60 overflow-hidden">
+                              {/* Dim scanlines — locked tiles still belong to
+                                  the arcade family, just muted. */}
+                              <div
+                                aria-hidden
+                                className="absolute inset-0 pixel-scanlines pointer-events-none opacity-25"
+                              />
+                              <div className="w-10 h-10 pixel-border flex items-center justify-center flex-shrink-0 bg-white/[0.04] text-slate-600 relative z-[1]">
                                 <Lock className="w-4 h-4" />
                               </div>
-                              <div className="flex-1 min-w-0">
+                              <div className="flex-1 min-w-0 relative z-[1]">
                                 <div className="font-pixel text-[9px] tracking-wider text-slate-500 mb-0.5">
-                                  BOSS LOCKED
+                                  BOSS DORMANT
                                 </div>
-                                <p className="text-sm font-bold text-slate-500">Episode Boss</p>
-                                <span className="text-xs text-slate-700">Complete all topics to unlock</span>
+                                <p className="text-sm font-bold text-slate-400">Episode Boss</p>
+                                <span className="text-xs text-slate-600">
+                                  Master every topic above to summon the boss
+                                </span>
                               </div>
                             </div>
                           )}

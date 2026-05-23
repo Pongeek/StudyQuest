@@ -1985,3 +1985,75 @@
   .grading-orb-halo { opacity: 0.7; }
   .grading-orb-core { opacity: 1; }
 }
+
+/* ===== Course Map — boss arena, episode breadcrumb ============================
+   Visual vocabulary for the per-course Course Map: the boss-arena ambient
+   glow + scanline layer, and the chapter breadcrumb pinned (via a fixed
+   wrapper) while scrolling inside an episode. Topic-to-topic connectors
+   were tried and removed — they read poorly at small sizes and the icon
+   tier ring already telegraphs progress.
+   ============================================================================== */
+
+/* Ambient pulse behind the boss-fight tile. Two variants — pending (red)
+   and defeated (amber). Set the variant class on the parent of the tile;
+   the pulse renders absolutely behind the tile via inset: -8px.
+   Stays subtle (max alpha ~25%) so it reads as ambient, not a flashy CTA. */
+@keyframes boss-arena-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 0.9; transform: scale(1.04); }
+}
+
+.boss-arena-glow {
+  position: absolute;
+  inset: -10px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 0;
+  filter: blur(14px);
+  animation: boss-arena-pulse 3s ease-in-out infinite;
+}
+
+.boss-arena-glow--pending {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(239, 68, 68, 0.35) 0%,
+    rgba(239, 68, 68, 0.12) 50%,
+    transparent 75%
+  );
+}
+
+.boss-arena-glow--defeated {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(251, 191, 36, 0.30) 0%,
+    rgba(251, 191, 36, 0.10) 50%,
+    transparent 75%
+  );
+  animation-duration: 5s;
+}
+
+/* Chapter breadcrumb chrome — pinned under the dashboard nav while a long
+   episode is scrolled past its header. Tier B+ pixel chrome, tight height
+   so it doesn't dominate the viewport. Positioning is handled by the
+   `.fixed top-16 inset-x-0` wrapper in EpisodeBreadcrumb.tsx (NOT sticky)
+   so the breadcrumb stays out of document flow — sticky inside the topics
+   list caused a layout-shift feedback loop that wobbled the page on scroll. */
+.episode-breadcrumb {
+  background: rgba(2, 6, 23, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(99, 102, 241, 0.18);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.18);
+}
+
+.episode-breadcrumb--complete {
+  border-top-color: rgba(16, 185, 129, 0.25);
+  border-bottom-color: rgba(16, 185, 129, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boss-arena-glow {
+    animation: none;
+    opacity: 0.55;
+  }
+}
