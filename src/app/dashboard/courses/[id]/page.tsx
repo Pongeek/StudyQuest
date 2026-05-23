@@ -11,6 +11,7 @@ import ExamDateButton from "@/components/course/ExamDateButton";
 import EpisodeUploadForm from "@/components/course/EpisodeUploadForm";
 import EpisodeProcessingPoller from "@/components/course/EpisodeProcessingPoller";
 import DeleteCourseDialog from "@/components/course/DeleteCourseDialog";
+import CourseStudyReport from "@/components/course/CourseStudyReport";
 
 async function getCourse(courseId: string, userId: string) {
   const supabase = createServiceClient();
@@ -359,6 +360,16 @@ export default async function CoursePage({
           </div>
         </div>
       </div>
+
+      {/* Weekly study report — last-7d activity across quiz/boss/review for
+          this course, plus weakest-topics callout. Renders nothing if the
+          user has no recent activity AND no exam date. */}
+      <CourseStudyReport
+        dbUserId={dbUserId}
+        topicIds={episodes.flatMap((ep: any) => (ep.topics || []).map((t: any) => t.id))}
+        episodeIds={episodes.map((ep: any) => ep.id)}
+        examDate={course.exam_date ?? null}
+      />
 
       {/* Exam Prep — Tier A: amber pixel-border + nails + pixel-font micro-label */}
       <Link href={`/dashboard/courses/${id}/exam`} className="block group">
