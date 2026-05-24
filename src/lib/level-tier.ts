@@ -167,10 +167,10 @@ export interface TierNavChipColors {
 const TIER_CHIP_COLORS: Record<TierName, TierNavChipColors> = {
   novice: {
     bgClass: "bg-slate-500/10",
-    textClass: "text-slate-300",
-    ringStroke: "#94a3b8",
+    textClass: "text-slate-200",
+    ringStroke: "#cbd5e1",
     ringStrokeBg: "rgba(148,163,184,0.25)",
-    iconClass: "text-slate-300",
+    iconClass: "text-slate-200",
   },
   apprentice: {
     bgClass: "bg-amber-500/10",
@@ -180,35 +180,37 @@ const TIER_CHIP_COLORS: Record<TierName, TierNavChipColors> = {
     iconClass: "text-amber-300",
   },
   adept: {
-    bgClass: "bg-sky-500/10",
-    textClass: "text-sky-300",
-    ringStroke: "#7dd3fc",
-    ringStrokeBg: "rgba(56,189,248,0.28)",
-    iconClass: "text-sky-300",
+    // Stitch picked cyan-400 (more vivid than sky). Chip follows suit.
+    bgClass: "bg-cyan-500/10",
+    textClass: "text-cyan-300",
+    ringStroke: "#22d3ee",
+    ringStrokeBg: "rgba(34,211,238,0.28)",
+    iconClass: "text-cyan-300",
   },
   expert: {
-    bgClass: "bg-yellow-500/10",
-    textClass: "text-yellow-300",
-    ringStroke: "#fde047",
-    ringStrokeBg: "rgba(234,179,8,0.28)",
-    iconClass: "text-yellow-300",
+    // Stitch picked ORANGE (not yellow) for Expert — chip follows.
+    bgClass: "bg-orange-500/10",
+    textClass: "text-orange-300",
+    ringStroke: "#fb923c",
+    ringStrokeBg: "rgba(249,115,22,0.28)",
+    iconClass: "text-orange-300",
   },
   master: {
     bgClass: "bg-purple-500/10",
     textClass: "text-purple-300",
-    ringStroke: "#d8b4fe",
+    ringStroke: "#c084fc",
     ringStrokeBg: "rgba(168,85,247,0.28)",
     iconClass: "text-purple-300",
   },
   sage: {
-    // Sage uses violet base for the chip — the gradient identity needs
-    // the larger hero frame to shine, the chip stays mono-violet so it
-    // doesn't compete at small sizes.
-    bgClass: "bg-purple-500/10",
-    textClass: "text-purple-200",
-    ringStroke: "#e9d5ff",
-    ringStrokeBg: "rgba(168,85,247,0.32)",
-    iconClass: "text-purple-200",
+    // Sage's hero frame uses the amber→pink→violet gradient — the chip
+    // can't render a gradient ring stroke easily, so it picks PINK (the
+    // gradient's bridge color) as the chip's mono accent.
+    bgClass: "bg-pink-500/10",
+    textClass: "text-pink-300",
+    ringStroke: "#f9a8d4",
+    ringStrokeBg: "rgba(236,72,153,0.32)",
+    iconClass: "text-pink-300",
   },
 };
 

@@ -1589,22 +1589,21 @@
   --tier-accent-rgb: 99 102 241;          /* indigo-500 */
   --tier-accent-line-rgb: 245 158 11;     /* amber-500 (legacy top line) */
   --tier-numeral: #fbbf24;                /* amber-400 */
-  --tier-glow-alpha: 0.45;                /* base outer glow — drift layers on top */
+  --tier-glow-alpha: 0.55;                /* base outer glow — drift layers on top */
   --tier-saturation: 1;
-  /* Two-layer background: the tier accent washes the upper-left at 8%
-     alpha (so each tier reads its identity through a soft interior tint)
-     OVER the existing dark gradient. The accent layer is positioned via
-     `linear-gradient` rather than a flat color so the wash falls off and
-     never overwhelms the numeral's contrast. */
-  background:
-    linear-gradient(155deg, rgb(var(--tier-accent-rgb) / 0.10) 0%, transparent 65%),
-    linear-gradient(155deg, rgba(25,23,65,0.98) 0%, rgba(10,8,30,1) 100%);
-  border: 2px solid rgb(var(--tier-accent-rgb) / 0.72);
+  /* Stitch-adaptation: plain dark frame background. The tier identity
+     comes from border color + numeral color + outer halo, NOT from an
+     interior wash. Lets the color "block" feel of each tier stand out. */
+  background: linear-gradient(155deg, rgba(25,23,65,0.98) 0%, rgba(10,8,30,1) 100%);
+  border: 2px solid rgb(var(--tier-accent-rgb) / 0.85);
   border-radius: 4px;
   box-shadow:
-    inset 0 0 0 1px rgb(var(--tier-accent-rgb) / 0.14),
+    inset 0 0 0 1px rgb(var(--tier-accent-rgb) / 0.18),
     inset 0 1px 0 rgba(255,255,255,0.05),
-    0 0 26px rgb(var(--tier-accent-rgb) / var(--tier-glow-alpha)),
+    /* Two-layer outer halo: tight inner + wide outer for the surrounding
+       "card glow" feel that makes each tier read as its own bright block. */
+    0 0 24px rgb(var(--tier-accent-rgb) / var(--tier-glow-alpha)),
+    0 0 50px rgb(var(--tier-accent-rgb) / calc(var(--tier-glow-alpha) * 0.55)),
     0 4px 24px rgba(0,0,0,0.70);
   filter: saturate(var(--tier-saturation));
 }
@@ -1647,16 +1646,18 @@
   user-select: none;
 }
 
-/* Level number — color comes from the tier; legacy default is amber */
+/* Level number — Stitch-adaptation: full-saturation tier color with a
+   strong drop-shadow halo behind the numeral so it reads as the focal
+   glowing element inside the frame. */
 .hud-level-number {
   font-family: var(--font-pixel);
   font-size: 26px;
   line-height: 1;
   color: var(--tier-numeral);
   text-shadow:
-    0 0 22px rgb(var(--tier-accent-line-rgb) / 0.55),
-    0 0 8px rgb(var(--tier-accent-line-rgb) / 0.32),
-    0 2px 0 rgba(0,0,0,0.60);
+    0 0 14px rgb(var(--tier-accent-rgb) / 0.85),
+    0 0 22px rgb(var(--tier-accent-rgb) / 0.55),
+    0 2px 0 rgba(0,0,0,0.65);
   user-select: none;
 }
 
@@ -2094,118 +2095,126 @@
    class to shift it. See src/lib/level-tier.ts for the data side.
    ───────────────────────────────────────────────────────────────────── */
 
+/* Tier accent tokens — Stitch-adapted palette.
+   Expert moves from yellow → orange to match Stitch's "deep amber" tier.
+   Sage's gradient adds pink as the mid-color (amber → pink → violet).
+   All numeral colors are at full saturation per Stitch's bolder approach. */
+
 .tier-novice {
   --tier-accent-rgb: 148 163 184;       /* slate-400 */
-  --tier-accent-line-rgb: 148 163 184;  /* slate-400 */
-  --tier-numeral: #cbd5e1;              /* slate-300 (≥4.5:1 on slate-950 frame) */
+  --tier-accent-line-rgb: 148 163 184;
+  --tier-numeral: #e2e8f0;              /* slate-200 — brighter than before */
 }
 
 .tier-apprentice {
   --tier-accent-rgb: 245 158 11;        /* amber-500 */
-  --tier-accent-line-rgb: 245 158 11;
-  --tier-numeral: #fbbf24;              /* amber-400 */
+  --tier-accent-line-rgb: 251 191 36;   /* amber-400 — brighter top accent */
+  --tier-numeral: #fbbf24;              /* amber-400 — full saturation */
 }
 
 .tier-adept {
-  --tier-accent-rgb: 56 189 248;        /* sky-400 (Adept = scholarly cyan) */
-  --tier-accent-line-rgb: 56 189 248;
-  --tier-numeral: #7dd3fc;              /* sky-300 */
+  /* Stitch went cyan-400 (more saturated than our previous sky-400). */
+  --tier-accent-rgb: 34 211 238;        /* cyan-400 */
+  --tier-accent-line-rgb: 34 211 238;
+  --tier-numeral: #22d3ee;              /* cyan-400 — full saturation */
 }
 
 .tier-expert {
-  --tier-accent-rgb: 234 179 8;         /* yellow-500 (deeper gold than Apprentice amber) */
-  --tier-accent-line-rgb: 234 179 8;
-  --tier-numeral: #fde047;              /* yellow-300 */
+  /* Stitch picked ORANGE for Expert (not yellow) — reads as "earned
+     amber with heat," more vivid against a dark surface than yellow.
+     We honor that pick. */
+  --tier-accent-rgb: 249 115 22;        /* orange-500 */
+  --tier-accent-line-rgb: 251 146 60;   /* orange-400 */
+  --tier-numeral: #fb923c;              /* orange-400 */
 }
 
 .tier-master {
   --tier-accent-rgb: 168 85 247;        /* purple-500 */
   --tier-accent-line-rgb: 168 85 247;
-  --tier-numeral: #d8b4fe;              /* purple-300 */
+  --tier-numeral: #c084fc;              /* purple-400 — brighter than before */
 }
 
 .tier-sage {
-  /* Gradient identity — frame uses violet, top line uses amber, numeral
-     is set transparent here and the component swaps in .text-gradient-epic
-     for the numeral so the gradient renders correctly via background-clip. */
-  --tier-accent-rgb: 168 85 247;
-  --tier-accent-line-rgb: 245 158 11;
-  --tier-numeral: #d8b4fe;              /* fallback if gradient text is unsupported */
+  /* Stitch-adapted gradient: amber → PINK → violet.
+     Frame border tints toward pink (the bridge color between amber and violet).
+     The TierLevelFrame component swaps the numeral to .text-gradient-epic
+     so the full multi-stop gradient renders via background-clip. */
+  --tier-accent-rgb: 236 72 153;        /* pink-500 — bridge accent */
+  --tier-accent-line-rgb: 245 158 11;   /* amber-500 — top accent stripe */
+  --tier-numeral: #f9a8d4;              /* pink-300 — fallback if gradient text unsupported */
 }
 
 /* ── Decoration layers — additive DOM spans, positioned absolutely on
       the level-frame. Each decoration is opt-in based on the tier. ── */
 
-/* Apprentice — corner sparks (4 dots that catch the eye without
-   competing with the frame chrome). */
+/* Apprentice — Stitch-style corner sparks: small full-saturation pixels
+   sitting INSIDE the frame's bounds (Stitch placed them at corner 0,0
+   so they read as etched into the frame). */
 .tier-spark {
   position: absolute;
-  width: 3px; height: 3px;
-  background: rgb(var(--tier-accent-line-rgb) / 1);
-  box-shadow: 0 0 8px rgb(var(--tier-accent-line-rgb) / 0.85);
+  width: 4px; height: 4px;
+  background: rgb(var(--tier-accent-line-rgb));
   pointer-events: none;
 }
-.tier-spark--tl { top: -3px; left: -3px; }
-.tier-spark--tr { top: -3px; right: -3px; }
-.tier-spark--bl { bottom: -3px; left: -3px; }
-.tier-spark--br { bottom: -3px; right: -3px; }
+.tier-spark--tl { top: 1px; left: 1px; }
+.tier-spark--tr { top: 1px; right: 1px; }
+.tier-spark--bl { bottom: 1px; left: 1px; }
+.tier-spark--br { bottom: 1px; right: 1px; }
 
-/* Adept — side laurel marks (stacked pixel pips flanking the frame). */
+/* Adept — Stitch-style side laurel marks: vertical pixel BARS (not dots),
+   3 per side, full saturation, positioned INSIDE the frame on left + right
+   edges. Stitch used `w-1 h-2` rectangles which read clearer than dots. */
 .tier-laurel {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   pointer-events: none;
 }
-.tier-laurel--left { left: -9px; }
-.tier-laurel--right { right: -9px; }
+.tier-laurel--left { left: 3px; }
+.tier-laurel--right { right: 3px; }
 .tier-laurel-pip {
-  width: 4px; height: 4px;
-  background: rgb(var(--tier-accent-rgb) / 1);
-  box-shadow: 0 0 6px rgb(var(--tier-accent-rgb) / 0.75);
+  width: 3px; height: 6px;
+  background: rgb(var(--tier-accent-rgb));
 }
 
-/* Expert — pixel crown atop the frame (3 teeth, middle tallest). */
+/* Expert — Stitch-style crown atop the frame: 3 chunky teeth, middle
+   tallest. Stitch used 8x8 short / 8x16 tall — chunkier than ours. */
 .tier-crown {
   position: absolute;
-  top: -9px;
+  top: -12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: flex-end;
-  gap: 2px;
-  height: 9px;
+  gap: 3px;
+  height: 12px;
   pointer-events: none;
 }
 .tier-crown-tooth {
-  width: 4px;
-  background: rgb(var(--tier-accent-rgb) / 1);
-  box-shadow: 0 0 6px rgb(var(--tier-accent-rgb) / 0.8);
+  width: 5px;
+  background: rgb(var(--tier-accent-rgb));
 }
-.tier-crown-tooth--short { height: 5px; }
-.tier-crown-tooth--tall  { height: 9px; }
+.tier-crown-tooth--short { height: 6px; }
+.tier-crown-tooth--tall  { height: 12px; }
 
-/* Master — flame edges at the corners (replaces sparks/nails with a
-   small flame silhouette pointing outward). */
+/* Master — Stitch-style corner flames: 3x3 squares rotated 45° with a
+   triangle clip-path. Full violet saturation, sit at the corners.
+   Visually like flame tongues pointing outward from the frame edges. */
 .tier-flame {
   position: absolute;
-  width: 6px; height: 9px;
-  background: linear-gradient(
-    180deg,
-    rgb(var(--tier-accent-rgb) / 1) 0%,
-    rgb(var(--tier-accent-rgb) / 0.4) 100%
-  );
-  filter: drop-shadow(0 0 4px rgb(var(--tier-accent-rgb) / 0.7));
+  width: 8px; height: 10px;
+  background: rgb(var(--tier-accent-rgb));
+  filter: drop-shadow(0 0 5px rgb(var(--tier-accent-rgb) / 0.85));
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
   pointer-events: none;
 }
-.tier-flame--tl { top: -5px; left: 2px; }
-.tier-flame--tr { top: -5px; right: 2px; }
-.tier-flame--bl { bottom: -5px; left: 2px;  transform: scaleY(-1); }
-.tier-flame--br { bottom: -5px; right: 2px; transform: scaleY(-1); }
+.tier-flame--tl { top: -2px; left: 0px; }
+.tier-flame--tr { top: -2px; right: 0px; }
+.tier-flame--bl { bottom: -2px; left: 0px;  transform: scaleY(-1); }
+.tier-flame--br { bottom: -2px; right: 0px; transform: scaleY(-1); }
 
 /* Master / Sage — subtle scanlines layered over the frame's inner area.
    Uses the existing pixel-scanlines vocabulary but tinted to the tier
@@ -2224,26 +2233,29 @@
   pointer-events: none;
 }
 
-/* Sage — 4-glyph rotating rune ring around the frame. */
+/* Sage — Stitch-style rotating rune ring: a dashed pink border circle
+   around the frame, slowly spinning, with 4 runes at cardinal points in
+   alternating amber/pink/violet for the gradient identity. */
 .tier-rune-ring {
   position: absolute;
-  inset: -12px;
+  inset: -14px;
+  border: 1px dashed rgba(236, 72, 153, 0.45);
+  border-radius: 50%;
   pointer-events: none;
-  animation: tier-rune-rotate 16s linear infinite;
+  animation: tier-rune-rotate 14s linear infinite;
 }
 .tier-rune {
   position: absolute;
   font-family: var(--font-pixel);
-  font-size: 9px;
-  color: rgb(var(--tier-accent-rgb) / 0.78);
-  text-shadow: 0 0 6px rgb(var(--tier-accent-rgb) / 0.55);
+  font-size: 10px;
   line-height: 1;
   user-select: none;
+  text-shadow: 0 0 6px currentColor;
 }
-.tier-rune--n { top: -1px; left: 50%; transform: translateX(-50%); }
-.tier-rune--e { right: -1px; top: 50%; transform: translateY(-50%); }
-.tier-rune--s { bottom: -1px; left: 50%; transform: translateX(-50%); }
-.tier-rune--w { left: -1px; top: 50%; transform: translateY(-50%); }
+.tier-rune--n { top: -6px;   left: 50%;  transform: translateX(-50%); color: #fbbf24; }
+.tier-rune--e { right: -6px; top: 50%;   transform: translateY(-50%); color: #c084fc; }
+.tier-rune--s { bottom: -6px;left: 50%;  transform: translateX(-50%); color: #f9a8d4; }
+.tier-rune--w { left: -6px;  top: 50%;   transform: translateY(-50%); color: #fbbf24; }
 
 @keyframes tier-rune-rotate {
   from { transform: rotate(0deg); }
