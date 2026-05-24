@@ -64,11 +64,12 @@ export async function POST(_req: NextRequest) {
     const topicTitle = (row as any).topics?.title ?? "Unknown topic";
     topicIds.push(topicId);
 
-    // Fetch questions for this topic
+    // Fetch questions for this topic, skipping soft-replaced rows.
     const { data: topicQuestions } = await supabase
       .from("questions")
       .select("id, type, content, options, correct_answer, explanation, difficulty")
-      .eq("topic_id", topicId);
+      .eq("topic_id", topicId)
+      .is("replaced_at", null);
 
     if (!topicQuestions || topicQuestions.length === 0) continue;
 

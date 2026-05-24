@@ -33,6 +33,9 @@ import AchievementUnlockOverlay, {
   type UnlockedAchievement,
 } from "@/components/effects/AchievementUnlockOverlay";
 import GradingOverlay from "@/components/effects/GradingOverlay";
+import RegenerateQuestionButton, {
+  type RegeneratedQuestion,
+} from "@/components/quiz/RegenerateQuestionButton";
 import { calculateLevel, getLevelTitle, XP_REWARDS } from "@/lib/xp";
 import { readClassifiedErrorFromResponse, classifyAiError } from "@/lib/ai-error";
 import {
@@ -110,7 +113,7 @@ function QuizEngineInner({
   sessionId,
   topicId,
   courseId,
-  questions,
+  questions: initialQuestions,
   topicTitle,
   episodeTitle,
   userStreak,
@@ -120,10 +123,15 @@ function QuizEngineInner({
   const router = useRouter();
   const { play: playSfx } = useSound();
 
+  // The questions array is held in local state so the regenerate button
+  // can swap a question in place without a page refresh (which would re-
+  // mount the engine + blow away all in-flight answer state).
+  const [questions, setQuestions] = useState(initialQuestions);
+
   // --- Per-question state map ---
   const [questionStates, setQuestionStates] = useState<Map<string, QuestionState>>(() => {
     const map = new Map<string, QuestionState>();
-    questions.forEach((q, i) => {
+    initialQuestions.forEach((q, i) => {
       map.set(q.id, {
         selectedOption: null,
         openAnswer: "",
@@ -288,6 +296,47 @@ function QuizEngineInner({
   );
 
   const unansweredCount = questions.length - answeredCount;
+
+  // Swap a regenerated question into local state. The server has already
+  // soft-replaced the old row, so on refresh the new question takes the
+  // same slot (it inherited created_at). For this in-flight session, we
+  // do the swap in JS so the engine keeps running without re-mount.
+  const handleRegenerated = useCallback(
+    (oldQuestionId: string, newQuestion: RegeneratedQuestion) => {
+      setQuestions((prev) =>
+        prev.map((q) =>
+          q.id === oldQuestionId
+            ? {
+                id: newQuestion.id,
+                type: newQuestion.type,
+                content: newQuestion.content,
+                options: newQuestion.options,
+                correct_answer: newQuestion.correct_answer,
+                explanation: newQuestion.explanation,
+                difficulty: newQuestion.difficulty,
+              }
+            : q
+        )
+      );
+      setQuestionStates((prev) => {
+        const next = new Map(prev);
+        next.delete(oldQuestionId);
+        next.set(newQuestion.id, {
+          selectedOption: null,
+          openAnswer: "",
+          openAnswerImage: null,
+          result: null,
+          visited: true,
+          skipped: false,
+        });
+        return next;
+      });
+      // The old question's draft (if any) is orphaned in localStorage —
+      // explicit clear keeps the bucket tidy.
+      clearDraft(sessionId, oldQuestionId);
+    },
+    [sessionId]
+  );
 
   // Collect results array from state
   const buildResultsArray = useCallback((): AnswerResult[] => {
@@ -850,12 +899,12 @@ function QuizEngineInner({
               className="rpg-card rounded-2xl p-5 sm:p-8 space-y-5 sm:space-y-6"
               dir={rtl ? "rtl" : "ltr"}
             >
-              {/* Question type badge + difficulty */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              {/* Question type badge + difficulty + regenerate */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
                   <span
                     className={cn(
-                      "text-xs font-bold px-3 py-1 rounded-full border",
+                      "text-xs font-bold px-3 py-1 rounded-full border whitespace-nowrap",
                       currentQuestion.type === "mcq"
                         ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
                         : "bg-violet-500/10 border-violet-500/20 text-violet-400"
@@ -867,16 +916,29 @@ function QuizEngineInner({
                     Q{currentIdx + 1}
                   </span>
                 </div>
-                <div className="flex items-center gap-0.5">
-                  {difficultyStars.map((filled, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        "w-2 h-2 rounded-full",
-                        filled ? "bg-amber-400" : "bg-slate-700"
-                      )}
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {/* Regenerate: only available while the question is still
+                      unanswered + we aren't mid-grade. Replaces the question
+                      with a fresh AI variant — old row soft-replaced server-side. */}
+                  {!isAnswered && (
+                    <RegenerateQuestionButton
+                      questionId={currentQuestion.id}
+                      variant="inline"
+                      disabled={isGrading}
+                      onRegenerated={(nq) => handleRegenerated(currentQuestion.id, nq)}
                     />
-                  ))}
+                  )}
+                  <div className="flex items-center gap-0.5" aria-label="Question difficulty">
+                    {difficultyStars.map((filled, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "w-2 h-2 rounded-full",
+                          filled ? "bg-amber-400" : "bg-slate-700"
+                        )}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
 

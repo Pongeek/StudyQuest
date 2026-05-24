@@ -29,6 +29,9 @@ import { REVIEW_XP_PER_CORRECT } from "@/lib/spaced-repetition";
 import ReviewSummary from "./ReviewSummary";
 import { type UnlockedAchievement } from "@/components/effects/AchievementUnlockOverlay";
 import AnswerImagePicker from "@/components/quiz/AnswerImagePicker";
+import RegenerateQuestionButton, {
+  type RegeneratedQuestion,
+} from "@/components/quiz/RegenerateQuestionButton";
 import { readClassifiedErrorFromResponse, classifyAiError } from "@/lib/ai-error";
 import {
   loadDraft,
@@ -103,16 +106,20 @@ interface ReviewEngineProps {
 
 function ReviewEngineInner({
   sessionId,
-  questions,
+  questions: initialQuestions,
   userStreak,
 }: ReviewEngineProps) {
   const { fireBurst } = useXPBurst();
   const router = useRouter();
   const { play: playSfx } = useSound();
 
+  // Local copy so the regenerate button can swap a question in place
+  // without remounting the engine.
+  const [questions, setQuestions] = useState(initialQuestions);
+
   const [questionStates, setQuestionStates] = useState<Map<string, QuestionState>>(() => {
     const map = new Map<string, QuestionState>();
-    questions.forEach((q, i) => {
+    initialQuestions.forEach((q, i) => {
       map.set(q.id, {
         selectedOption: null,
         openAnswer: "",
@@ -124,6 +131,44 @@ function ReviewEngineInner({
     });
     return map;
   });
+
+  // Swap a regenerated question into local state. The server has already
+  // soft-replaced the old row; the engine keeps running without remount.
+  const handleRegenerated = useCallback(
+    (oldQuestion: ReviewQuestion, newQuestion: RegeneratedQuestion) => {
+      setQuestions((prev) =>
+        prev.map((q) =>
+          q.id === oldQuestion.id
+            ? {
+                ...q, // keep topicId + topicTitle (review sessions interleave topics)
+                id: newQuestion.id,
+                type: newQuestion.type,
+                content: newQuestion.content,
+                options: newQuestion.options,
+                correct_answer: newQuestion.correct_answer,
+                explanation: newQuestion.explanation,
+                difficulty: newQuestion.difficulty,
+              }
+            : q
+        )
+      );
+      setQuestionStates((prev) => {
+        const next = new Map(prev);
+        next.delete(oldQuestion.id);
+        next.set(newQuestion.id, {
+          selectedOption: null,
+          openAnswer: "",
+          openAnswerImage: null,
+          result: null,
+          visited: true,
+          skipped: false,
+        });
+        return next;
+      });
+      clearDraft(sessionId, oldQuestion.id);
+    },
+    [sessionId]
+  );
 
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isGrading, setIsGrading] = useState(false);
@@ -692,12 +737,12 @@ function ReviewEngineInner({
             className="rpg-card rounded-2xl p-5 sm:p-8 space-y-5 sm:space-y-6"
             dir={rtl ? "rtl" : "ltr"}
           >
-            {/* Type badge + difficulty */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            {/* Type badge + difficulty + regenerate */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
                 <span
                   className={cn(
-                    "text-xs font-bold px-3 py-1 rounded-full border",
+                    "text-xs font-bold px-3 py-1 rounded-full border whitespace-nowrap",
                     currentQuestion.type === "mcq"
                       ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
                       : "bg-violet-500/10 border-violet-500/20 text-violet-400"
@@ -709,16 +754,26 @@ function ReviewEngineInner({
                   Q{currentIdx + 1}
                 </span>
               </div>
-              <div className="flex items-center gap-0.5">
-                {difficultyStars.map((filled, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "w-2 h-2 rounded-full",
-                      filled ? "bg-cyan-400/70" : "bg-slate-700"
-                    )}
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {!isAnswered && (
+                  <RegenerateQuestionButton
+                    questionId={currentQuestion.id}
+                    variant="inline"
+                    disabled={isGrading}
+                    onRegenerated={(nq) => handleRegenerated(currentQuestion, nq)}
                   />
-                ))}
+                )}
+                <div className="flex items-center gap-0.5" aria-label="Question difficulty">
+                  {difficultyStars.map((filled, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "w-2 h-2 rounded-full",
+                        filled ? "bg-cyan-400/70" : "bg-slate-700"
+                      )}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
 

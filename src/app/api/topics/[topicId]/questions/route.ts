@@ -32,11 +32,12 @@ export async function POST(
     // No body or invalid JSON — that's fine, default to false
   }
 
-  // Check if questions already exist
+  // Check if live (non-replaced) questions already exist.
   const { count } = await supabase
     .from("questions")
     .select("id", { count: "exact", head: true })
-    .eq("topic_id", topicId);
+    .eq("topic_id", topicId)
+    .is("replaced_at", null);
 
   if (count && count > 0 && !regenerate) {
     return NextResponse.json({ message: "Questions already exist", count });
@@ -99,7 +100,9 @@ export async function GET(
   const { data: questions } = await supabase
     .from("questions")
     .select("*")
-    .eq("topic_id", topicId);
+    .eq("topic_id", topicId)
+    .is("replaced_at", null)
+    .order("created_at", { ascending: true });
 
   return NextResponse.json({ questions: questions || [] });
 }

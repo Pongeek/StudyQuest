@@ -96,11 +96,14 @@ export async function getGrimoireDemons(userId: string): Promise<GrimoireDemon[]
 
   if (demonIds.length === 0) return [];
 
-  // 5. Fetch question details with topic title
+  // 5. Fetch question details with topic title — skip any demons that
+  //    have been soft-replaced (the student regenerated them, so they're
+  //    no longer the question being asked).
   const { data: questions } = await supabase
     .from("questions")
     .select("id, content, type, topic_id, topics(id, title)")
-    .in("id", demonIds);
+    .in("id", demonIds)
+    .is("replaced_at", null);
 
   if (!questions) return [];
 

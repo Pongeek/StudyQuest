@@ -12,6 +12,7 @@ import {
   Minus,
   Zap,
 } from "lucide-react";
+import StumbleRegenerateButton from "@/components/course/StumbleRegenerateButton";
 
 interface TopicMasteryPanelProps {
   topicId: string;
@@ -33,6 +34,9 @@ interface SessionRow {
 interface QuestionRow {
   id: string;
   content: string;
+  /** When set, the question has been soft-replaced and should NOT count as
+   *  a stumble anymore (the student regenerated it). */
+  replaced_at: string | null;
 }
 
 interface AnswerRow {
@@ -96,7 +100,9 @@ export default async function TopicMasteryPanel({
   const sessionIds = sessions.map((s) => s.id);
   const { data: answersRaw } = await supabase
     .from("quiz_answers")
-    .select("question_id, ai_score, answered_at, user_answer, questions(id, content)")
+    .select(
+      "question_id, ai_score, answered_at, user_answer, questions(id, content, replaced_at)"
+    )
     .in("session_id", sessionIds);
 
   const answers = (answersRaw ?? []) as unknown as AnswerRow[];
@@ -109,6 +115,9 @@ export default async function TopicMasteryPanel({
   for (const a of answers) {
     const q = Array.isArray(a.questions) ? a.questions[0] : a.questions;
     if (!q) continue;
+    // Skip questions the student has soft-replaced — they're no longer the
+    // question being asked, so their historical fails are stale data.
+    if (q.replaced_at) continue;
     let row = byQuestion.get(a.question_id);
     if (!row) {
       row = {
@@ -279,15 +288,23 @@ export default async function TopicMasteryPanel({
                       <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">
                         {q.content}
                       </p>
-                      <p className="mt-2 text-[11px] text-slate-500">
-                        Last attempted{" "}
-                        {new Date(q.lastAttemptAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                        . Re-attempting via the Grimoire or a fresh quiz will
-                        update your mastery.
-                      </p>
+                      <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
+                        <p className="text-[11px] text-slate-500 flex-1 min-w-0">
+                          Last attempted{" "}
+                          {new Date(q.lastAttemptAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                          . Re-attempting via the Grimoire or a fresh quiz will
+                          update your mastery.
+                        </p>
+                        {/* Regenerate — when the question itself is the
+                            problem (ambiguous / hallucinated), replace it
+                            with a fresh AI variant on the same concept.
+                            Old row is soft-replaced server-side so this
+                            stumble disappears from the list on refresh. */}
+                        <StumbleRegenerateButton questionId={q.questionId} />
+                      </div>
                     </div>
                   </details>
                 </li>

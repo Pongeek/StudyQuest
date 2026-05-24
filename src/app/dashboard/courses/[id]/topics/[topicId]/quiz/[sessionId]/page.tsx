@@ -24,10 +24,15 @@ async function getSessionData(sessionId: string, userId: string, topicId: string
 
   if (!session) return null;
 
+  // Soft-replaced questions are hidden via `replaced_at IS NULL`. Sorting
+  // by created_at keeps the question order stable even when a question was
+  // regenerated mid-session (the new row inherits the old created_at).
   const { data: questions } = await supabase
     .from("questions")
     .select("*")
-    .eq("topic_id", topicId);
+    .eq("topic_id", topicId)
+    .is("replaced_at", null)
+    .order("created_at", { ascending: true });
 
   const { data: topic } = await supabase
     .from("topics")
