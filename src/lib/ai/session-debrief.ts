@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { COACH_PERSONA_SYSTEM } from "@/lib/ai/coach-persona";
 
 export interface SessionDebrief {
   strengths: string[];
@@ -30,6 +31,9 @@ export async function generateSessionDebrief(params: {
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
+    // Loremaster persona — debrief voice. The persona's tone rule for
+    // debriefs is "brief assessment, then next move, no motivational speech."
+    system: COACH_PERSONA_SYSTEM,
     tools: [
       {
         name: "submit_session_debrief",

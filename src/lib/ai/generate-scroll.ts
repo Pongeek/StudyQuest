@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { COACH_PERSONA_SYSTEM } from "@/lib/ai/coach-persona";
 
 const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
@@ -27,6 +28,9 @@ export async function generateScrollInsight(params: {
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 256,
+    // Loremaster persona — the daily Scroll is the Loremaster's voice
+    // most directly. The persona's "Daily wisdom (Scroll)" rule applies.
+    system: COACH_PERSONA_SYSTEM,
     messages: [
       {
         role: "user",

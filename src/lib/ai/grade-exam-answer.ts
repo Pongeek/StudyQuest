@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { COACH_PERSONA_SYSTEM } from "@/lib/ai/coach-persona";
 
 export interface ExamGradingResult {
   score: number;
@@ -70,6 +71,8 @@ IMPORTANT: Write feedback in the SAME LANGUAGE as the question and student answe
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
+    // Loremaster persona — same voice as quiz grader, applied to exam grading.
+    system: COACH_PERSONA_SYSTEM,
     tools: [
       {
         name: "submit_exam_grade",
@@ -142,6 +145,8 @@ export async function generateExamDebrief(params: {
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
+    // Loremaster persona — end-of-exam debrief speaks in the coach voice.
+    system: COACH_PERSONA_SYSTEM,
     tools: [
       {
         name: "submit_exam_debrief",

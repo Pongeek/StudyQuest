@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { COACH_PERSONA_SYSTEM } from "@/lib/ai/coach-persona";
 
 export interface GradingResult {
   score: number;
@@ -93,6 +94,10 @@ IMPORTANT: Write the feedback in the SAME LANGUAGE as the question and student a
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 512,
+    // Loremaster persona — coats the feedback in a consistent coach voice
+    // across grader / scroll / debrief. The user content below still
+    // carries the rubric and task instructions; persona only flavors tone.
+    system: COACH_PERSONA_SYSTEM,
     tools: [
       {
         name: "submit_grade",
