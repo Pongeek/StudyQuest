@@ -177,9 +177,9 @@ Whenever improving the frontend, make the app feel like the user is **leveling u
 
 ---
 
-## Current State (Checkpoint — 2026-05-23)
+## Current State (Checkpoint — 2026-05-24)
 
-The MVP plus three major content layers (Scroll / Grimoire / Feynman), the exam-prep loop, the image-answer pipeline, the per-episode upload pattern, full course/episode delete, the **Course Map redesign**, **per-course weekly Study Report**, and **per-topic Mastery Panel** are all shipped. The app is in active polish + new-feature mode. Read this section AND the next ("What shipped in May 2026") before touching anything.
+The MVP plus three content layers (Scroll / Grimoire / Feynman), the exam-prep loop, the image-answer pipeline, the per-episode upload pattern, full course/episode delete, the **Course Map redesign**, **weekly Study Report**, **per-topic Mastery Panel**, **Loremaster coach voice**, **grouped achievements + 6 new ones**, **first-run onboarding** (Welcome Modal + Empty Dashboard Hero), and **episode-processing feedback** (Processing & Failed banners with classified errors + transition toasts) are all shipped. The app is in active polish + new-feature mode. Read this section AND the next ("What shipped in May 2026") before touching anything.
 
 ### What's wired up
 
@@ -214,6 +214,8 @@ The MVP plus three major content layers (Scroll / Grimoire / Feynman), the exam-
 014 — episodes.status + course_files.episode_id (per-episode upload pipeline)
 015 — image_url on quiz_answers / exam_answers / review_answers / boss_fight_answers
 016 — six tier-2 achievement extensions (sage, iron_legend, iron_discipline, centenarian, apex_predator, twilight_reader)
+017 — users.onboarding_completed_at (first-run Welcome Modal gate, per-user not per-browser)
+018 — episodes.error_message (user-facing reason for failed extractions, drives FailedEpisodesBanner)
 ```
 
 The migration files live in `supabase/migrations/`. Always update this list when you add a migration so the next session can verify the live DB matches.
@@ -362,6 +364,64 @@ Three back-to-back commits on `course-redesign` → fast-forward-merged to `main
 - Course detail page direction check (`src/app/dashboard/courses/[id]/page.tsx`) now uses **three signals in priority order**: `course.output_language === "he"` → RTL chars in `course.title` → RTL chars in `course.theme_name`. The first two alone were insufficient because an English course title can have all-Hebrew content.
 - `MarkdownContent` keeps code blocks force-LTR; prose inherits parent `dir`. Textareas across all engines use `dir="auto"` so user input gets auto-detected.
 
+### Loremaster coach persona + Grimoire LaTeX fix + Profile grouping + nav centering (2026-05-23 continued)
+
+After the Course Map / Study Report / Topic Mastery work landed earlier the same day, four follow-on commits shipped to `main` (commits `ac31f2c`, `4ec2f70`, `374a188`, merged via `ba144b7`). Each is small and self-contained.
+
+**Loremaster coach persona (commit `60f4616`)**
+- Single shared persona at `src/lib/ai/coach-persona.ts` exports `COACH_PERSONA_SYSTEM` (~250 token system prompt) and a `withCoachPersona(taskPrompt)` helper.
+- Wired as the `system:` parameter on every Claude call that "speaks AT the user as a guide": `grade-answer.ts`, `grade-exam-answer.ts` (both calls — per-answer grade + end-of-exam debrief), `generate-scroll.ts`, `session-debrief.ts`.
+- **Intentionally exempt**: `feynman-tutor.ts` (Socratic peer by design — persona would break the teach-back), all `extract-*.ts` and `generate-questions*.ts` (purely mechanical, no voice needed).
+- Voice rules locked in the persona: vocabulary mappings (`trial`/`stumble`/`ascend`), tone calibration per context (full marks vs partial vs wrong vs daily wisdom vs debrief), hard rules (stay in voice but never derail the task — JSON/tool-use schemas always respected). Hebrew works naturally — persona tells the model to match the student's language.
+- Cost: ~250 tokens prepended per call. Roughly $0.05-0.20/day at Max's volume.
+- Probe-tested on 4 surfaces (English Scroll, Hebrew Scroll, partial-credit grader, mixed-score debrief) before shipping — voice landed consistently, accuracy/structure unchanged.
+
+**Grimoire demon-list LaTeX fix (commit `ac31f2c`)**
+- `DemonCard` in `src/app/dashboard/grimoire/page.tsx` was rendering `{demon.content}` as plain text — so questions with `$M$`, `\Sigma`, `\delta` showed dollar signs and backslashes verbatim. The Slay-All-Demons session view was unaffected because it uses `ReviewEngine` (already routes through MarkdownContent/MarkdownInline).
+- Swapped to `MarkdownInline` (inline-safe — remaps block elements to span so it nests inside `<p>` without invalid HTML, while still running remark-math + rehype-katex). Added `dir="auto"` on the wrapping `<p>` for Hebrew right-alignment.
+- **Pattern to remember**: any list / preview surface that renders AI-generated question text needs `MarkdownInline` (inline) or `MarkdownContent` (block). Don't render `{question.content}` as plain text — assume LaTeX.
+
+**Profile achievement grouping + 6 tier-2 unlocks (commit `4ec2f70`)**
+- Profile page was rendering all 24 achievements as a flat trophy/chest grid; the locked half made the page very long.
+- New taxonomy file `src/lib/achievement-categories.ts` is the single source of truth: `AchievementCategory` union, `CATEGORY_ORDER`, `CATEGORY_META` (label + lucide iconName + accent color), `SLUG_TO_CATEGORY` map, and a `groupByCategory()` helper. Adding/re-categorizing an achievement = one constant edit. Unknown slugs fall through to `quests`.
+- Profile locked section now renders 7 collapsible `<details>` blocks (Mastery / Streaks / Combat / Quests / Wisdom / Magic / Teaching), each with its own accent color (amber / orange / red / indigo / cyan / purple / emerald). Earned grid stays always-visible — that's the celebration.
+- **Migration 016** (`016_more_achievements.sql`) adds 6 tier-2 achievements that all reuse existing `condition_type` values, so the server-side achievement checker awards them automatically with zero code change: `sage` (master_topics:15), `iron_legend` (streak_days:60), `iron_discipline` (review_days:60), `centenarian` (quiz_sessions_completed:100), `apex_predator` (boss_fights_completed:15), `twilight_reader` (scrolls_dismissed:30).
+- **Trophy/Chest cards bumped from `line-clamp-1` → `line-clamp-2`** in the same commit — longer descriptions like "Proved your understanding by teaching a concept 5 times and passing" were being clipped mid-sentence. Two lines fits every description in the codebase without breaking grid alignment.
+
+**DashboardNav centering (commit `374a188`)**
+- Dashboard / Profile nav links were nested inside the left flex group next to the logo, so `justify-between` left them clustered on the left side of the bar.
+- Pulled the nav out as a direct sibling of the logo and HUD-chip groups, positioned `absolute left-1/2 -translate-x-1/2` against the now-`relative` bar so the links sit at the true visual midpoint regardless of how the right-side chip cluster grows.
+- Mobile unchanged — `hidden md:flex` keeps the absolute nav off small screens; existing mobile menu handles those.
+
+### First-run onboarding + episode-processing feedback + failed-episode surface (2026-05-24)
+
+Three shipments today, all in service of "intuitive + fun + smart + no bugs."
+
+**First-run onboarding** (migration 017 + 2 components + dashboard page wiring)
+- New users have always landed on a single dead "The map is blank…" card with no context. Two new layers fix this:
+  - `src/components/dashboard/WelcomeModal.tsx` — client component, mounted only when `users.onboarding_completed_at IS NULL`. 3-slide pixel-arcade carousel (Welcome → How it works → Begin your quest). Keyboard nav (`→` / `Enter` advance, `←` back, `Esc` skip). Dot pagination clickable. Final slide swaps to amber "ENTER THE REALM" — the celebration moment. `useReducedMotion` guard. Closes by POSTing `/api/users/complete-onboarding` (non-fatal if it fails — closes locally anyway).
+  - `src/components/dashboard/EmptyDashboardHero.tsx` — server component, persistent whenever `courses.length === 0`. Replaces the ENTIRE dashboard widget stack (DashboardHeroCard / TodaysMission / ExamCountdownCard / GrimoireWidget / QuestBoard / Your Realm) with one indigo pixel-bordered hero: headline + 3-up step grid (`01 UPLOAD` → `02 AI EXTRACTS` → `03 QUEST ON`) + amber upload CTA + one-line PDF tip.
+- **Critical wiring** in `dashboard/page.tsx`: when `courses.length === 0`, the function early-returns to `<EmptyDashboardHero/>` *only* (no point rendering widgets at zero data). When > 0, regular dashboard. WelcomeModal is a separate concern from the empty hero — a returning user who deleted all their courses still sees the empty hero but never the modal again.
+- The dead "The map is blank…" branch inside "Your Realm" was removed since it's unreachable (page now early-returns).
+
+**Episode-processing feedback** (new banner + enhanced poller)
+- Root cause being fixed: when an episode is uploaded, it appears in CourseMap with `status: "processing"` but `topics: []` — so the card renders empty with no spinner, looking broken. When extraction finishes, no celebration.
+- `src/components/course/ProcessingEpisodesBanner.tsx` — amber pixel-bordered banner above CourseMap, one row per in-flight episode with a **live elapsed-time counter** that ticks every second starting at the actual elapsed time from `created_at` (so a mid-process refresh shows the real wait). Subtle color shift past 120s — "this is normal-ish, not panic-worthy." `aria-live="polite" aria-busy="true"`. Renders null when nothing's in flight.
+- `src/components/course/EpisodeProcessingPoller.tsx` — was just a `router.refresh()` ticker. Now takes the full episode list (id + title + status), tracks previous statuses in `useRef<Map>`, and on each render diffs current vs previous. Transitions `processing → ready` fire `toast.success("X is ready — your topics await.", { icon: "⚔" })`; `processing → error` fire a sharp error toast pointing the user to the FailedEpisodesBanner. First render is the silent baseline (no toast on initial load).
+- `dashboard/courses/[id]/page.tsx`: processing episodes are filtered OUT of CourseMap entirely (they own the banner above instead) — solves the broken-empty-card visual.
+
+**Failed-episode surface** (migration 018 + classifier + banner)
+- 413 (Anthropic "request too large") was hitting users on big PDFs. The catch handler was correctly setting `status: "error"` but the UI rendered the failed episode identically to a ready one with 0 topics + a phantom boss tile.
+- `src/lib/episode-error.ts` — `classifyEpisodeError(err)` returns `{ code, userMessage }`. Codes: `PDF_TOO_LARGE` (413), `RATE_LIMITED` (429), `AUTH_ERROR` (401), `NO_TEXT` (scanned PDF), `ZERO_QUESTIONS` (AI found no topics), `TIMEOUT` (Vercel function), `UNKNOWN` (fallback). Each `userMessage` is one short actionable sentence — no "Sorry" or "Please" (Loremaster doesn't grovel). New error modes get a new block here; don't sprinkle classifiers around.
+- `api/courses/[id]/episodes/route.ts` catch handler now calls the classifier and writes `userMessage` to `episodes.error_message` alongside `status: "error"`. User's original title is preserved so re-upload is easier.
+- `src/components/course/FailedEpisodesBanner.tsx` — red pixel-bordered banner above CourseMap. Per-episode row shows title + the classified message + a delete button (uses existing `DeleteEpisodeButton variant="label"`). Persistent until the user deletes. Renders null when none failed.
+- Course page filters error episodes OUT of CourseMap too — same reason as processing. CourseMap now only ever renders `status === "ready"` episodes.
+
+**Three patterns to remember for next time:**
+1. **Empty arrays from background jobs render as broken cards.** Whenever a model owns child rows that get filled in asynchronously, the parent UI needs a "we're working on it" view + a "we failed, here's why" view, not just hopeful rendering of the empty list.
+2. **Diff-based toasts beat polling alarms.** `EpisodeProcessingPoller` pattern (track prev statuses, diff on render, fire toast on transition) is the right shape for any "background job finished" notification. Reuse it.
+3. **Persist user-facing error messages in the DB.** Don't try to recompute them on each render from a status enum — by the time the user sees it, the original error object is gone. Catch handler → classifier → column.
+
 ### AI infrastructure upgrades
 
 - **Tool use for question generation** — `extract-episode.ts`, `extract-exam-questions.ts`, and topic-question generation all now use Anthropic tool use (`tool_choice: { type: "tool", name: "save_..." }`). This eliminated an entire class of "slightly malformed JSON" parsing failures because Anthropic validates against the tool schema before returning.
@@ -394,13 +454,21 @@ Three back-to-back commits on `course-redesign` → fast-forward-merged to `main
 - `src/components/quiz/AnswerImagePicker.tsx` — shared image picker for diagram answers; RTL-aware.
 - `src/components/course/CourseMap.tsx` — episode collapse + topic nodes + boss-fight node + per-episode delete button. Header is split (left collapse / right delete+chevron) due to nested-button HTML rules.
 - `src/components/course/DeleteCourseDialog.tsx`, `src/components/course/DeleteEpisodeButton.tsx` — destructive flows. Uses `@base-ui/react/dialog` via the shadcn `dialog.tsx` wrapper (`render={<Element/>}`, NOT Radix `asChild`).
-- `src/components/course/EpisodeUploadForm.tsx`, `EpisodeProcessingPoller.tsx`, `EmptyCourseForm.tsx`, `ExamDateButton.tsx` — per-episode pipeline + countdown UI.
+- `src/components/course/EpisodeUploadForm.tsx`, `EpisodeProcessingPoller.tsx`, `EmptyCourseForm.tsx`, `ExamDateButton.tsx` — per-episode pipeline + countdown UI. The poller now diffs episode statuses across refreshes and fires transition toasts (processing → ready/error).
+- `src/components/course/ProcessingEpisodesBanner.tsx` — amber pixel banner above CourseMap with live elapsed-time per in-flight episode. Filtered out of CourseMap to avoid the empty-card visual.
+- `src/components/course/FailedEpisodesBanner.tsx` — red pixel banner above CourseMap. Reads `episodes.error_message` (written by the classifier in the catch handler) and gives the user one actionable sentence per failed episode + a delete button.
 - `src/components/course/EpisodeBreadcrumb.tsx` — sticky chapter chip pinned under the dashboard nav while you scroll inside an episode. Rendered with `position: fixed` (NOT sticky in flow — would wobble).
 - `src/components/course/CourseStudyReport.tsx` — server component, per-course weekly study report widget. Parallel queries against quiz/boss/review/mastery, scoped to this course.
 - `src/components/course/TopicMasteryPanel.tsx` — server component on the topic detail page. Stat tiles + inline-SVG sparkline + native `<details>` stumbles heatmap + 10-row Quest Log. No charting library.
+- `src/components/dashboard/WelcomeModal.tsx` — client component, first-run 3-slide pixel-arcade carousel. Gated by `users.onboarding_completed_at` (server flag, NOT localStorage). Keyboard nav + reduced-motion guard + non-fatal close.
+- `src/components/dashboard/EmptyDashboardHero.tsx` — server component shown when `courses.length === 0`. Replaces the regular widget stack entirely; one indigo hero + 3-up step grid + amber upload CTA.
 - `src/components/scroll/ScrollOfWisdom.tsx`, `src/components/feynman/FeynmanSession.tsx`, `src/components/dashboard/GrimoireWidget.tsx` + `ExamCountdownCard.tsx` — May-2026 content layers.
-- `src/lib/ai/extract-episode.ts`, `extract-exam-questions.ts`, `grade-answer.ts`, `grade-exam-answer.ts`, `generate-scroll.ts`, `feynman-tutor.ts` — all Claude code paths. Tool use + streaming + vision blocks.
+- `src/lib/ai/extract-episode.ts`, `extract-exam-questions.ts`, `grade-answer.ts`, `grade-exam-answer.ts`, `generate-scroll.ts`, `session-debrief.ts`, `feynman-tutor.ts` — all Claude code paths. Tool use + streaming + vision blocks.
+- `src/lib/ai/coach-persona.ts` — single source of truth for the Loremaster voice. Layered as `system:` on grader/scroll/debrief calls. Feynman + extract/generate are exempt.
+- `src/lib/achievement-categories.ts` — slug → category map + `groupByCategory()` helper. Drives the profile page's collapsible locked-achievement sections.
+- `src/lib/episode-error.ts` — `classifyEpisodeError()` translates raw 413/429/timeout/etc errors into actionable user copy. Called by the catch handler in the episode upload route to populate `episodes.error_message`.
 - `src/lib/answer-image.ts` — image upload helper + Claude vision block builder.
+- `src/app/api/users/complete-onboarding/route.ts` — POST stamps `users.onboarding_completed_at`. Idempotent, auth-guarded; called by WelcomeModal on dismiss.
 - `src/lib/study-plan.ts` — pure functions for the exam countdown / daily plan.
 - `src/lib/spaced-repetition.ts` — SM-2 constants and `computeNextReview`.
 - `src/lib/sound.ts` + `src/lib/useSound.ts` — sound engine + React glue.
@@ -409,15 +477,28 @@ Three back-to-back commits on `course-redesign` → fast-forward-merged to `main
 - `src/app/dashboard/courses/[id]/exam/page.tsx` — exam prep landing per course; "Untimed Practice" + "Timed Exam" buttons.
 - `src/app/dashboard/courses/[id]/page.tsx` — course detail; mounts ExamDateButton + EpisodeUploadForm + EpisodeProcessingPoller + CourseMap + DeleteCourseDialog (danger zone).
 
-### Next likely user asks
+### Active work + queue (end of 2026-05-24)
 
-The user is iterating on feel/polish + actively studying their real Automata / Computational Models course on this app (it's their primary use case, not a demo). Stated focus as of 2026-05-23: "functionality of this application first to make it intuitive, fun, smart and without any bugs and security problems." Expect requests around:
+The user is actively studying their real Automata / Computational Models course on this app (primary use case, not a demo). Stated focus: "functionality of this application first to make it intuitive, fun, smart and without any bugs and security problems."
 
-- **Security / correctness audits** — sweep mutate/delete API routes for proper `user_id` ownership filters, audit `user_topic_mastery` joins (per [[feedback_curriculum_order]] memory, nested join via topic doesn't apply user filter at deepest level → potential cross-tenant leak).
-- **AI failure UX** — what does the user see when a Claude API call errors out (rate limit, timeout, budget cap)? Audit + harden.
-- **Empty-state audit** — Grimoire / Feynman / Review at zero activity: do they read as "nothing yet" or "broken"?
-- **Onboarding / first-run polish** — brand-new user lands on dashboard with no courses; current experience has zero scaffolding.
-- **Edit/reorder episodes** — last QoL item from the course-area queue. PATCH `/api/episodes/[id]` for title, plus a reorder endpoint.
+Recently shipped from the tier-1 menu: **first-run onboarding** ✅, **episode-processing feedback** ✅, **failed-episode error surfacing** ✅ (all 2026-05-24). The Tier-1 partial AI-failure UX work that was queued has effectively been done for *episode extraction* via the `episode-error.ts` classifier — the *grader/scroll/debrief* paths still have a generic toast, so that's the remaining slice.
+
+**Refreshed menu — Tier 1, highest leverage:**
+- **Smart Next Best Action widget** — one pixel-bordered pill at the top of the dashboard that picks the single most-pressing action (boss ready / N reviews due / N demons / exam crunch / next topic) from data already computed in `getRecommendations` + `getReviewQueue` + `getGrimoireCount` + `getStudyPlans`. Replaces 6-CTA paralysis with 1 obvious tap.
+- **Question regeneration** — single "🔄 regenerate" button on Stumbles in `TopicMasteryPanel` + per-question during quizzes. When the AI hallucinates or asks something ambiguous, one tap replaces it. Calls existing question-gen pipeline.
+- **Grader/scroll/debrief failure UX** — same classifier pattern as `episode-error.ts` but for the grading + scroll + debrief paths. Right now a Claude rate-limit or budget hit shows a generic "Failed to grade your answer" toast and silently throws away the user's typed answer. Save the typed text to localStorage so they don't lose work.
+
+**Tier 2 — meaningful polish:**
+- **Client-side pre-upload size cap** — extension of the 413 fix. If user uploads a >20 MB PDF, warn before submission instead of after a 30-second wait + a server-side classification. The classifier in `episode-error.ts` is now the right server-side safety net for anything that slips past.
+- **Adaptive difficulty** — question generator picks difficulty based on current mastery. AI accepts the param already; just wire it.
+- **Streak freeze tokens** — earn 1 per 7-day streak, auto-burn on missed day. Forgiveness mechanic.
+
+**Tier 3 — bigger lifts:**
+- **Daily review push/email** — habit loop. Needs email infra + cron job.
+- **Edit/reorder episodes** — last QoL item from the original course-area queue. PATCH `/api/episodes/[id]` for title, plus a reorder endpoint.
+- **Mobile responsive audit** — walk through key surfaces on small screens.
 - **Boss-fight per-episode illustration** — deferred (cost concern). Path forward documented in Known TODOs.
 
-Confirm scope before refactoring large files (`ExamEngine.tsx`, `CourseMap.tsx`, `BossFightEngine.tsx`, `ReviewEngine.tsx` are all long). The user prefers tight, focused PRs over megacommits — match that cadence.
+Deliberately deferred: voice/TTS, cross-course topic linking, friend leaderboard (Max is solo-studying).
+
+Confirm scope before refactoring large files (`ExamEngine.tsx`, `CourseMap.tsx`, `BossFightEngine.tsx`, `ReviewEngine.tsx` are all long). The user prefers tight, focused commits over megacommits — match that cadence. Feature-branch + rollback-tag pattern was used for the Course Map redesign; we work directly on `main` for smaller changes now (`coach-persona` and `course-redesign` branches have been deleted post-merge).
