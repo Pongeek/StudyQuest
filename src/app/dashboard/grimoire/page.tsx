@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Skull, Swords, BookOpen, Loader2, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GrimoireDemon } from "@/app/api/grimoire/route";
+import MarkdownInline from "@/components/quiz/MarkdownInline";
 
 interface GrimoireData {
   demons: GrimoireDemon[];
@@ -272,8 +273,14 @@ function DemonCard({ demon }: { demon: GrimoireDemon }) {
 
       {/* Content */}
       <div className="flex-1 min-w-0 space-y-1.5">
-        <p className="text-sm text-slate-200 line-clamp-2 leading-relaxed">
-          {demon.content}
+        {/* `MarkdownInline` renders `$...$` LaTeX via KaTeX and stays inline-safe.
+            `dir="auto"` lets Hebrew questions right-align naturally without
+            forcing RTL on English ones. */}
+        <p
+          dir="auto"
+          className="text-sm text-slate-200 line-clamp-2 leading-relaxed"
+        >
+          <MarkdownInline>{demon.content}</MarkdownInline>
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {/* Topic chip — slate pixel-bordered */}
