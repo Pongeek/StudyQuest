@@ -57,9 +57,17 @@ export async function regenerateQuestion(params: {
 
   const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
-  const message = await client.messages.create({
+  // Stream + generous max_tokens because:
+  //   - Tool-use output counts schema field names too (overhead).
+  //   - Hebrew + LaTeX is token-dense — Hebrew letters are multi-byte and
+  //     each LaTeX command (e.g. `\\Sigma`, `\\delta`) is several tokens.
+  //   - The previous 2048 cap was truncating mid-tool-input on Hebrew
+  //     theory questions (Claude wrote `content` but never reached
+  //     `correct_answer` — schema-required field missing → throw).
+  // Matches the budget used by the full generator in generate-questions.ts.
+  const stream = client.messages.stream({
     model: "claude-sonnet-4-6",
-    max_tokens: 2048,
+    max_tokens: 8192,
     // Loremaster persona for tone consistency across the AI surface.
     // Persona has no impact on the schema — it just keeps voice consistent
     // if any of the explanation text leaks into the UI.
@@ -151,6 +159,17 @@ CALL the tool. No prose response.`,
     ],
   });
 
+  // Streaming returns the assembled message at the end. The tool_use input
+  // is only complete after the stream finishes.
+  const message = await stream.finalMessage();
+
+  // Log stop_reason — if it's "max_tokens" the tool input was truncated and
+  // we should bump the budget further. Surfaces in the dev log for next time.
+  console.log(
+    `[regenerate-question] stop_reason=${message.stop_reason}, ` +
+    `output_tokens=${message.usage?.output_tokens ?? "?"}`
+  );
+
   const toolUse = message.content.find(
     (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
   );
@@ -161,8 +180,14 @@ CALL the tool. No prose response.`,
   }
   const input = toolUse.input as Partial<GeneratedQuestion>;
   if (!input.type || !input.content || !input.correct_answer) {
+    // If max_tokens hit, the tool input was truncated — surface that
+    // explicitly so we know to bump the budget further.
+    const truncatedHint =
+      message.stop_reason === "max_tokens"
+        ? " The response hit the max_tokens limit and was truncated — bump max_tokens in regenerate-question.ts."
+        : "";
     throw new Error(
-      `Tool input missing required fields. Got: ${JSON.stringify(input).slice(0, 300)}`
+      `Tool input missing required fields (stop_reason=${message.stop_reason}). Got: ${JSON.stringify(input).slice(0, 300)}.${truncatedHint}`
     );
   }
   // Sanitize options: undefined (not empty array) for open questions.
