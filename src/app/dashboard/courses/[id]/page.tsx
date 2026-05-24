@@ -10,6 +10,8 @@ import CourseMap from "@/components/course/CourseMap";
 import ExamDateButton from "@/components/course/ExamDateButton";
 import EpisodeUploadForm from "@/components/course/EpisodeUploadForm";
 import EpisodeProcessingPoller from "@/components/course/EpisodeProcessingPoller";
+import ProcessingEpisodesBanner from "@/components/course/ProcessingEpisodesBanner";
+import FailedEpisodesBanner from "@/components/course/FailedEpisodesBanner";
 import DeleteCourseDialog from "@/components/course/DeleteCourseDialog";
 import CourseStudyReport from "@/components/course/CourseStudyReport";
 
@@ -421,18 +423,59 @@ export default async function CoursePage({
         <EpisodeUploadForm courseId={id} />
       </div>
 
-      {/* Auto-refresh while any episode is being AI-processed */}
+      {/* Auto-refresh while any episode is being AI-processed + fire
+          transition toasts when episodes go processing → ready/error.
+          The poller takes the full status list so it can diff across
+          refreshes; no separate query needed. */}
       <EpisodeProcessingPoller
         courseId={id}
-        processingCount={episodes.filter((e: any) => e.status === "processing").length}
+        episodes={episodes.map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          status: e.status,
+        }))}
       />
 
-      {/* Course Map */}
+      {/* Processing banner — visible "AI is forging your episode" status
+          above the CourseMap with per-episode elapsed-time. Renders null
+          when nothing is in flight. Pulling processing episodes OUT of
+          CourseMap below means the map only shows ready episodes,
+          which avoids the broken "empty episode card" we used to get. */}
+      <ProcessingEpisodesBanner
+        episodes={episodes
+          .filter((e: any) => e.status === "processing")
+          .map((e: any) => ({
+            id: e.id,
+            title: e.title,
+            startedAt: e.created_at,
+          }))}
+      />
+
+      {/* Failed banner — shows episodes whose extraction errored, with
+          the user-facing reason from `episodes.error_message`. Persistent
+          until the user deletes the row. Filtered out of CourseMap below
+          for the same reason as processing — an error episode has no
+          topics so it would render as a broken empty card. */}
+      <FailedEpisodesBanner
+        episodes={episodes
+          .filter((e: any) => e.status === "error")
+          .map((e: any) => ({
+            id: e.id,
+            title: e.title,
+            errorMessage: (e.error_message as string | null) ?? null,
+          }))}
+      />
+
+      {/* Course Map — only ready episodes from here. Processing + error
+          episodes own their own banners above; the map shouldn't render
+          them because their topics array is empty. */}
       <CourseMap
         courseId={id}
         rtl={isRTL}
         evolutionEvent={evolutionEvent}
-        episodes={episodes.map((episode: any) => ({
+        episodes={episodes
+          .filter((e: any) => e.status === "ready")
+          .map((episode: any) => ({
           id: episode.id,
           title: episode.title,
           topics: (() => {

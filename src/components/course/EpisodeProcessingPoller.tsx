@@ -1,37 +1,87 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+interface EpisodeStatusRow {
+  id: string;
+  title: string;
+  status: "processing" | "ready" | "error";
+}
 
 interface EpisodeProcessingPollerProps {
   courseId: string;
-  /** Number of episodes currently in 'processing' status when the page rendered */
-  processingCount: number;
+  /** Full episode list with statuses. The poller derives processingCount
+   *  from this and also uses it to diff transitions between refreshes. */
+  episodes: EpisodeStatusRow[];
 }
 
 /**
- * Polls the course page while any episode is still being processed by the AI.
- * Every 4 seconds it calls `router.refresh()` which re-runs the server
- * component — picking up status changes (processing → ready/error) without
- * the user having to manually reload.
+ * Polls the course page while any episode is still being processed by the
+ * AI AND fires toasts when episodes finish (or fail).
  *
- * Mounts a no-op when nothing is processing, so the cost is zero in the
- * common case (idle course view).
+ * Behaviour:
+ *   - Every 4s, calls `router.refresh()` so the server component re-runs
+ *     and picks up DB status changes. Polling auto-stops when no episodes
+ *     remain in `processing`.
+ *   - On each render, compares the current statuses against the previous
+ *     render's. If an episode transitioned `processing → ready`, fires a
+ *     success toast. If `processing → error`, fires an error toast.
+ *   - First render is the baseline — no toast for episodes already in any
+ *     state at mount.
+ *
+ * Mounts a no-op when nothing is processing AND no transition just
+ * happened, so the cost is zero in the common case (idle course view).
  */
 export default function EpisodeProcessingPoller({
-  courseId,
-  processingCount,
+  episodes,
 }: EpisodeProcessingPollerProps) {
   const router = useRouter();
+  const prevStatusesRef = useRef<Map<string, EpisodeStatusRow["status"]> | null>(
+    null
+  );
+  const processingCount = episodes.filter((e) => e.status === "processing").length;
 
+  // Diff transitions on each render. First render only baselines — toasts
+  // fire from the second render onward, after a poll-driven refresh.
+  useEffect(() => {
+    const prev = prevStatusesRef.current;
+    const next = new Map<string, EpisodeStatusRow["status"]>();
+    for (const ep of episodes) next.set(ep.id, ep.status);
+
+    if (prev !== null) {
+      for (const ep of episodes) {
+        const prevStatus = prev.get(ep.id);
+        if (prevStatus === "processing" && ep.status === "ready") {
+          toast.success(`"${ep.title}" is ready — your topics await.`, {
+            icon: "⚔",
+            duration: 5000,
+          });
+        } else if (prevStatus === "processing" && ep.status === "error") {
+          // Direct user to the FailedEpisodesBanner above the CourseMap
+          // — it carries the specific reason (PDF too large, rate limit,
+          // etc.) from `episodes.error_message`. A blanket "try
+          // re-uploading" toast would just send them into the same loop
+          // if the root cause is the PDF itself.
+          toast.error(
+            `Couldn't process "${ep.title}" — see the red banner above for details.`,
+            { duration: 8000 }
+          );
+        }
+      }
+    }
+    prevStatusesRef.current = next;
+  }, [episodes]);
+
+  // Polling: refresh every 4s while anything is still processing. Cap at 5
+  // minutes — extraction shouldn't take longer than that even for big PDFs.
   useEffect(() => {
     if (processingCount === 0) return;
 
     let stopped = false;
     let elapsed = 0;
     const intervalMs = 4000;
-    // Safety: stop polling after 5 minutes — extraction shouldn't take longer
-    // than this even for big PDFs. After that the user should refresh manually.
     const maxElapsedMs = 5 * 60 * 1000;
 
     const tick = () => {
@@ -40,7 +90,6 @@ export default function EpisodeProcessingPoller({
       elapsed += intervalMs;
       if (elapsed >= maxElapsedMs) {
         stopped = true;
-        return;
       }
     };
 
@@ -49,8 +98,6 @@ export default function EpisodeProcessingPoller({
       stopped = true;
       clearInterval(id);
     };
-    // We deliberately depend only on processingCount — if it goes to 0 the
-    // effect cleans up. courseId is stable per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processingCount]);
 

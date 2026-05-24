@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { extractPagesFromBuffer } from "@/lib/pdf/extract-text";
 import { extractEpisodeStructure } from "@/lib/ai/extract-episode";
+import { classifyEpisodeError } from "@/lib/episode-error";
 
 /**
  * POST /api/courses/[id]/episodes
@@ -144,9 +145,19 @@ export async function POST(
     console.error("Error message:", err instanceof Error ? err.message : String(err));
     console.error("Stack:", err instanceof Error ? err.stack : "(no stack)");
     console.error("================================");
+
+    // Translate the raw error into a user-facing sentence and persist it
+    // on the episode row so FailedEpisodesBanner can read it back. Keep
+    // the user's title intact if they provided one — re-uploading later
+    // is easier when the title still matches their mental model.
+    const { userMessage } = classifyEpisodeError(err);
     await supabase
       .from("episodes")
-      .update({ status: "error", title: userTitle || "Failed to process" })
+      .update({
+        status: "error",
+        title: userTitle || "Failed to process",
+        error_message: userMessage,
+      })
       .eq("id", episode.id);
   });
 
