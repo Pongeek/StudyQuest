@@ -2135,13 +2135,20 @@
 }
 
 .tier-sage {
-  /* Stitch-adapted gradient: amber → PINK → violet.
-     Frame border tints toward pink (the bridge color between amber and violet).
-     The TierLevelFrame component swaps the numeral to .text-gradient-epic
-     so the full multi-stop gradient renders via background-clip. */
+  /* Stitch v2: gradient identity reaches into the BORDER itself via
+     `border-image`, so the amber → pink → violet flow runs around the
+     frame instead of sitting only in the numeral. The token rgbs stay
+     pink-500 / amber-500 so other tier utilities (glow alpha, nail
+     fallbacks) still resolve, but the visible border is replaced by
+     the gradient line below. */
   --tier-accent-rgb: 236 72 153;        /* pink-500 — bridge accent */
   --tier-accent-line-rgb: 245 158 11;   /* amber-500 — top accent stripe */
   --tier-numeral: #f9a8d4;              /* pink-300 — fallback if gradient text unsupported */
+  /* `border-image` requires a transparent solid border to "anchor" the
+     image; without that, browsers ignore the image rule. The image is
+     a diagonal three-stop gradient — exactly the flow Stitch chose. */
+  border-color: transparent;
+  border-image: linear-gradient(to bottom right, #f59e0b, #ec4899, #8b5cf6) 1;
 }
 
 /* ── Decoration layers — additive DOM spans, positioned absolutely on
@@ -2217,8 +2224,9 @@
 .tier-flame--br { bottom: -2px; right: 0px; transform: scaleY(-1); }
 
 /* Master / Sage — subtle scanlines layered over the frame's inner area.
-   Uses the existing pixel-scanlines vocabulary but tinted to the tier
-   accent for cohesion. */
+   Stitch v2 added a slow vertical scroll to give the scanlines a "CRT
+   refresh" feel. background-size matches the line spacing so each cycle
+   moves exactly one line — looks continuous rather than jittery. */
 .tier-scanlines {
   position: absolute;
   inset: 6px;
@@ -2229,6 +2237,8 @@
     transparent 1px,
     transparent 3px
   );
+  background-size: 100% 3px;
+  animation: tier-scanlines-scroll 4s linear infinite;
   border-radius: 2px;
   pointer-events: none;
 }
@@ -2260,6 +2270,14 @@
 @keyframes tier-rune-rotate {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
+}
+
+/* Slow vertical scroll for the tier scanlines overlay (Master / Sage).
+   One full cycle = 3px of vertical travel which matches the scanline
+   spacing, so the loop reads as continuous CRT refresh. */
+@keyframes tier-scanlines-scroll {
+  from { background-position: 0 0; }
+  to   { background-position: 0 6px; }
 }
 
 /* ── Glow variants — driven by the tier's "glow" kind ──
@@ -2342,8 +2360,30 @@
   }
 }
 
+/* Sage — dual-color breathing halo. Pink AND amber halos breathe in
+   alternating phase so the outer glow shimmers between the two ends of
+   the Sage gradient, matching the gradient identity. Adopted from
+   Stitch v2's .glow-sage which pairs box-shadows for the same effect. */
 .tier-glow-ring {
-  animation: tier-glow-breathe 5.5s ease-in-out infinite;
+  animation: tier-glow-sage 4s ease-in-out infinite alternate;
+}
+@keyframes tier-glow-sage {
+  0% {
+    box-shadow:
+      inset 0 0 0 1px rgba(236, 72, 153, 0.18),
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      0 0 28px rgba(236, 72, 153, 0.55),
+      0 0 18px rgba(245, 158, 11, 0.40),
+      0 4px 24px rgba(0,0,0,0.70);
+  }
+  100% {
+    box-shadow:
+      inset 0 0 0 1px rgba(236, 72, 153, 0.28),
+      inset 0 1px 0 rgba(255,255,255,0.10),
+      0 0 50px rgba(236, 72, 153, 0.80),
+      0 0 36px rgba(245, 158, 11, 0.65),
+      0 4px 24px rgba(0,0,0,0.70);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2352,7 +2392,8 @@
   .tier-glow-breathe,
   .tier-glow-breathe-strong,
   .tier-glow-ring,
-  .tier-rune-ring {
+  .tier-rune-ring,
+  .tier-scanlines {
     animation: none;
   }
 }

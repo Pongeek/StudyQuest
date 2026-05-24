@@ -1,5 +1,6 @@
 import TierLevelFrame from "@/components/gamification/TierLevelFrame";
 import { getLevelTierVisuals } from "@/lib/level-tier";
+import { cn } from "@/lib/utils";
 
 /**
  * Dev-only preview grid — renders all 6 tiers at sample levels so the
@@ -54,7 +55,14 @@ export default function TierPreviewGrid() {
           return (
             <div
               key={sample.level}
-              className="flex flex-col items-center text-center gap-2.5 px-2 py-3 rounded-lg border border-white/[0.05] bg-white/[0.01]"
+              className={cn(
+                "flex flex-col items-center text-center gap-2.5 px-2 py-3 rounded-lg",
+                "border border-white/[0.05] bg-white/[0.01]",
+                // Stitch v2 hover treatment — subtle lift + brighter border
+                // so each tier card pops on hover in the dev preview grid.
+                "transition-all duration-300 ease-out",
+                "hover:scale-[1.04] hover:border-white/[0.12] hover:bg-white/[0.03] hover:-translate-y-0.5",
+              )}
             >
               <TierLevelFrame level={sample.level} />
               <span className="font-pixel text-[9px] tracking-wider text-slate-400">
