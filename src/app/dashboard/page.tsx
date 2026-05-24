@@ -402,14 +402,6 @@ export default async function DashboardPage() {
         <StreakWarningBanner streak={streak} href={nextQuestHref} />
       )}
 
-      {/* ── Smart Next Best Action ──
-            One pixel-bordered card pinned to the top — picks the single
-            most-pressing action from the dashboard data (exam crunch,
-            streak save, boss ready, review pile, demons, next quest).
-            Cycle through the rest via "Show next". Logic in
-            lib/next-best-action.ts; data is the same aggregators below. */}
-      <NextBestActionCard actions={nextBestActions} />
-
       {/* ── Hero Stats Bar ── */}
       <DashboardHeroCard
         level={level}
@@ -420,14 +412,33 @@ export default async function DashboardPage() {
         isHotStreak={isHotStreak}
       />
 
-      {/* ── Exam countdowns + auto-generated study plans ──
-            One card per course with exam_date set, sorted by urgency
-            (soonest first). Past exams sink to the bottom and render as
-            a faded "was X days ago" chip — kept so the user can see their
-            historical exams but not have them dominate the dashboard. */}
-      {studyPlans.length > 0 && (
+      {/* ── Urgency row: most-urgent exam (compact) + Next Best Action ──
+            These two surfaces both answer "what's pressing right now?" from
+            different angles — countdown is the timeline context, NBA picks
+            the single best move. Pairing them puts the full picture in one
+            viewport row instead of stacking two wide cards.
+            With no exam set, NBA renders alone full-width.
+            Additional exams (if any) stack below at full width. */}
+      {studyPlans.length > 0 ? (
+        <div className="grid md:grid-cols-2 gap-4 items-start">
+          <ExamCountdownCard plan={studyPlans[0]} compact />
+          {nextBestActions.length > 0 && (
+            <NextBestActionCard actions={nextBestActions} />
+          )}
+        </div>
+      ) : (
+        nextBestActions.length > 0 && (
+          <NextBestActionCard actions={nextBestActions} />
+        )
+      )}
+
+      {/* ── Additional exam countdowns (beyond the first) ──
+            Most-urgent exam already paired with NBA above. Anything else
+            sits here at full width so its action list is visible. Past
+            exams render as a faded "was X days ago" chip. */}
+      {studyPlans.length > 1 && (
         <div className="space-y-4">
-          {studyPlans.map((plan) => (
+          {studyPlans.slice(1).map((plan) => (
             <ExamCountdownCard key={plan.courseId} plan={plan} />
           ))}
         </div>

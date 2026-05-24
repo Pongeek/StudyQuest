@@ -5,6 +5,11 @@ import type { StudyPlan } from "@/lib/study-plan";
 
 interface ExamCountdownCardProps {
   plan: StudyPlan;
+  /** When true, the card is rendered at half width alongside Next Best Action
+   *  and drops the "Today's plan" action list to avoid duplication (NBA
+   *  already surfaces the single best action). Used by the paired grid on
+   *  the dashboard's top row. */
+  compact?: boolean;
 }
 
 /**
@@ -13,9 +18,12 @@ interface ExamCountdownCardProps {
  * Sections (top → bottom):
  *   - Header: course title + "X days until …" countdown
  *   - Headline + recommended pace
- *   - Today's plan: list of actions linked to start them
+ *   - Today's plan: list of actions linked to start them (hidden when compact)
  */
-export default function ExamCountdownCard({ plan }: ExamCountdownCardProps) {
+export default function ExamCountdownCard({
+  plan,
+  compact = false,
+}: ExamCountdownCardProps) {
   // Tier B+ color schema. Outer card stays soft (info-dense surfaces don't
   // need a pixel-border competing with the data), but the countdown chip,
   // accent line, and pixel-nail corners carry urgency color so the card
@@ -123,8 +131,10 @@ export default function ExamCountdownCard({ plan }: ExamCountdownCardProps) {
         </div>
       )}
 
-      {/* Today's plan */}
-      {plan.urgency !== "past" && plan.actions.length > 0 && (
+      {/* Today's plan — hidden in compact mode (NBA in the paired grid
+          already shows the single best action; rendering the full plan
+          list here would duplicate it). */}
+      {!compact && plan.urgency !== "past" && plan.actions.length > 0 && (
         <>
           <div className="font-pixel text-[9px] tracking-wider text-amber-400/80 mb-3 flex items-center gap-2">
             <Sword className="w-3 h-3" />
@@ -163,8 +173,9 @@ export default function ExamCountdownCard({ plan }: ExamCountdownCardProps) {
         </>
       )}
 
-      {/* Topics done case */}
-      {plan.urgency !== "past" && plan.actions.length === 0 && (
+      {/* Topics done case — also hidden in compact mode (NBA already
+          handles the "what's next" prompt when there's nothing left). */}
+      {!compact && plan.urgency !== "past" && plan.actions.length === 0 && (
         <div className="rounded-lg px-4 py-3 border border-emerald-500/20 bg-emerald-500/5 text-sm text-emerald-300 flex items-center gap-2">
           <Trophy className="w-4 h-4 shrink-0" />
           <span>
