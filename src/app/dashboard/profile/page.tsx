@@ -22,6 +22,16 @@ import {
   Shield,
   Check,
   X,
+  // Category icons for the locked-achievement grouping. Resolved by name
+  // via CATEGORY_ICON_BY_NAME below so achievement-categories.ts can stay
+  // React-free (just data).
+  Flame,
+  Swords,
+  Target,
+  Compass,
+  Wand2,
+  GraduationCap,
+  ChevronDown,
 } from "lucide-react";
 import {
   calculateLevel,
@@ -31,6 +41,21 @@ import {
 import { cn } from "@/lib/utils";
 import ProfileHeroCard from "@/components/profile/ProfileHeroCard";
 import QuestPulse from "@/components/profile/QuestPulse";
+import {
+  groupByCategory,
+  type CategoryMeta,
+} from "@/lib/achievement-categories";
+
+/** Resolves the category icon name (string) to its lucide component. */
+const CATEGORY_ICON_BY_NAME: Record<CategoryMeta["iconName"], typeof Crown> = {
+  Crown,
+  Flame,
+  Swords,
+  Target,
+  Compass,
+  Wand2,
+  GraduationCap,
+};
 
 export default async function ProfilePage() {
   const { userId } = await auth();
@@ -311,7 +336,9 @@ export default async function ProfilePage() {
           </>
         )}
 
-        {/* Locked */}
+        {/* Locked — collapsed by category. Native <details> keeps this a
+            server component; each category opens independently. Page height
+            stays bounded even as the achievement set grows past 30. */}
         {lockedAchievementsList.length > 0 && (
           <>
             <div className="font-pixel text-[9px] tracking-wider text-slate-500 mb-3 flex items-center gap-2 px-1">
@@ -320,10 +347,35 @@ export default async function ProfilePage() {
               <span className="text-slate-700">&middot;</span>
               <span className="text-slate-600 tabular-nums">{lockedAchievementsList.length}</span>
             </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              {lockedAchievementsList.map((ach: any) => (
-                <ChestCard key={ach.id} ach={ach} />
-              ))}
+            <div className="space-y-2">
+              {groupByCategory(lockedAchievementsList).map((group) => {
+                const Icon = CATEGORY_ICON_BY_NAME[group.meta.iconName];
+                return (
+                  <details
+                    key={group.category}
+                    className="group bg-slate-900/40 border border-white/[0.05] hover:border-white/[0.10] transition-colors"
+                  >
+                    <summary className="flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none list-none">
+                      <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", group.meta.accent)} />
+                      <span className={cn(
+                        "font-pixel text-[9px] tracking-wider flex-1",
+                        group.meta.accent
+                      )}>
+                        {group.meta.label.toUpperCase()}
+                      </span>
+                      <span className="text-[10px] text-slate-600 tabular-nums">
+                        {group.items.length}
+                      </span>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-600 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="grid sm:grid-cols-2 gap-3 px-3 pb-3 pt-1">
+                      {group.items.map((ach: any) => (
+                        <ChestCard key={ach.id} ach={ach} />
+                      ))}
+                    </div>
+                  </details>
+                );
+              })}
             </div>
           </>
         )}
@@ -515,7 +567,10 @@ function TrophyCard({
       </div>
       <div className="flex-1 min-w-0">
         <div className="trophy-name truncate">{ach.name}</div>
-        <div className="trophy-desc line-clamp-1">{ach.description}</div>
+        {/* line-clamp-2 — long descriptions like "Proved your understanding
+            by teaching a concept 5 times and passing" need two lines to
+            read in full without being clipped. */}
+        <div className="trophy-desc line-clamp-2">{ach.description}</div>
         <div className="trophy-meta">
           <span className="inline-flex items-center gap-1">
             <Zap className="w-3 h-3" />
@@ -554,7 +609,8 @@ function ChestCard({
       </div>
       <div className="flex-1 min-w-0">
         <div className="chest-name truncate">{ach.name}</div>
-        <div className="chest-desc line-clamp-1">{ach.description}</div>
+        {/* line-clamp-2 — see TrophyCard for the same rationale. */}
+        <div className="chest-desc line-clamp-2">{ach.description}</div>
         <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-stone-500 uppercase tracking-[0.08em]">
           <Zap className="w-3 h-3" />
           +{ach.xp_reward} XP
