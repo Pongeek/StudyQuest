@@ -412,16 +412,17 @@ export default async function DashboardPage() {
         isHotStreak={isHotStreak}
       />
 
-      {/* ── Urgency row: most-urgent exam (compact) + Next Best Action ──
-            These two surfaces both answer "what's pressing right now?" from
-            different angles — countdown is the timeline context, NBA picks
-            the single best move. Pairing them puts the full picture in one
-            viewport row instead of stacking two wide cards.
-            With no exam set, NBA renders alone full-width.
-            Additional exams (if any) stack below at full width. */}
+      {/* ── Urgency row: Exam Countdown (cycle) + Next Best Action ──
+            Both surfaces answer "what's pressing right now?" from different
+            angles — countdown is the timeline context, NBA picks the single
+            best move. Each is a cycling widget: ExamCountdown walks through
+            the user's exam-set courses (soonest first); NBA walks down the
+            priority list. Pairing them puts the urgency picture in one row
+            and `items-stretch` keeps the two cards the same height.
+            With no exam set, NBA renders alone full-width. */}
       {studyPlans.length > 0 ? (
-        <div className="grid md:grid-cols-2 gap-4 items-start">
-          <ExamCountdownCard plan={studyPlans[0]} compact />
+        <div className="grid md:grid-cols-2 gap-4 items-stretch">
+          <ExamCountdownCard plans={studyPlans} compact />
           {nextBestActions.length > 0 && (
             <NextBestActionCard actions={nextBestActions} />
           )}
@@ -430,18 +431,6 @@ export default async function DashboardPage() {
         nextBestActions.length > 0 && (
           <NextBestActionCard actions={nextBestActions} />
         )
-      )}
-
-      {/* ── Additional exam countdowns (beyond the first) ──
-            Most-urgent exam already paired with NBA above. Anything else
-            sits here at full width so its action list is visible. Past
-            exams render as a faded "was X days ago" chip. */}
-      {studyPlans.length > 1 && (
-        <div className="space-y-4">
-          {studyPlans.slice(1).map((plan) => (
-            <ExamCountdownCard key={plan.courseId} plan={plan} />
-          ))}
-        </div>
       )}
 
       {/* ── Review Queue (spaced repetition) — above Today's Mission ── */}

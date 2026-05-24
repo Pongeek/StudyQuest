@@ -110,7 +110,7 @@ export default function NextBestActionCard({ actions }: NextBestActionCardProps)
   return (
     <section
       aria-labelledby="next-best-action-heading"
-      className="relative rpg-card rounded-2xl px-5 py-5 sm:px-6 sm:py-6 overflow-hidden"
+      className="relative rpg-card rounded-2xl px-5 py-5 sm:px-6 sm:py-6 overflow-hidden flex flex-col h-full"
     >
       {/* Status accent line — tier-colored */}
       <div className={cn("absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r", palette.accent)} />
@@ -121,7 +121,7 @@ export default function NextBestActionCard({ actions }: NextBestActionCardProps)
       <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[1]", palette.nail)} />
       <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[1]", palette.nail)} />
 
-      <div className="relative z-[1] flex items-start gap-4 sm:gap-5">
+      <div className="relative z-[1] flex items-start gap-4 sm:gap-5 flex-1">
         {/* Icon block */}
         <div
           className={cn(
@@ -133,8 +133,9 @@ export default function NextBestActionCard({ actions }: NextBestActionCardProps)
           <Icon className="w-6 h-6 sm:w-7 sm:h-7" />
         </div>
 
-        {/* Body */}
-        <div className="flex-1 min-w-0 space-y-2">
+        {/* Body — flex column so the CTA row can mt-auto to the bottom
+            and align with ExamCountdown's cycle row when paired. */}
+        <div className="flex-1 min-w-0 flex flex-col gap-2">
           {/* Top row: NEXT MOVE marker + tier chip */}
           <div className="flex items-center gap-2 flex-wrap">
             <span
@@ -165,8 +166,9 @@ export default function NextBestActionCard({ actions }: NextBestActionCardProps)
             {action.context}
           </p>
 
-          {/* CTAs */}
-          <div className="flex items-center gap-3 flex-wrap pt-1">
+          {/* CTAs — pushed to the bottom of the card so paired layouts
+              keep their footer rows aligned. */}
+          <div className="flex items-center gap-3 flex-wrap mt-auto pt-2">
             <Link
               href={action.href}
               className={cn(

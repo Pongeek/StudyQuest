@@ -1,29 +1,59 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Sparkles, Sword, Swords, BookOpen, Clock, Trophy } from "lucide-react";
+import {
+  CalendarDays,
+  Sparkles,
+  Sword,
+  Swords,
+  BookOpen,
+  Clock,
+  Trophy,
+  ChevronRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StudyPlan } from "@/lib/study-plan";
 
 interface ExamCountdownCardProps {
-  plan: StudyPlan;
-  /** When true, the card is rendered at half width alongside Next Best Action
-   *  and drops the "Today's plan" action list to avoid duplication (NBA
-   *  already surfaces the single best action). Used by the paired grid on
-   *  the dashboard's top row. */
+  /** All exam-set courses for this user. The card cycles through them —
+   *  soonest first by default, "Show next →" walks to the next-soonest.
+   *  Must contain at least one plan; the dashboard guards on this. */
+  plans: StudyPlan[];
+  /** When true, the card sits at half width alongside Next Best Action and
+   *  drops the "Today's plan" action list to avoid duplication (NBA already
+   *  surfaces the single best action). Used by the paired grid on the
+   *  dashboard's top row. */
   compact?: boolean;
 }
 
 /**
- * Dashboard widget shown for each course that has an exam_date set.
+ * Dashboard widget for exam countdowns.
+ *
+ * Renders ONE plan at a time, cycling via a "Show next →" link (same
+ * vocabulary as NextBestActionCard). With one exam set, the cycle button
+ * hides and the card behaves like a static countdown. With multiple
+ * exams, the user can walk through them all from a single card slot
+ * instead of stacking N cards down the page.
  *
  * Sections (top → bottom):
- *   - Header: course title + "X days until …" countdown
+ *   - Header: course title + "X days until …" countdown chip
  *   - Headline + recommended pace
- *   - Today's plan: list of actions linked to start them (hidden when compact)
+ *   - Today's plan: list of actions linked to start them (hidden in compact)
+ *   - Cycle row: "Show next →" + "1/N" badge (only when plans.length > 1)
  */
 export default function ExamCountdownCard({
-  plan,
+  plans,
   compact = false,
 }: ExamCountdownCardProps) {
+  const [index, setIndex] = useState(0);
+
+  if (plans.length === 0) return null;
+
+  const safeIndex = Math.min(index, plans.length - 1);
+  const plan = plans[safeIndex];
+  const hasMore = plans.length > 1;
+  const isLast = safeIndex >= plans.length - 1;
   // Tier B+ color schema. Outer card stays soft (info-dense surfaces don't
   // need a pixel-border competing with the data), but the countdown chip,
   // accent line, and pixel-nail corners carry urgency color so the card
@@ -44,7 +74,7 @@ export default function ExamCountdownCard({
   return (
     <section
       aria-labelledby={`exam-${plan.courseId}-heading`}
-      className="rpg-card rounded-2xl p-5 sm:p-6 relative overflow-hidden animate-slide-up"
+      className="rpg-card rounded-2xl p-5 sm:p-6 relative overflow-hidden animate-slide-up flex flex-col h-full"
     >
       {/* Top accent line — urgency-colored */}
       <div className={cn("absolute top-0 inset-x-0 h-0.5", urgencyAccent)} />
@@ -182,6 +212,30 @@ export default function ExamCountdownCard({
             Nothing left to do today — all topics mastered. Take a review session
             to stay sharp, or just rest. You&apos;ve earned it.
           </span>
+        </div>
+      )}
+
+      {/* Cycle row — only when the user has multiple exam courses set.
+          Pushed to the bottom (mt-auto + pt-3) so the card's footer aligns
+          with NextBestActionCard's CTA row when they sit side-by-side. */}
+      {hasMore && (
+        <div className="mt-auto pt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setIndex((i) => (i + 1) % plans.length)}
+            className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+            aria-label={
+              isLast
+                ? `Cycle back to first exam (${plans.length} total)`
+                : `Show next exam (${safeIndex + 1} of ${plans.length})`
+            }
+          >
+            {isLast ? "Back to first" : "Show next"}
+            <ChevronRight className="w-3 h-3" aria-hidden />
+            <span className="font-pixel text-[8px] tracking-wider text-slate-600 ml-1">
+              {safeIndex + 1}/{plans.length}
+            </span>
+          </button>
         </div>
       )}
     </section>
