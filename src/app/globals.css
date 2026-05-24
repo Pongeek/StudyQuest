@@ -1568,7 +1568,14 @@
   pointer-events: none;
 }
 
-/* ── Level frame — game-HUD panel ── */
+/* ── Level frame — game-HUD panel ──
+   The frame and its accents read from tier CSS variables. A bare
+   .hud-level-frame keeps the legacy indigo+amber look; pairing it with
+   .tier-novice / .tier-apprentice / .tier-adept / .tier-expert /
+   .tier-master / .tier-sage shifts the accent palette without forking
+   the structural CSS. Within-tier "drift" (saturation + glow alpha)
+   is set inline by the component as `--tier-saturation` and
+   `--tier-glow-alpha` so each individual level reads subtly distinct. */
 .hud-level-frame {
   position: relative;
   width: 86px; height: 86px;
@@ -1578,55 +1585,69 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
+  /* Tier-overridable accents — defaults retain the original look. */
+  --tier-accent-rgb: 99 102 241;          /* indigo-500 */
+  --tier-accent-line-rgb: 245 158 11;     /* amber-500 (legacy top line) */
+  --tier-numeral: #fbbf24;                /* amber-400 */
+  --tier-glow-alpha: 0.10;
+  --tier-saturation: 1;
   background: linear-gradient(155deg, rgba(25,23,65,0.98) 0%, rgba(10,8,30,1) 100%);
-  border: 2px solid rgba(99,102,241,0.50);
+  border: 2px solid rgb(var(--tier-accent-rgb) / 0.50);
   border-radius: 4px;
   box-shadow:
-    inset 0 0 0 1px rgba(99,102,241,0.10),
+    inset 0 0 0 1px rgb(var(--tier-accent-rgb) / 0.10),
     inset 0 1px 0 rgba(255,255,255,0.05),
-    0 0 24px rgba(99,102,241,0.10),
+    0 0 24px rgb(var(--tier-accent-rgb) / var(--tier-glow-alpha)),
     0 4px 24px rgba(0,0,0,0.70);
+  filter: saturate(var(--tier-saturation));
 }
 
-/* Inner dashed ornament */
+/* Inner dashed ornament — tier-tinted */
 .hud-level-frame::before {
   content: '';
   position: absolute;
   inset: 5px;
-  border: 1px dashed rgba(99,102,241,0.22);
+  border: 1px dashed rgb(var(--tier-accent-rgb) / 0.22);
   border-radius: 2px;
   pointer-events: none;
 }
 
-/* Amber top accent line */
+/* Top accent line — uses --tier-accent-line-rgb (lets the line color
+   diverge from the frame border for tiers that want a contrasting top,
+   e.g. Sage uses violet frame + amber top accent). */
 .hud-level-frame::after {
   content: '';
   position: absolute;
   top: -1px;
   left: 24%; right: 24%;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(245,158,11,0.78), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--tier-accent-line-rgb) / 0.78),
+    transparent
+  );
 }
 
-/* "LVL" micro-label */
+/* "LVL" micro-label — color tracks the top accent so it reads as a unit */
 .hud-level-label {
   font-family: var(--font-pixel);
   font-size: 7px;
   letter-spacing: 0.22em;
-  color: rgba(245,158,11,0.60);
+  color: rgb(var(--tier-accent-line-rgb) / 0.60);
   line-height: 1;
   user-select: none;
 }
 
-/* Level number — amber glow */
+/* Level number — color comes from the tier; legacy default is amber */
 .hud-level-number {
   font-family: var(--font-pixel);
   font-size: 26px;
   line-height: 1;
-  color: #fbbf24;
+  color: var(--tier-numeral);
   text-shadow:
-    0 0 22px rgba(245,158,11,0.55),
-    0 0 8px rgba(245,158,11,0.32),
+    0 0 22px rgb(var(--tier-accent-line-rgb) / 0.55),
+    0 0 8px rgb(var(--tier-accent-line-rgb) / 0.32),
     0 2px 0 rgba(0,0,0,0.60);
   user-select: none;
 }
@@ -2057,3 +2078,290 @@
     opacity: 0.55;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Level tier progression — the accent palette + decorations applied to
+   .hud-level-frame, the small nav HUD chip, and LevelBadge. The base
+   .hud-level-frame defaults to indigo+amber (legacy look); add a tier
+   class to shift it. See src/lib/level-tier.ts for the data side.
+   ───────────────────────────────────────────────────────────────────── */
+
+.tier-novice {
+  --tier-accent-rgb: 148 163 184;       /* slate-400 */
+  --tier-accent-line-rgb: 148 163 184;  /* slate-400 */
+  --tier-numeral: #cbd5e1;              /* slate-300 (≥4.5:1 on slate-950 frame) */
+}
+
+.tier-apprentice {
+  --tier-accent-rgb: 245 158 11;        /* amber-500 */
+  --tier-accent-line-rgb: 245 158 11;
+  --tier-numeral: #fbbf24;              /* amber-400 */
+}
+
+.tier-adept {
+  --tier-accent-rgb: 56 189 248;        /* sky-400 (Adept = scholarly cyan) */
+  --tier-accent-line-rgb: 56 189 248;
+  --tier-numeral: #7dd3fc;              /* sky-300 */
+}
+
+.tier-expert {
+  --tier-accent-rgb: 234 179 8;         /* yellow-500 (deeper gold than Apprentice amber) */
+  --tier-accent-line-rgb: 234 179 8;
+  --tier-numeral: #fde047;              /* yellow-300 */
+}
+
+.tier-master {
+  --tier-accent-rgb: 168 85 247;        /* purple-500 */
+  --tier-accent-line-rgb: 168 85 247;
+  --tier-numeral: #d8b4fe;              /* purple-300 */
+}
+
+.tier-sage {
+  /* Gradient identity — frame uses violet, top line uses amber, numeral
+     is set transparent here and the component swaps in .text-gradient-epic
+     for the numeral so the gradient renders correctly via background-clip. */
+  --tier-accent-rgb: 168 85 247;
+  --tier-accent-line-rgb: 245 158 11;
+  --tier-numeral: #d8b4fe;              /* fallback if gradient text is unsupported */
+}
+
+/* ── Decoration layers — additive DOM spans, positioned absolutely on
+      the level-frame. Each decoration is opt-in based on the tier. ── */
+
+/* Apprentice — corner sparks (4 dots that catch the eye without
+   competing with the frame chrome). */
+.tier-spark {
+  position: absolute;
+  width: 2px; height: 2px;
+  background: rgb(var(--tier-accent-line-rgb) / 0.9);
+  box-shadow: 0 0 6px rgb(var(--tier-accent-line-rgb) / 0.65);
+  pointer-events: none;
+}
+.tier-spark--tl { top: -3px; left: -3px; }
+.tier-spark--tr { top: -3px; right: -3px; }
+.tier-spark--bl { bottom: -3px; left: -3px; }
+.tier-spark--br { bottom: -3px; right: -3px; }
+
+/* Adept — side laurel marks (stacked pixel pips flanking the frame). */
+.tier-laurel {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+.tier-laurel--left { left: -9px; }
+.tier-laurel--right { right: -9px; }
+.tier-laurel-pip {
+  width: 3px; height: 3px;
+  background: rgb(var(--tier-accent-rgb) / 0.85);
+  box-shadow: 0 0 4px rgb(var(--tier-accent-rgb) / 0.55);
+}
+
+/* Expert — pixel crown atop the frame (3 teeth, middle tallest). */
+.tier-crown {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 9px;
+  pointer-events: none;
+}
+.tier-crown-tooth {
+  width: 3px;
+  background: rgb(var(--tier-accent-rgb) / 0.92);
+  box-shadow: 0 0 4px rgb(var(--tier-accent-rgb) / 0.6);
+}
+.tier-crown-tooth--short { height: 5px; }
+.tier-crown-tooth--tall  { height: 9px; }
+
+/* Master — flame edges at the corners (replaces sparks/nails with a
+   small flame silhouette pointing outward). */
+.tier-flame {
+  position: absolute;
+  width: 5px; height: 7px;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--tier-accent-rgb) / 0.95) 0%,
+    rgb(var(--tier-accent-rgb) / 0.3) 100%
+  );
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  pointer-events: none;
+}
+.tier-flame--tl { top: -5px; left: 2px; }
+.tier-flame--tr { top: -5px; right: 2px; }
+.tier-flame--bl { bottom: -5px; left: 2px;  transform: scaleY(-1); }
+.tier-flame--br { bottom: -5px; right: 2px; transform: scaleY(-1); }
+
+/* Master / Sage — subtle scanlines layered over the frame's inner area.
+   Uses the existing pixel-scanlines vocabulary but tinted to the tier
+   accent for cohesion. */
+.tier-scanlines {
+  position: absolute;
+  inset: 6px;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.04) 0,
+    rgba(255, 255, 255, 0.04) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Sage — 4-glyph rotating rune ring around the frame. */
+.tier-rune-ring {
+  position: absolute;
+  inset: -12px;
+  pointer-events: none;
+  animation: tier-rune-rotate 16s linear infinite;
+}
+.tier-rune {
+  position: absolute;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: rgb(var(--tier-accent-rgb) / 0.78);
+  text-shadow: 0 0 6px rgb(var(--tier-accent-rgb) / 0.55);
+  line-height: 1;
+  user-select: none;
+}
+.tier-rune--n { top: -1px; left: 50%; transform: translateX(-50%); }
+.tier-rune--e { right: -1px; top: 50%; transform: translateY(-50%); }
+.tier-rune--s { bottom: -1px; left: 50%; transform: translateX(-50%); }
+.tier-rune--w { left: -1px; top: 50%; transform: translateY(-50%); }
+
+@keyframes tier-rune-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Glow variants — driven by the tier's "glow" kind ──
+   `pulse` reuses the existing soft pulse; the others add small
+   per-tier flourishes. */
+
+.tier-glow-pulse {
+  animation: tier-glow-soft-pulse 3.2s ease-in-out infinite;
+}
+@keyframes tier-glow-soft-pulse {
+  0%, 100% { box-shadow:
+    inset 0 0 0 1px rgb(var(--tier-accent-rgb) / 0.10),
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 0 16px rgb(var(--tier-accent-rgb) / calc(var(--tier-glow-alpha) * 0.85)),
+    0 4px 24px rgba(0,0,0,0.70);
+  }
+  50%      { box-shadow:
+    inset 0 0 0 1px rgb(var(--tier-accent-rgb) / 0.10),
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 0 28px rgb(var(--tier-accent-rgb) / calc(var(--tier-glow-alpha) * 1.25)),
+    0 4px 24px rgba(0,0,0,0.70);
+  }
+}
+
+.tier-glow-halo {
+  animation: tier-glow-halo 4.5s ease-in-out infinite;
+}
+@keyframes tier-glow-halo {
+  0%, 100% { box-shadow:
+    inset 0 0 0 1px rgb(var(--tier-accent-rgb) / 0.10),
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 0 24px rgb(var(--tier-accent-rgb) / var(--tier-glow-alpha)),
+    0 0 32px rgb(var(--tier-accent-rgb) / calc(var(--tier-glow-alpha) * 0.6)),
+    0 4px 24px rgba(0,0,0,0.70);
+  }
+  50%      { box-shadow:
+    inset 0 0 0 1px rgb(var(--tier-accent-rgb) / 0.10),
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 0 30px rgb(var(--tier-accent-rgb) / var(--tier-glow-alpha)),
+    0 0 44px rgb(var(--tier-accent-rgb) / calc(var(--tier-glow-alpha) * 0.85)),
+    0 4px 24px rgba(0,0,0,0.70);
+  }
+}
+
+.tier-glow-breathe {
+  animation: tier-glow-breathe 5.5s ease-in-out infinite;
+}
+@keyframes tier-glow-breathe {
+  0%, 100% { box-shadow:
+    inset 0 0 0 1px rgb(var(--tier-accent-rgb) / 0.10),
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 0 22px rgb(var(--tier-accent-rgb) / calc(var(--tier-glow-alpha) * 0.8)),
+    0 4px 24px rgba(0,0,0,0.70);
+  }
+  50%      { box-shadow:
+    inset 0 0 0 1px rgb(var(--tier-accent-rgb) / 0.15),
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 0 36px rgb(var(--tier-accent-rgb) / calc(var(--tier-glow-alpha) * 1.4)),
+    0 4px 24px rgba(0,0,0,0.70);
+  }
+}
+
+.tier-glow-breathe-strong {
+  animation: tier-glow-breathe-strong 5.5s ease-in-out infinite;
+}
+@keyframes tier-glow-breathe-strong {
+  0%, 100% { box-shadow:
+    inset 0 0 0 1px rgb(var(--tier-accent-rgb) / 0.12),
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 0 24px rgb(var(--tier-accent-rgb) / var(--tier-glow-alpha)),
+    0 0 40px rgb(var(--tier-accent-rgb) / calc(var(--tier-glow-alpha) * 0.7)),
+    0 4px 24px rgba(0,0,0,0.70);
+  }
+  50%      { box-shadow:
+    inset 0 0 0 1px rgb(var(--tier-accent-rgb) / 0.18),
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 0 42px rgb(var(--tier-accent-rgb) / calc(var(--tier-glow-alpha) * 1.6)),
+    0 0 60px rgb(var(--tier-accent-rgb) / calc(var(--tier-glow-alpha) * 0.95)),
+    0 4px 24px rgba(0,0,0,0.70);
+  }
+}
+
+.tier-glow-ring {
+  animation: tier-glow-breathe 5.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tier-glow-pulse,
+  .tier-glow-halo,
+  .tier-glow-breathe,
+  .tier-glow-breathe-strong,
+  .tier-glow-ring,
+  .tier-rune-ring {
+    animation: none;
+  }
+}
+
+/* ── Rank-up celebration — used by LevelUpOverlay on tier-boundary
+      crossings. 800ms total motion budget per StudyQuest motion rules. ── */
+@keyframes tier-rank-up-flip-out {
+  0%   { opacity: 1; transform: rotateY(0deg) scale(1.2); }
+  100% { opacity: 0; transform: rotateY(-90deg) scale(0.95); }
+}
+@keyframes tier-rank-up-flip-in {
+  0%   { opacity: 0; transform: rotateY(90deg) scale(0.95); }
+  100% { opacity: 1; transform: rotateY(0deg) scale(1); }
+}
+@keyframes tier-rank-up-burst {
+  0%   { opacity: 0.95; transform: scale(0.45); }
+  60%  { opacity: 0.55; }
+  100% { opacity: 0;    transform: scale(2.6); }
+}
+@keyframes tier-rank-up-title-rise {
+  0%   { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Reduced-motion users get a static cross-fade only — no rotation, no
+     scale burst. The new tier badge + title still appear; just calmly. */
+  .tier-rank-up-flip-out,
+  .tier-rank-up-flip-in,
+  .tier-rank-up-burst,
+  .tier-rank-up-title-rise { animation: none !important; }
+}
+

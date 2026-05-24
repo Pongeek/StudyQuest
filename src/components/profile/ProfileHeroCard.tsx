@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TierLevelFrame from "@/components/gamification/TierLevelFrame";
 
 interface XPProgress {
   current: number;
@@ -147,16 +148,15 @@ export default function ProfileHeroCard({
       {/* Level frame + identity + XP bar */}
       <div className="relative px-5 sm:px-7 pt-5 pb-6 flex items-start gap-4">
 
-        {/* Level frame — spring entrance + breathing indigo glow */}
+        {/* Level frame — spring entrance. TierLevelFrame picks the
+            palette + decoration set from the level number, so identity
+            scales with rank (slate → amber → cyan → gold → violet → gradient). */}
         <motion.div
           initial={{ scale: 0.82, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", damping: 18, stiffness: 220, delay: 0.08 }}
-          className="hud-level-frame hud-level-glow"
-          aria-label={`Level ${level}`}
         >
-          <span className="hud-level-label">LVL</span>
-          <span className="hud-level-number">{level}</span>
+          <TierLevelFrame level={level} />
         </motion.div>
 
         {/* Identity + XP */}

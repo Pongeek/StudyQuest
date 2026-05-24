@@ -7,6 +7,7 @@ import { UserButton } from "@clerk/nextjs";
 import { LayoutDashboard, User, Menu, X, Flame, Zap, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { calculateLevel, xpProgressInCurrentLevel } from "@/lib/xp";
+import { getLevelTierVisuals, getTierNavChipColors } from "@/lib/level-tier";
 import { AnimatedStudyQuestMark } from "@/components/brand/StudyQuestLogo";
 import SoundToggle from "@/components/dashboard/SoundToggle";
 
@@ -31,6 +32,12 @@ export default function DashboardNav({ totalXp, streak }: DashboardNavProps) {
   // Pad numbers like "07" / "1,234" — feels more arcade-HUD than "7" or "1234".
   const levelLabel = `LV.${String(level).padStart(2, "0")}`;
   const xpLabel = totalXp.toLocaleString();
+
+  // Tier-aware chip colors so the always-visible nav HUD reads as the
+  // same identity as the dashboard hero frame (otherwise the hero would
+  // shift through tier palettes while this chip stayed indigo forever).
+  const tierVisuals = getLevelTierVisuals(level);
+  const chipColors = getTierNavChipColors(tierVisuals.tier);
 
   return (
     <header className="bg-slate-950/90 backdrop-blur-xl sticky top-0 z-50">
@@ -79,19 +86,21 @@ export default function DashboardNav({ totalXp, streak }: DashboardNavProps) {
 
         {/* Right: HUD chips + user */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Level chip with XP ring — pixel-bordered HUD module */}
+          {/* Level chip with XP ring — pixel-bordered HUD module.
+              Accent colors come from the user's current tier so this
+              chip stays visually in sync with the hero frame. */}
           <div className="hidden sm:flex items-center gap-2">
-            <div className="pixel-chip text-indigo-400 bg-indigo-500/10">
+            <div className={cn("pixel-chip", chipColors.textClass, chipColors.bgClass)}>
               {/* Mini mastery ring */}
               <div className="relative w-6 h-6 flex-shrink-0">
                 <svg width="24" height="24" className="absolute inset-0 -rotate-90">
-                  <circle cx="12" cy="12" r="9" fill="none" stroke="rgba(99,102,241,0.25)" strokeWidth="3" />
+                  <circle cx="12" cy="12" r="9" fill="none" stroke={chipColors.ringStrokeBg} strokeWidth="3" />
                   <circle
                     cx="12"
                     cy="12"
                     r="9"
                     fill="none"
-                    stroke="#818cf8"
+                    stroke={chipColors.ringStroke}
                     strokeWidth="3"
                     strokeLinecap="butt"
                     strokeDasharray={`${2 * Math.PI * 9}`}
@@ -100,7 +109,7 @@ export default function DashboardNav({ totalXp, streak }: DashboardNavProps) {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Shield className="w-3 h-3 text-indigo-300" />
+                  <Shield className={cn("w-3 h-3", chipColors.iconClass)} />
                 </div>
               </div>
               <span className="font-pixel text-[10px] text-white tabular-nums">

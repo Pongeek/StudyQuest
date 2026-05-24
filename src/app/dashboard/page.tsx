@@ -14,6 +14,7 @@ import DashboardHeroCard from "@/components/dashboard/DashboardHeroCard";
 import WelcomeModal from "@/components/dashboard/WelcomeModal";
 import EmptyDashboardHero from "@/components/dashboard/EmptyDashboardHero";
 import NextBestActionCard from "@/components/dashboard/NextBestActionCard";
+import TierPreviewGrid from "@/components/dashboard/TierPreviewGrid";
 import { cn } from "@/lib/utils";
 import { calculateLevel, xpProgressInCurrentLevel } from "@/lib/xp";
 import {
@@ -314,9 +315,20 @@ async function getGrimoireCount(userId: string): Promise<number> {
   return [...failMap.values()].filter((count) => count >= 2).length;
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tierPreview?: string }>;
+}) {
   const { userId, sessionClaims } = await auth();
   if (!userId) redirect("/sign-in");
+
+  // Dev-only preview hook — `/dashboard?tierPreview=1` mounts the 6-tier
+  // visual grid above the regular dashboard. Strip the wiring before
+  // shipping if you want to keep it dev-private; for now it's gated on
+  // the query param so it never leaks into the normal UX.
+  const sp = await searchParams;
+  const showTierPreview = sp?.tierPreview === "1";
 
   const email = (sessionClaims?.email as string) || "";
   const name =
@@ -396,6 +408,9 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       {showWelcomeModal && <WelcomeModal />}
+
+      {/* Dev-only — six-tier visual preview grid, query-param gated. */}
+      {showTierPreview && <TierPreviewGrid />}
 
       {/* ── Streak warning banner ── */}
       {showStreakWarning && (

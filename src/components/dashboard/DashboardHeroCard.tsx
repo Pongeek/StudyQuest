@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AnimatedCounter from "@/components/effects/AnimatedCounter";
+import TierLevelFrame from "@/components/gamification/TierLevelFrame";
 import { cn } from "@/lib/utils";
 import { getLevelTitle } from "@/lib/xp";
 
@@ -131,15 +132,15 @@ export default function DashboardHeroCard({
       <div className="relative px-5 pt-5 pb-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-start gap-4 flex-1 min-w-0">
 
-          {/* Level frame — spring entrance + breathing indigo glow */}
+          {/* Level frame — spring entrance. Tier chrome (palette,
+              decorations, glow style) is picked by TierLevelFrame from
+              the level number, so the visual identity scales with rank. */}
           <motion.div
             initial={{ scale: 0.82, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", damping: 18, stiffness: 220, delay: 0.08 }}
-            className="hud-level-frame hud-level-glow"
           >
-            <span className="hud-level-label">LVL</span>
-            <span className="hud-level-number">{level}</span>
+            <TierLevelFrame level={level} />
           </motion.div>
 
           {/* User info */}

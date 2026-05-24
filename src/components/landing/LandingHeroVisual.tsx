@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import TierLevelFrame from "@/components/gamification/TierLevelFrame";
 
 type Phase = { level: number; rank: string; xpPct: number };
 
@@ -52,16 +53,16 @@ export default function LandingHeroVisual() {
 
         {/* Top: level frame + identity */}
         <div className="relative px-7 pt-7 pb-6 flex items-start gap-5">
-          {/* Pixel level frame */}
+          {/* Pixel level frame — tier-aware. Hover/animation transform
+              applied to the wrapper so the spring tier decorations
+              (rune ring, etc.) move with the frame. */}
           <div
-            className="hud-level-frame"
             style={{
               transform: animating ? "scale(1.08)" : "scale(1)",
               transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
           >
-            <span className="hud-level-label">LVL</span>
-            <span className="hud-level-number">{level}</span>
+            <TierLevelFrame level={level} />
           </div>
 
           {/* Identity */}
