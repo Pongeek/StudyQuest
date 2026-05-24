@@ -13,6 +13,7 @@ import QuestBoard from "@/components/gamification/QuestBoard";
 import DashboardHeroCard from "@/components/dashboard/DashboardHeroCard";
 import WelcomeModal from "@/components/dashboard/WelcomeModal";
 import EmptyDashboardHero from "@/components/dashboard/EmptyDashboardHero";
+import NextBestActionCard from "@/components/dashboard/NextBestActionCard";
 import { cn } from "@/lib/utils";
 import { calculateLevel, xpProgressInCurrentLevel } from "@/lib/xp";
 import {
@@ -21,6 +22,7 @@ import {
   type StudyPlanTopic,
   type StudyPlanEpisode,
 } from "@/lib/study-plan";
+import { pickNextBestActions } from "@/lib/next-best-action";
 
 async function getOrCreateUser(clerkId: string, email: string, name: string) {
   const supabase = createServiceClient();
@@ -357,6 +359,22 @@ export default async function DashboardPage() {
   const showStreakWarning =
     streak > 0 && !studiedToday && lastStudyDate === yesterday;
 
+  // ── Smart Next Best Action ──
+  // Pure decision over the data we already fetched. Returns a prioritized
+  // list — the widget shows actions[0] by default and offers "Show next"
+  // to cycle. If the list is empty (rare — usually the curriculum-order
+  // quest is the floor) the widget hides.
+  const nextBestActions = pickNextBestActions({
+    studyPlans,
+    reviewQueue,
+    grimoireCount,
+    recommendations,
+    streak,
+    studiedToday,
+    lastStudyDate,
+    now: new Date(),
+  });
+
   // First-run gate — WelcomeModal mounts only when this user has never
   // dismissed/completed the modal. Server-truth flag means signing in on
   // another device won't re-show it once they've seen it.
@@ -383,6 +401,14 @@ export default async function DashboardPage() {
       {showStreakWarning && (
         <StreakWarningBanner streak={streak} href={nextQuestHref} />
       )}
+
+      {/* ── Smart Next Best Action ──
+            One pixel-bordered card pinned to the top — picks the single
+            most-pressing action from the dashboard data (exam crunch,
+            streak save, boss ready, review pile, demons, next quest).
+            Cycle through the rest via "Show next". Logic in
+            lib/next-best-action.ts; data is the same aggregators below. */}
+      <NextBestActionCard actions={nextBestActions} />
 
       {/* ── Hero Stats Bar ── */}
       <DashboardHeroCard
