@@ -962,14 +962,23 @@ function QuizEngineInner({
                       optionState = "selected";
                     }
 
+                    // Letter prefix in its own tile + body in MarkdownInline.
+                    // CRITICAL: button is flex + rtl:flex-row-reverse so the
+                    // prefix is a real visual boundary. Without flex, bidi
+                    // groups "A." and a leading Latin acronym ("NFA"/"DFA")
+                    // in the body into one LTR run and renders them glued
+                    // together (e.g. "C.NFA" instead of "C.  NFA …").
+                    const letterMatch = option.match(/^([A-D])\.\s*/);
+                    const letter = letterMatch ? letterMatch[1] : option[0];
+                    const body = letterMatch ? option.slice(letterMatch[0].length) : option;
                     return (
                       <button
                         key={option}
                         disabled={isAnswered}
                         onClick={() => updateQState(currentQuestion.id, { selectedOption: option })}
                         className={cn(
-                          "w-full px-4 py-3 sm:px-5 sm:py-4 rounded-xl border transition-all duration-200 text-sm",
-                          rtl ? "text-right" : "text-left",
+                          "w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 rounded-xl border transition-all duration-200 text-sm",
+                          rtl ? "flex-row-reverse text-right" : "text-left",
                           optionState === "default" &&
                             "border-slate-700/50 bg-slate-800/30 text-slate-300 hover:border-indigo-500/50 hover:bg-indigo-500/5 hover:text-white hover:shadow-lg hover:shadow-indigo-500/5",
                           optionState === "selected" &&
@@ -981,10 +990,18 @@ function QuizEngineInner({
                           isAnswered && optionState === "default" && "opacity-40"
                         )}
                       >
-                        <span className={cn("font-mono text-xs opacity-50 shrink-0", rtl ? "ml-3" : "mr-3")}>
-                          {option.split(".")[0]}.
+                        <span
+                          className={cn(
+                            "flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-colors duration-200",
+                            optionState === "default" && "bg-white/[0.05] text-slate-400",
+                            optionState === "selected" && "bg-indigo-500/30 text-indigo-300",
+                            optionState === "correct" && "bg-green-500/30 text-green-300",
+                            optionState === "wrong" && "bg-red-500/30 text-red-300"
+                          )}
+                        >
+                          {letter}
                         </span>
-                        <MarkdownInline className="flex-1">{option.replace(/^[A-D]\.\s*/, "")}</MarkdownInline>
+                        <MarkdownInline className="flex-1">{body}</MarkdownInline>
                       </button>
                     );
                   })}
