@@ -11,6 +11,8 @@ import StreakWarningBanner from "@/components/dashboard/StreakWarningBanner";
 import ExamCountdownCard from "@/components/dashboard/ExamCountdownCard";
 import QuestBoard from "@/components/gamification/QuestBoard";
 import DashboardHeroCard from "@/components/dashboard/DashboardHeroCard";
+import WelcomeModal from "@/components/dashboard/WelcomeModal";
+import EmptyDashboardHero from "@/components/dashboard/EmptyDashboardHero";
 import { cn } from "@/lib/utils";
 import { calculateLevel, xpProgressInCurrentLevel } from "@/lib/xp";
 import {
@@ -355,8 +357,28 @@ export default async function DashboardPage() {
   const showStreakWarning =
     streak > 0 && !studiedToday && lastStudyDate === yesterday;
 
+  // First-run gate — WelcomeModal mounts only when this user has never
+  // dismissed/completed the modal. Server-truth flag means signing in on
+  // another device won't re-show it once they've seen it.
+  const showWelcomeModal = !dbUser.onboarding_completed_at;
+
+  // Brand-new (or just-emptied) account → swap the entire dashboard for
+  // the EmptyDashboardHero. None of the regular widgets (hero card, exam
+  // plans, today's mission, etc.) have meaningful data at zero courses;
+  // showing them would just look broken.
+  if (courses.length === 0) {
+    return (
+      <div className="space-y-8">
+        {showWelcomeModal && <WelcomeModal />}
+        <EmptyDashboardHero />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
+      {showWelcomeModal && <WelcomeModal />}
+
       {/* ── Streak warning banner ── */}
       {showStreakWarning && (
         <StreakWarningBanner streak={streak} href={nextQuestHref} />
@@ -425,33 +447,15 @@ export default async function DashboardPage() {
                 Your Realm
               </h2>
               <p className="text-[13px] text-slate-500 mt-1">
-                {courses.length === 0
-                  ? "No worlds discovered yet"
-                  : `${courses.length} ${courses.length === 1 ? "world" : "worlds"} discovered`}
+                {courses.length} {courses.length === 1 ? "world" : "worlds"} discovered
               </p>
             </div>
           </div>
         </header>
 
-        {courses.length === 0 ? (
-          <div className="rpg-card rounded-2xl p-8 sm:p-14 text-center border-dashed">
-            <div className="w-14 h-14 bg-white/[0.04] border border-white/[0.07] rounded-xl flex items-center justify-center mx-auto mb-5">
-              <Sparkles className="w-7 h-7 text-indigo-400" />
-            </div>
-            <h3 className="text-lg font-bold text-white mb-2 tracking-tight">
-              The map is blank&hellip;
-            </h3>
-            <p className="text-slate-400 mb-6 max-w-md mx-auto text-sm">
-              Upload a course PDF to discover your first world and begin your quest.
-            </p>
-            <Link href="/dashboard/courses/new">
-              <Button className="bg-indigo-500 hover:bg-indigo-400 text-white gap-2 font-medium">
-                <Plus className="w-4 h-4" /> Discover Your First World
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Empty-state branch was here — now unreachable because the page
+            early-returns to <EmptyDashboardHero/> at courses.length === 0. */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {courses.map((course: any) => {
               const episodeCount = course.episode_count || 0;
               const topicCount = course.topic_count || 0;
@@ -594,7 +598,6 @@ export default async function DashboardPage() {
               </div>
             </Link>
           </div>
-        )}
       </section>
 
       {/* ── Achievements ── */}
