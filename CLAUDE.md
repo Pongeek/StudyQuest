@@ -213,6 +213,7 @@ The MVP plus three major content layers (Scroll / Grimoire / Feynman), the exam-
 013 — courses.exam_date + courses.exam_label (countdown + study plan inputs)
 014 — episodes.status + course_files.episode_id (per-episode upload pipeline)
 015 — image_url on quiz_answers / exam_answers / review_answers / boss_fight_answers
+016 — six tier-2 achievement extensions (sage, iron_legend, iron_discipline, centenarian, apex_predator, twilight_reader)
 ```
 
 The migration files live in `supabase/migrations/`. Always update this list when you add a migration so the next session can verify the live DB matches.
