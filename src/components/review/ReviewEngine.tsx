@@ -29,6 +29,13 @@ import { REVIEW_XP_PER_CORRECT } from "@/lib/spaced-repetition";
 import ReviewSummary from "./ReviewSummary";
 import { type UnlockedAchievement } from "@/components/effects/AchievementUnlockOverlay";
 import AnswerImagePicker from "@/components/quiz/AnswerImagePicker";
+import { readClassifiedErrorFromResponse, classifyAiError } from "@/lib/ai-error";
+import {
+  loadDraft,
+  saveDraft,
+  clearDraft,
+  clearSessionDrafts,
+} from "@/lib/answer-draft";
 
 function isRTL(text: string): boolean {
   return /[֐-׿؀-ۿ]/.test(text);
@@ -191,6 +198,46 @@ function ReviewEngineInner({
     });
   }, []);
 
+  // ── Answer-draft persistence ────────────────────────────────────────────────
+  // Restore drafted open-answer text on mount so a mid-review failure
+  // (Claude 429 / overload / network drop) preserves typed work.
+  const draftsRestoredRef = useRef(false);
+  useEffect(() => {
+    if (draftsRestoredRef.current) return;
+    draftsRestoredRef.current = true;
+    let restoredAny = false;
+    for (const q of questions) {
+      if (q.type === "mcq") continue;
+      const draft = loadDraft(sessionId, q.id);
+      if (draft) {
+        updateQState(q.id, { openAnswer: draft });
+        restoredAny = true;
+      }
+    }
+    if (restoredAny) {
+      toast.success("Restored your saved answer.", { duration: 2500 });
+    }
+  }, [questions, sessionId, updateQState]);
+
+  // Debounced save on every keystroke for the current open-answer.
+  const currentQuestionIdForDraft = questions[currentIdx]?.id;
+  const currentQuestionTypeForDraft = questions[currentIdx]?.type;
+  const currentOpenAnswerText = currentQuestionIdForDraft
+    ? questionStates.get(currentQuestionIdForDraft)?.openAnswer ?? ""
+    : "";
+  useEffect(() => {
+    if (!currentQuestionIdForDraft || currentQuestionTypeForDraft === "mcq") return;
+    const timer = setTimeout(() => {
+      saveDraft(sessionId, currentQuestionIdForDraft, currentOpenAnswerText);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [
+    sessionId,
+    currentQuestionIdForDraft,
+    currentQuestionTypeForDraft,
+    currentOpenAnswerText,
+  ]);
+
   const answeredCount = useMemo(
     () => Array.from(questionStates.values()).filter((s) => s.result !== null).length,
     [questionStates]
@@ -260,8 +307,17 @@ function ReviewEngineInner({
         });
       }
 
-      if (!res.ok) throw new Error("Failed to grade answer");
+      if (!res.ok) {
+        // Classified upstream failure — keep the typed answer (already
+        // persisted via the debounced save) and surface an actionable line.
+        const classified = await readClassifiedErrorFromResponse(res);
+        toast.error(classified.userMessage, { duration: 6000 });
+        return;
+      }
       const { score, feedback } = await res.json();
+
+      // Grade succeeded — answer is in the DB, drop the local draft.
+      clearDraft(sessionId, currentQuestion.id);
 
       updateQState(currentQuestion.id, {
         result: {
@@ -282,7 +338,8 @@ function ReviewEngineInner({
       }
     } catch (err) {
       console.error("[ReviewEngine] answer grading failed:", err);
-      toast.error("Failed to grade your answer. Please try again.");
+      const classified = classifyAiError(err);
+      toast.error(classified.userMessage, { duration: 6000 });
     } finally {
       setIsGrading(false);
     }
@@ -299,6 +356,10 @@ function ReviewEngineInner({
 
       if (!res.ok) throw new Error("Failed to complete session");
       const data = await res.json();
+
+      // Review locked server-side — drop all per-question drafts.
+      clearSessionDrafts(sessionId);
+
       setCompleteData(data);
       // NOTE: don't call `router.refresh()` here — it can re-trigger the
       // ReviewLauncher on /dashboard/review and start a fresh session

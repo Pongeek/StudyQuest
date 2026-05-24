@@ -38,6 +38,13 @@ import AchievementUnlockOverlay, {
 import GradingOverlay from "@/components/effects/GradingOverlay";
 import AutoRecoverBoundary from "@/components/effects/AutoRecoverBoundary";
 import { calculateLevel, getLevelTitle, XP_REWARDS } from "@/lib/xp";
+import { readClassifiedErrorFromResponse, classifyAiError } from "@/lib/ai-error";
+import {
+  loadDraft,
+  saveDraft,
+  clearDraft,
+  clearSessionDrafts,
+} from "@/lib/answer-draft";
 
 function isRTL(text: string): boolean {
   return /[֐-׿؀-ۿ]/.test(text);
@@ -257,6 +264,45 @@ function ExamEngineInner({
     });
   }, []);
 
+  // ── Answer-draft persistence ────────────────────────────────────────────────
+  // Restore drafted open-answer text on mount so a mid-exam failure
+  // (Claude 429 / overload / network drop) doesn't throw away typed work.
+  const draftsRestoredRef = useRef(false);
+  useEffect(() => {
+    if (draftsRestoredRef.current) return;
+    draftsRestoredRef.current = true;
+    let restoredAny = false;
+    for (const q of questions) {
+      const isMcq = q.type === "mcq" && Array.isArray(q.options) && q.options.length > 0;
+      if (isMcq) continue;
+      const draft = loadDraft(examSessionId, q.id);
+      if (draft) {
+        updateQState(q.id, { openAnswer: draft });
+        restoredAny = true;
+      }
+    }
+    if (restoredAny) {
+      toast.success("Restored your saved answers.", { duration: 2500 });
+    }
+  }, [questions, examSessionId, updateQState]);
+
+  // Debounced save on every keystroke for the current open-answer.
+  const currentQuestionId = questions[currentIdx]?.id;
+  const currentIsMcq =
+    questions[currentIdx]?.type === "mcq" &&
+    Array.isArray(questions[currentIdx]?.options) &&
+    (questions[currentIdx]?.options?.length ?? 0) > 0;
+  const currentOpenAnswerText = currentQuestionId
+    ? questionStates.get(currentQuestionId)?.openAnswer ?? ""
+    : "";
+  useEffect(() => {
+    if (!currentQuestionId || currentIsMcq) return;
+    const timer = setTimeout(() => {
+      saveDraft(examSessionId, currentQuestionId, currentOpenAnswerText);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [examSessionId, currentQuestionId, currentIsMcq, currentOpenAnswerText]);
+
   // Derived counts
   const answeredCount = useMemo(
     () => Array.from(questionStates.values()).filter((s) => s.result !== null).length,
@@ -374,8 +420,18 @@ function ExamEngineInner({
         });
       }
 
-      if (!res.ok) throw new Error("Failed to grade answer");
+      if (!res.ok) {
+        // Classified upstream failure — keep the typed answer (already
+        // persisted in localStorage by the debounced save) and surface
+        // an actionable sentence instead of "Failed to grade answer."
+        const classified = await readClassifiedErrorFromResponse(res);
+        toast.error(classified.userMessage, { duration: 6000 });
+        return;
+      }
       const data = await res.json();
+
+      // Grade succeeded — answer is in the DB, drop the local draft.
+      clearDraft(examSessionId, currentQuestion.id);
 
       updateQState(currentQuestion.id, {
         result: {
@@ -402,8 +458,10 @@ function ExamEngineInner({
       } else {
         setCombo(0);
       }
-    } catch {
-      toast.error("Failed to grade answer. Please try again.");
+    } catch (err) {
+      console.error("[ExamEngine] answer grading failed:", err);
+      const classified = classifyAiError(err);
+      toast.error(classified.userMessage, { duration: 6000 });
     } finally {
       setIsGrading(false);
     }
@@ -424,6 +482,11 @@ function ExamEngineInner({
 
       if (!res.ok) throw new Error("Failed to complete exam");
       const data = await res.json();
+
+      // Exam is locked server-side — every answer is persisted, clear
+      // all per-question drafts for this session.
+      clearSessionDrafts(examSessionId);
+
       setDebriefData(data);
 
       // NOTE: Do NOT call `router.refresh()` here. The exam page redirects

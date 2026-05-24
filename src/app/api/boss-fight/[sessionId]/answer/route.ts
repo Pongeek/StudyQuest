@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { gradeOpenAnswer } from "@/lib/ai/grade-answer";
 import { uploadAnswerImage } from "@/lib/answer-image";
+import { classifyAiError } from "@/lib/ai-error";
 
 export const maxDuration = 60;
 
@@ -13,6 +14,8 @@ export async function POST(
   const { sessionId } = await params;
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
 
   // JSON (MCQ / plain open) or multipart (open + diagram image)
   const contentType = request.headers.get("content-type") || "";
@@ -87,4 +90,9 @@ export async function POST(
   });
 
   return NextResponse.json({ score, feedback });
+  } catch (err) {
+    console.error("[api/boss-fight/answer] grading failed:", err);
+    const classified = classifyAiError(err);
+    return NextResponse.json({ error: classified }, { status: 502 });
+  }
 }

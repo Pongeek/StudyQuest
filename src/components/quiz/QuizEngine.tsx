@@ -34,6 +34,13 @@ import AchievementUnlockOverlay, {
 } from "@/components/effects/AchievementUnlockOverlay";
 import GradingOverlay from "@/components/effects/GradingOverlay";
 import { calculateLevel, getLevelTitle, XP_REWARDS } from "@/lib/xp";
+import { readClassifiedErrorFromResponse, classifyAiError } from "@/lib/ai-error";
+import {
+  loadDraft,
+  saveDraft,
+  clearDraft,
+  clearSessionDrafts,
+} from "@/lib/answer-draft";
 
 function isRTL(text: string): boolean {
   return /[֐-׿؀-ۿ]/.test(text);
@@ -236,6 +243,44 @@ function QuizEngineInner({
     []
   );
 
+  // ── Answer-draft persistence ────────────────────────────────────────────────
+  // On mount, restore any drafted open-answer text from localStorage so a
+  // mid-flow failure (Claude 429 / network drop / page refresh) doesn't
+  // throw away the student's typed answer.
+  const draftsRestoredRef = useRef(false);
+  useEffect(() => {
+    if (draftsRestoredRef.current) return;
+    draftsRestoredRef.current = true;
+    let restoredAny = false;
+    for (const q of questions) {
+      if (q.type === "mcq") continue;
+      const draft = loadDraft(sessionId, q.id);
+      if (draft) {
+        updateQState(q.id, { openAnswer: draft });
+        restoredAny = true;
+      }
+    }
+    if (restoredAny) {
+      toast.success("Restored your saved answer.", { duration: 2500 });
+    }
+  }, [questions, sessionId, updateQState]);
+
+  // Debounced save: every open-answer keystroke debounces a localStorage
+  // write so a mid-flow failure preserves the draft. Cleared on success
+  // (see submitAnswer) and on session complete (see completeSession).
+  const currentQuestionId = questions[currentIdx]?.id;
+  const currentQuestionType = questions[currentIdx]?.type;
+  const currentOpenAnswerText = currentQuestionId
+    ? questionStates.get(currentQuestionId)?.openAnswer ?? ""
+    : "";
+  useEffect(() => {
+    if (!currentQuestionId || currentQuestionType === "mcq") return;
+    const timer = setTimeout(() => {
+      saveDraft(sessionId, currentQuestionId, currentOpenAnswerText);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [sessionId, currentQuestionId, currentQuestionType, currentOpenAnswerText]);
+
   // Derived counts
   const answeredCount = useMemo(
     () => Array.from(questionStates.values()).filter((s) => s.result !== null).length,
@@ -341,10 +386,17 @@ function QuizEngineInner({
       }
 
       if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`Grade failed (${res.status}): ${body || res.statusText}`);
+        // Classified error from the server tells us if it's retryable
+        // (rate-limit / overload / network) vs config (auth / budget).
+        // Either way the typed answer is preserved in localStorage.
+        const classified = await readClassifiedErrorFromResponse(res);
+        toast.error(classified.userMessage, { duration: 6000 });
+        return;
       }
       const { score, feedback } = await res.json();
+
+      // Grade succeeded — answer is now in the DB, drop the local draft.
+      clearDraft(sessionId, currentQuestion.id);
 
       updateQState(currentQuestion.id, {
         result: {
@@ -389,8 +441,11 @@ function QuizEngineInner({
         playSfx("wrong");
       }
     } catch (err) {
+      // Caught by client-side error (network drop, fetch aborted, etc.).
+      // Draft is already in localStorage, so the user only needs to retry.
       console.error("[QuizEngine] answer grading failed:", err);
-      toast.error("Failed to grade your answer. Please try again.");
+      const classified = classifyAiError(err);
+      toast.error(classified.userMessage, { duration: 6000 });
     } finally {
       setIsGrading(false);
     }
@@ -458,6 +513,11 @@ function QuizEngineInner({
 
       if (!res.ok) throw new Error("Failed to complete session");
       const data = await res.json();
+
+      // Session is locked server-side now — every per-question draft is
+      // safely persisted as a real answer, so the localStorage copies are
+      // no longer load-bearing.
+      clearSessionDrafts(sessionId);
 
       setSessionSummary({
         xpEarned: data.xpEarned,

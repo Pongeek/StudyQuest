@@ -31,6 +31,13 @@ import AchievementUnlockOverlay, {
   type UnlockedAchievement,
 } from "@/components/effects/AchievementUnlockOverlay";
 import GradingOverlay from "@/components/effects/GradingOverlay";
+import { readClassifiedErrorFromResponse, classifyAiError } from "@/lib/ai-error";
+import {
+  loadDraft,
+  saveDraft,
+  clearDraft,
+  clearSessionDrafts,
+} from "@/lib/answer-draft";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -328,6 +335,31 @@ function BossFightEngineInner({
     setBattleLog((prev) => [entry, ...prev].slice(0, 20));
   }, []);
 
+  // ── Answer-draft persistence ────────────────────────────────────────────────
+  // Boss fights advance sequentially (no back-nav), so the draft model is
+  // "load when the current question changes, save while typing, clear on
+  // successful grade." A mid-fight Claude failure no longer wipes the
+  // student's typed strike.
+  useEffect(() => {
+    if (!currentQuestion || currentQuestion.type === "mcq") return;
+    const draft = loadDraft(sessionId, currentQuestion.id);
+    if (draft && draft !== openAnswer) {
+      setOpenAnswer(draft);
+      toast.success("Restored your saved answer.", { duration: 2500 });
+    }
+    // We only want to restore when the question changes, not on every
+    // openAnswer keystroke. Intentionally omit openAnswer from deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.id, sessionId]);
+
+  useEffect(() => {
+    if (!currentQuestion || currentQuestion.type === "mcq") return;
+    const timer = setTimeout(() => {
+      saveDraft(sessionId, currentQuestion.id, openAnswer);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [sessionId, currentQuestion?.id, currentQuestion?.type, openAnswer]);
+
   // ── Submit answer ──
   const submitAnswer = async () => {
     if (!currentQuestion) return;
@@ -361,8 +393,17 @@ function BossFightEngineInner({
           body: JSON.stringify({ questionId: currentQuestion.id, userAnswer }),
         });
       }
-      if (!res.ok) throw new Error("Failed to grade answer");
+      if (!res.ok) {
+        // Classified upstream failure — keep the typed strike (already
+        // persisted via the debounced save) and surface an actionable line.
+        const classified = await readClassifiedErrorFromResponse(res);
+        toast.error(classified.userMessage, { duration: 6000 });
+        return;
+      }
       const { score, feedback } = await res.json();
+
+      // Strike landed in the DB — drop the local draft.
+      clearDraft(sessionId, currentQuestion.id);
 
       const isHit = score >= 0.7;
       // Calculate per-question XP (boss rates)
@@ -435,7 +476,8 @@ function BossFightEngineInner({
       }
     } catch (err) {
       console.error("[BossFightEngine] answer grading failed:", err);
-      toast.error("Failed to grade your answer. Please try again.");
+      const classified = classifyAiError(err);
+      toast.error(classified.userMessage, { duration: 6000 });
     } finally {
       setIsGrading(false);
     }
@@ -465,6 +507,11 @@ function BossFightEngineInner({
       });
       if (!res.ok) throw new Error("Failed to complete boss fight");
       const data = await res.json();
+
+      // Boss locked in — every strike persisted as a real answer, drop
+      // all per-question drafts for this session.
+      clearSessionDrafts(sessionId);
+
       setSummary(data);
 
       // NOTE: Do NOT call `router.refresh()` here. The boss page returns

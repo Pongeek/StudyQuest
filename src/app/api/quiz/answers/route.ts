@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { gradeOpenAnswer } from "@/lib/ai/grade-answer";
 import { uploadAnswerImage } from "@/lib/answer-image";
+import { classifyAiError } from "@/lib/ai-error";
 
 export const maxDuration = 60;
 
@@ -106,10 +107,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ score, feedback });
   } catch (err) {
     console.error("[api/quiz/answers] grading failed:", err);
-    const message = err instanceof Error ? err.message : "Unknown error grading answer";
-    return NextResponse.json(
-      { error: "Failed to grade answer", detail: message },
-      { status: 500 }
-    );
+    // Classify the upstream failure so the client can keep the student's
+    // typed answer + surface an actionable sentence (instead of "Failed
+    // to grade your answer."). 502 = upstream AI failed.
+    const classified = classifyAiError(err);
+    return NextResponse.json({ error: classified }, { status: 502 });
   }
 }

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { gradeExamAnswer } from "@/lib/ai/grade-exam-answer";
 import { uploadAnswerImage } from "@/lib/answer-image";
+import { classifyAiError } from "@/lib/ai-error";
 
 export const maxDuration = 60;
 
@@ -13,6 +14,8 @@ export async function POST(
   const { examSessionId } = await params;
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
 
   const supabase = createServiceClient();
 
@@ -147,4 +150,11 @@ export async function POST(
     feedback,
     modelAnswer: modelAnswerForResponse,
   });
+  } catch (err) {
+    console.error("[api/exams/answer] grading failed:", err);
+    // Classify so the client can keep the student's typed answer +
+    // surface an actionable sentence. 502 = upstream AI failed.
+    const classified = classifyAiError(err);
+    return NextResponse.json({ error: classified }, { status: 502 });
+  }
 }
