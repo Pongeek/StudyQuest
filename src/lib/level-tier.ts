@@ -64,10 +64,15 @@ export interface LevelTierVisuals {
   tierClass: string;
 }
 
+// Glow + saturation drift floors. The base values had to be raised because
+// the original 0.40 alpha was too subtle to register as "tier identity"
+// at small frame sizes — tier color was technically applied but the user
+// couldn't tell tiers apart visually. Floor at 0.55 keeps Novice readable
+// while leaving Sage room to dominate.
 const SATURATION_BASE = 0;
 const SATURATION_SPREAD = 0.25;
-const GLOW_ALPHA_BASE = 0.4;
-const GLOW_ALPHA_SPREAD = 0.25;
+const GLOW_ALPHA_BASE = 0.55;
+const GLOW_ALPHA_SPREAD = 0.30;
 
 const TIER_NAME_BY_TITLE: Record<string, TierName> = {
   Novice: "novice",
