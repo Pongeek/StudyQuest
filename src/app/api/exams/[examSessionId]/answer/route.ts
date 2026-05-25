@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { gradeExamAnswer } from "@/lib/ai/grade-exam-answer";
 import { uploadAnswerImage } from "@/lib/answer-image";
-import { classifyAiError } from "@/lib/ai-error";
+import { classifyAiError, classifiedErrorBody } from "@/lib/ai-error";
 
 export const maxDuration = 60;
 
@@ -13,7 +13,16 @@ export async function POST(
 ) {
   const { examSessionId } = await params;
   const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) {
+    return NextResponse.json(
+      classifiedErrorBody(
+        "AUTH_ERROR",
+        "Your sign-in expired. Refresh the page to sign back in — your typed answer is saved.",
+        false,
+      ),
+      { status: 401 },
+    );
+  }
 
   try {
 
@@ -25,7 +34,16 @@ export async function POST(
     .eq("clerk_id", userId)
     .single();
 
-  if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!dbUser) {
+    return NextResponse.json(
+      classifiedErrorBody(
+        "UNKNOWN",
+        "Couldn't find your account on the server. Try signing out and back in.",
+        false,
+      ),
+      { status: 404 },
+    );
+  }
 
   const { data: session } = await supabase
     .from("exam_sessions")
@@ -34,7 +52,16 @@ export async function POST(
     .eq("user_id", dbUser.id)
     .single();
 
-  if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  if (!session) {
+    return NextResponse.json(
+      classifiedErrorBody(
+        "UNKNOWN",
+        "This exam session couldn't be found — it may have been cleared. Reload the page.",
+        false,
+      ),
+      { status: 404 },
+    );
+  }
 
   // Accept both JSON (legacy / MCQ + plain open) and multipart (open with
   // attached diagram image).
@@ -60,7 +87,16 @@ export async function POST(
     .eq("id", questionId)
     .single();
 
-  if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
+  if (!question) {
+    return NextResponse.json(
+      classifiedErrorBody(
+        "UNKNOWN",
+        "Couldn't find that exam question — it may have been deleted. Refresh the page.",
+        false,
+      ),
+      { status: 404 },
+    );
+  }
 
   // Upload diagram image (open questions only) — Claude sees it inline.
   const uploadedImage =

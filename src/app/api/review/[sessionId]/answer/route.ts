@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { gradeOpenAnswer } from "@/lib/ai/grade-answer";
 import { uploadAnswerImage } from "@/lib/answer-image";
-import { classifyAiError } from "@/lib/ai-error";
+import { classifyAiError, classifiedErrorBody } from "@/lib/ai-error";
 
 export const maxDuration = 60;
 
@@ -13,7 +13,16 @@ export async function POST(
 ) {
   const { sessionId } = await params;
   const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) {
+    return NextResponse.json(
+      classifiedErrorBody(
+        "AUTH_ERROR",
+        "Your sign-in expired. Refresh the page to sign back in — your typed answer is saved.",
+        false,
+      ),
+      { status: 401 },
+    );
+  }
 
   try {
 
@@ -38,7 +47,14 @@ export async function POST(
   }
 
   if (!questionId || !topicId) {
-    return NextResponse.json({ error: "questionId and topicId required" }, { status: 400 });
+    return NextResponse.json(
+      classifiedErrorBody(
+        "UNKNOWN",
+        "The answer payload was malformed — refresh the page and try again.",
+        false,
+      ),
+      { status: 400 },
+    );
   }
 
   const supabase = createServiceClient();
@@ -49,7 +65,16 @@ export async function POST(
     .eq("id", questionId)
     .single();
 
-  if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
+  if (!question) {
+    return NextResponse.json(
+      classifiedErrorBody(
+        "UNKNOWN",
+        "Couldn't find that question — it may have been deleted. Refresh the page.",
+        false,
+      ),
+      { status: 404 },
+    );
+  }
 
   // Soft-replaced mid-session — see quiz/answers/route.ts for the full
   // rationale. Refuse with a classified 409 so the engine surfaces a

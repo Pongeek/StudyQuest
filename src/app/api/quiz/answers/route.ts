@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { gradeOpenAnswer } from "@/lib/ai/grade-answer";
 import { uploadAnswerImage } from "@/lib/answer-image";
-import { classifyAiError } from "@/lib/ai-error";
+import { classifyAiError, classifiedErrorBody } from "@/lib/ai-error";
 
 export const maxDuration = 60;
 
@@ -20,7 +20,18 @@ export const maxDuration = 60;
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!userId) {
+      // Classified envelope so the engine's failure-UX toast shows a
+      // useful re-auth message instead of falling through to UNKNOWN.
+      return NextResponse.json(
+        classifiedErrorBody(
+          "AUTH_ERROR",
+          "Your sign-in expired. Refresh the page to sign back in — your typed answer is saved.",
+          false,
+        ),
+        { status: 401 },
+      );
+    }
 
     // Auto-detect JSON vs multipart based on Content-Type. Multipart payloads
     // wrap form fields, including an optional binary `image` file.
@@ -55,7 +66,16 @@ export async function POST(request: NextRequest) {
       .eq("id", questionId)
       .single();
 
-    if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
+    if (!question) {
+      return NextResponse.json(
+        classifiedErrorBody(
+          "UNKNOWN",
+          "Couldn't find that question — it may have been deleted. Refresh the page.",
+          false,
+        ),
+        { status: 404 },
+      );
+    }
 
     // Question was soft-replaced between page load and submit (typically:
     // user has the quiz open in tab A, regenerated this question from
