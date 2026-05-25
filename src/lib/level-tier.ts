@@ -93,7 +93,12 @@ const DECORATION_BY_TIER: Record<TierName, TierDecoration> = {
 };
 
 const GLOW_BY_TIER: Record<TierName, TierGlow> = {
-  novice: "none",
+  // Novice reuses `pulse` so the hero frame still breathes on a brand-new
+  // account — the previous `none` left the dashboard / profile / landing
+  // heroes static and visibly "unfinished" next to every other tier. Pulse
+  // is the gentlest of the family and combines with Novice's low base
+  // glow alpha (0.55) for a soft baseline.
+  novice: "pulse",
   apprentice: "pulse",
   adept: "halo",
   expert: "breathe",
@@ -136,11 +141,14 @@ export function getLevelTierVisuals(level: number): LevelTierVisuals {
 }
 
 /**
- * True iff `prevLevel` and `newLevel` belong to different tiers. Used by
- * LevelUpOverlay to fire the larger RANK UP celebration variant only on
- * the boundary crossings (not on every level-up within a tier).
+ * True iff `newLevel` is an INCREASE that crosses a tier boundary. Used
+ * by LevelUpOverlay to fire the larger RANK UP celebration variant only
+ * on boundary crossings — not on every level-up within a tier, and not
+ * on demotions (a future XP-debit, data correction, or streak penalty
+ * could decrease the level; demotions should never trigger a RANK UP).
  */
 export function isTierUp(prevLevel: number, newLevel: number): boolean {
+  if (newLevel <= prevLevel) return false;
   return getLevelTierVisuals(prevLevel).tier !== getLevelTierVisuals(newLevel).tier;
 }
 
