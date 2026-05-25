@@ -43,9 +43,31 @@ export async function POST(
     return NextResponse.json({ message: "Questions already exist", count });
   }
 
-  // If regenerating, delete existing questions first
+  // If regenerating, SOFT-REPLACE the live questions instead of DELETE.
+  // The original DELETE would CASCADE through quiz_answers / review_answers
+  // / boss_fight_answers and wipe every historical answer row for the
+  // topic — destroying mastery sparkline data, the Stumble heatmap, the
+  // Quest Log, and per-topic accuracy stats. Migration 019 was built
+  // specifically to AVOID exactly that ("old rows stay so historical
+  // quiz_answers integrity is preserved"). We stamp replaced_at on every
+  // live row instead — readers already filter `.is('replaced_at', null)`
+  // so they vanish from queries, but quiz_answers FK references stay
+  // intact and historical data survives.
   if (regenerate && count && count > 0) {
-    await supabase.from("questions").delete().eq("topic_id", topicId);
+    const { error: replaceError } = await supabase
+      .from("questions")
+      .update({ replaced_at: new Date().toISOString() })
+      .eq("topic_id", topicId)
+      .is("replaced_at", null);
+    if (replaceError) {
+      return NextResponse.json(
+        {
+          error: "Failed to retire old questions",
+          detail: replaceError.message,
+        },
+        { status: 500 },
+      );
+    }
   }
 
   const episode = topic.episodes as any;
