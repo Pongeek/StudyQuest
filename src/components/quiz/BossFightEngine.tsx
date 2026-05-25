@@ -1446,7 +1446,9 @@ function BossFightEngineInner({
                       isGrading ||
                       (currentQuestion.type === "mcq"
                         ? !selectedOption
-                        : openAnswer.trim().length < 5)
+                        : // Open answer is submittable when EITHER ≥5 chars
+                          // typed OR a diagram image attached.
+                          openAnswer.trim().length < 5 && !openAnswerImage)
                     }
                     className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold px-8 gap-2"
                   >

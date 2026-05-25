@@ -1118,7 +1118,11 @@ function QuizEngineInner({
                         isGrading ||
                         (currentQuestion.type === "mcq"
                           ? !curState.selectedOption
-                          : curState.openAnswer.trim().length < 5)
+                          : // Open answer is submittable when EITHER ≥5 chars
+                            // typed OR a diagram image attached — mirrors
+                            // submitAnswer's own validation.
+                            curState.openAnswer.trim().length < 5 &&
+                            !curState.openAnswerImage)
                       }
                       className="bg-indigo-500 hover:bg-indigo-400 text-white font-medium px-8 gap-2 transition-all duration-150"
                     >
