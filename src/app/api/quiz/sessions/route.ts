@@ -19,10 +19,14 @@ export async function POST(request: NextRequest) {
 
   if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
+  // Only count LIVE questions (soft-replaced rows from migration 019 must
+  // not inflate question_count, which would diverge from what the quiz
+  // page actually renders).
   const { data: questions } = await supabase
     .from("questions")
     .select("id")
-    .eq("topic_id", topicId);
+    .eq("topic_id", topicId)
+    .is("replaced_at", null);
 
   if (!questions || questions.length === 0) {
     return NextResponse.json({ error: "No questions available" }, { status: 400 });
