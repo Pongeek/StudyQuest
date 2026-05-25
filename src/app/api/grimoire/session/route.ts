@@ -37,11 +37,16 @@ export async function POST() {
   const questionIds = selected.map((d) => d.questionId);
   const topicIds = [...new Set(selected.map((d) => d.topicId))];
 
-  // Fetch full question rows (ReviewEngine needs options, correct_answer, etc.)
+  // Fetch full question rows (ReviewEngine needs options, correct_answer, etc.).
+  // Filter `replaced_at IS NULL` so a demon that was regenerated between
+  // grimoire-page render and the session-create call is dropped silently
+  // rather than served as stale content. `getGrimoireDemons` already filters
+  // — but the regen could happen in the millisecond window after.
   const { data: questions } = await supabase
     .from("questions")
     .select("id, type, content, options, correct_answer, explanation, difficulty, topic_id, topics(id, title)")
-    .in("id", questionIds);
+    .in("id", questionIds)
+    .is("replaced_at", null);
 
   if (!questions || questions.length === 0) {
     return NextResponse.json({ error: "Failed to load questions" }, { status: 500 });

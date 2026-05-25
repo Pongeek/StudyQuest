@@ -40,10 +40,15 @@ export default async function GrimoireSessionPage({ params }: PageProps) {
   const pinnedIds: string[] = session.pinned_question_ids ?? [];
   if (pinnedIds.length === 0) redirect("/dashboard/grimoire");
 
+  // Filter `replaced_at IS NULL` so a question regenerated AFTER this
+  // grimoire session was created doesn't show up here with stale content.
+  // The session's pinned_question_ids stays intact (history is preserved)
+  // but the user-facing render only shows live rows.
   const { data: questions } = await supabase
     .from("questions")
     .select("id, type, content, options, correct_answer, explanation, difficulty, topic_id, topics(id, title)")
-    .in("id", pinnedIds);
+    .in("id", pinnedIds)
+    .is("replaced_at", null);
 
   if (!questions || questions.length === 0) redirect("/dashboard/grimoire");
 
