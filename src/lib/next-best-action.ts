@@ -46,6 +46,29 @@ export type ActionIcon =
   | "target"
   | "skull";
 
+/**
+ * Time/date conditions that can only be evaluated on the CLIENT.
+ * `pickNextBestActions` runs in the dashboard Server Component, so
+ * `new Date()` there is the SERVER's clock (UTC on Vercel) — useless
+ * for "is it after 6pm where the user is" decisions. Actions with a
+ * `clientGate` are emitted by the server when the user-data
+ * preconditions match, and the client component then hides them when
+ * the local clock fails the gate.
+ */
+export type ClientGate = {
+  /** Streak-save: needs both "after Nth hour local" AND "lastStudyDate
+   *  is local-yesterday." Server can't compute either correctly without
+   *  the user's tz, so it bundles both checks for the client. */
+  type: "streak-save";
+  /** 24-hour local clock threshold (e.g. 18 = 6pm). */
+  hour: number;
+  /** YYYY-MM-DD string of the user's most recent study day, from the DB
+   *  column `users.last_study_date`. Stored without time zone; client
+   *  treats it as a calendar date and compares to its own local
+   *  yesterday. */
+  lastStudyDate: string | null;
+};
+
 export interface NextBestAction {
   tier: ActionTier;
   kind: ActionKind;
@@ -61,6 +84,9 @@ export interface NextBestAction {
   ctaLabel: string;
   /** Lucide icon name; the component maps to <SwordsIcon /> etc. */
   iconName: ActionIcon;
+  /** Optional client-side gate. NextBestActionCard hides actions whose
+   *  gate doesn't pass under the user's local clock. */
+  clientGate?: ClientGate;
 }
 
 // ── Inputs ────────────────────────────────────────────────────────────────────
@@ -93,11 +119,6 @@ const STREAK_SAVE_HOUR = 18; // 6pm local
 const EXAM_CRUNCH_DAYS = 7;
 const REVIEW_STORM_THRESHOLD = 5;
 const DEMON_PILE_THRESHOLD = 5;
-
-function yesterdayISO(now: Date): string {
-  const y = new Date(now.getTime() - 86400000);
-  return y.toISOString().slice(0, 10);
-}
 
 // ── Decision function ────────────────────────────────────────────────────────
 
@@ -170,22 +191,21 @@ export function pickNextBestActions(input: NextBestActionInput): NextBestAction[
   }
 
   // ── S2: Streak save ──────────────────────────────────────────────────────
-  // Only kicks in after 6pm so we don't nag in the morning when the user
-  // still has the whole day. "Yesterday was the last study day" means the
-  // streak is hanging on by a thread.
-  const isAfterSaveTime = now.getHours() >= STREAK_SAVE_HOUR;
-  const lastWasYesterday = lastStudyDate === yesterdayISO(now);
-  if (
-    streak >= STREAK_SAVE_MIN_STREAK &&
-    !studiedToday &&
-    lastWasYesterday &&
-    isAfterSaveTime
-  ) {
+  // Server-side we ONLY check the user-data preconditions (streak ≥ N,
+  // didn't study today). The "after 6pm local" check + "lastStudyDate is
+  // local-yesterday" check can't be evaluated correctly from the server
+  // clock (Vercel runs UTC; a UTC-late-evening server tick is a totally
+  // different time-of-day per timezone). Both gates are deferred to the
+  // client via `clientGate`. NextBestActionCard hides the action when
+  // its gate fails under the user's actual local clock.
+  if (streak >= STREAK_SAVE_MIN_STREAK && !studiedToday) {
     const fallbackHref =
       recommendations[0]
         ? `/dashboard/courses/${recommendations[0].courseId}/topics/${recommendations[0].topicId}`
         : reviewQueue.length > 0
         ? `/dashboard/review`
+        : studyPlans[0]
+        ? `/dashboard/courses/${studyPlans[0].courseId}`
         : `/dashboard`;
     actions.push({
       tier: "S",
@@ -196,6 +216,11 @@ export function pickNextBestActions(input: NextBestActionInput): NextBestAction[
       href: fallbackHref,
       ctaLabel: "PROTECT STREAK",
       iconName: "flame",
+      clientGate: {
+        type: "streak-save",
+        hour: STREAK_SAVE_HOUR,
+        lastStudyDate,
+      },
     });
   }
 

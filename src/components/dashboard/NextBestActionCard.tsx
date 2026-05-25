@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Swords,
@@ -14,7 +14,12 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { NextBestAction, ActionIcon, ActionTier } from "@/lib/next-best-action";
+import type {
+  NextBestAction,
+  ActionIcon,
+  ActionTier,
+  ClientGate,
+} from "@/lib/next-best-action";
 
 /**
  * Smart Next Best Action widget — one pixel-bordered card pinned at the top
@@ -93,19 +98,67 @@ const TIER_PALETTE: Record<
   },
 };
 
+/**
+ * Evaluate a `ClientGate` against the user's actual local clock. Returns
+ * true when the gate passes and the action should be visible.
+ * Server-side `pickNextBestActions` runs on Vercel UTC so it can't decide
+ * "is it after 6pm local" itself — see the helper's type comments.
+ */
+function evaluateClientGate(gate: ClientGate, now: Date): boolean {
+  if (gate.type === "streak-save") {
+    // (a) After the threshold hour in user-local time
+    if (now.getHours() < gate.hour) return false;
+    // (b) lastStudyDate is the user's local-yesterday. Compute local-
+    //     yesterday's YYYY-MM-DD WITHOUT going through .toISOString()
+    //     (which would shift back to UTC).
+    if (!gate.lastStudyDate) return false;
+    const yesterday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - 1,
+    );
+    const localYesterdayISO =
+      `${yesterday.getFullYear()}-` +
+      `${String(yesterday.getMonth() + 1).padStart(2, "0")}-` +
+      `${String(yesterday.getDate()).padStart(2, "0")}`;
+    return gate.lastStudyDate === localYesterdayISO;
+  }
+  return true;
+}
+
 export default function NextBestActionCard({ actions }: NextBestActionCardProps) {
   const [index, setIndex] = useState(0);
+  // Re-render every ~60s so a streak-save action that should appear at
+  // exactly 18:00 doesn't wait for the next user interaction. Cheap —
+  // the component is small and the effect just bumps a counter.
+  const [clockTick, setClockTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setClockTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
-  if (actions.length === 0) return null;
+  // Filter actions whose ClientGate fails under the local clock. This is
+  // the timezone-aware step that the server couldn't do — see comments on
+  // the ClientGate type in lib/next-best-action.ts.
+  const visibleActions = useMemo(() => {
+    const now = new Date();
+    return actions.filter(
+      (a) => !a.clientGate || evaluateClientGate(a.clientGate, now),
+    );
+    // clockTick intentionally part of deps: forces re-filter on the timer tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actions, clockTick]);
 
-  // Clamp in case the prop list shrinks between renders (defensive — the
-  // parent re-renders shouldn't normally change the list mid-session).
-  const safeIndex = Math.min(index, actions.length - 1);
-  const action = actions[safeIndex];
+  if (visibleActions.length === 0) return null;
+
+  // Clamp in case the visible list shrinks (e.g. clock crossed the gate
+  // threshold between renders and removed an action).
+  const safeIndex = Math.min(index, visibleActions.length - 1);
+  const action = visibleActions[safeIndex];
   const Icon = ICON_MAP[action.iconName];
   const palette = TIER_PALETTE[action.tier];
-  const hasMore = actions.length > 1;
-  const isLast = safeIndex >= actions.length - 1;
+  const hasMore = visibleActions.length > 1;
+  const isLast = safeIndex >= visibleActions.length - 1;
 
   return (
     <section
@@ -183,18 +236,18 @@ export default function NextBestActionCard({ actions }: NextBestActionCardProps)
             {hasMore && (
               <button
                 type="button"
-                onClick={() => setIndex((i) => (i + 1) % actions.length)}
+                onClick={() => setIndex((i) => (i + 1) % visibleActions.length)}
                 className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
                 aria-label={
                   isLast
-                    ? `Cycle back to first suggestion (${actions.length} total)`
-                    : `Show next suggestion (${safeIndex + 1} of ${actions.length})`
+                    ? `Cycle back to first suggestion (${visibleActions.length} total)`
+                    : `Show next suggestion (${safeIndex + 1} of ${visibleActions.length})`
                 }
               >
                 {isLast ? "Back to first" : "Show next"}
                 <ChevronRight className="w-3 h-3" aria-hidden />
                 <span className="font-pixel text-[8px] tracking-wider text-slate-600 ml-1">
-                  {safeIndex + 1}/{actions.length}
+                  {safeIndex + 1}/{visibleActions.length}
                 </span>
               </button>
             )}
