@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AnimatedStudyQuestMark } from "@/components/brand/StudyQuestLogo";
 import LandingHero from "@/components/landing/LandingHero";
+import LandingTierStrip from "@/components/landing/LandingTierStrip";
 import LandingFeatures from "@/components/landing/LandingFeatures";
 import LandingQuizDemo from "@/components/landing/LandingQuizDemo";
 import LandingProductMockups from "@/components/landing/LandingProductMockups";
@@ -67,6 +68,7 @@ export default async function LandingPage() {
         </nav>
 
         <LandingHero />
+        <LandingTierStrip />
         <LandingFeatures />
         <LandingQuizDemo />
         <LandingProductMockups />
