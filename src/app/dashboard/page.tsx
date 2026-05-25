@@ -312,7 +312,22 @@ async function getGrimoireCount(userId: string): Promise<number> {
     }
   }
 
-  return [...failMap.values()].filter((count) => count >= 2).length;
+  const demonIds = [...failMap.entries()]
+    .filter(([, count]) => count >= 2)
+    .map(([id]) => id);
+  if (demonIds.length === 0) return 0;
+
+  // Soft-replaced questions (migration 019) must not count as live demons —
+  // the user already retired them via Regenerate, so the grimoire page
+  // hides them. Without this filter the dashboard widget count and the
+  // NBA "demons gather" Tier-A action both stay inflated forever.
+  const { count: liveDemonCount } = await supabase
+    .from("questions")
+    .select("id", { count: "exact", head: true })
+    .in("id", demonIds)
+    .is("replaced_at", null);
+
+  return liveDemonCount ?? 0;
 }
 
 export default async function DashboardPage({
