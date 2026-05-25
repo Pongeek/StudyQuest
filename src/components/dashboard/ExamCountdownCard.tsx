@@ -215,27 +215,54 @@ export default function ExamCountdownCard({
         </div>
       )}
 
-      {/* Cycle row — only when the user has multiple exam courses set.
-          Pushed to the bottom (mt-auto + pt-3) so the card's footer aligns
-          with NextBestActionCard's CTA row when they sit side-by-side. */}
-      {hasMore && (
-        <div className="mt-auto pt-3 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setIndex((i) => (i + 1) % plans.length)}
-            className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
-            aria-label={
-              isLast
-                ? `Cycle back to first exam (${plans.length} total)`
-                : `Show next exam (${safeIndex + 1} of ${plans.length})`
-            }
-          >
-            {isLast ? "Back to first" : "Show next"}
-            <ChevronRight className="w-3 h-3" aria-hidden />
-            <span className="font-pixel text-[8px] tracking-wider text-slate-600 ml-1">
-              {safeIndex + 1}/{plans.length}
-            </span>
-          </button>
+      {/* Footer row. In compact mode we drop the full action list (NBA owns
+          the single best action), but we still surface a one-line hook to
+          THIS course so the user isn't left guessing what's behind the
+          header — either a "View today's plan →" link with the action count
+          or a tiny "all clear" pill. The cycle button sits on the right. */}
+      {(compact || hasMore) && (
+        <div className="mt-auto pt-3 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex-1 min-w-0">
+            {compact && plan.urgency !== "past" && plan.actions.length > 0 && (
+              <Link
+                href={`/dashboard/courses/${plan.courseId}`}
+                className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-indigo-200 transition-colors"
+              >
+                <Sword className="w-3 h-3 text-amber-400/80" />
+                <span>
+                  {plan.actions.length} action
+                  {plan.actions.length === 1 ? "" : "s"} today
+                </span>
+                <span className="text-slate-700">·</span>
+                <span className="tabular-nums">~{plan.estimatedTotalMinutes}m</span>
+                <ChevronRight className="w-3 h-3" aria-hidden />
+              </Link>
+            )}
+            {compact && plan.urgency !== "past" && plan.actions.length === 0 && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-400">
+                <Trophy className="w-3 h-3" />
+                <span>All topics mastered</span>
+              </span>
+            )}
+          </div>
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => setIndex((i) => (i + 1) % plans.length)}
+              className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+              aria-label={
+                isLast
+                  ? `Cycle back to first exam (${plans.length} total)`
+                  : `Show next exam (${safeIndex + 1} of ${plans.length})`
+              }
+            >
+              {isLast ? "Back to first" : "Show next"}
+              <ChevronRight className="w-3 h-3" aria-hidden />
+              <span className="font-pixel text-[8px] tracking-wider text-slate-600 ml-1">
+                {safeIndex + 1}/{plans.length}
+              </span>
+            </button>
+          )}
         </div>
       )}
     </section>
