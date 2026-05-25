@@ -22,6 +22,11 @@ export type AiErrorCode =
   | "AUTH_ERROR"
   | "TIMEOUT"
   | "NETWORK"
+  // Question was soft-replaced by the regenerate flow between page load
+  // and answer submission. Not really an "AI error" — but uses the same
+  // classified-error envelope so the existing answer-engine catch path
+  // surfaces it as a useful toast instead of "AI broken, try again."
+  | "QUESTION_RETIRED"
   | "UNKNOWN";
 
 export interface ClassifiedAiError {

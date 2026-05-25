@@ -57,6 +57,28 @@ export async function POST(request: NextRequest) {
 
     if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
 
+    // Question was soft-replaced between page load and submit (typically:
+    // user has the quiz open in tab A, regenerated this question from
+    // another tab/path). Grading against the old correct_answer would
+    // silently insert a quiz_answers row pointing at a retired question
+    // (which TopicMasteryPanel then excludes from stumble math), so the
+    // student's score would be inconsistent with their telemetry. Refuse
+    // the submission with a classified error the engine knows how to
+    // surface — the toast tells the user to refresh.
+    if (question.replaced_at) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "QUESTION_RETIRED",
+            userMessage:
+              "This question was just regenerated. Refresh the page to load the new version — your typed answer is saved.",
+            retryable: false,
+          },
+        },
+        { status: 409 },
+      );
+    }
+
     // Upload the diagram image first (if attached) — both stored for later
     // viewing AND passed inline to Claude for grading via vision.
     const uploadedImage =

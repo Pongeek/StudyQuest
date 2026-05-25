@@ -51,6 +51,24 @@ export async function POST(
 
   if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
 
+  // Soft-replaced mid-session — see quiz/answers/route.ts for the full
+  // rationale. Refuse with a classified 409 so the engine surfaces a
+  // useful "refresh" toast instead of silently grading against retired
+  // content.
+  if (question.replaced_at) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "QUESTION_RETIRED",
+          userMessage:
+            "This question was just regenerated. Refresh the page to load the new version — your typed answer is saved.",
+          retryable: false,
+        },
+      },
+      { status: 409 },
+    );
+  }
+
   const uploadedImage =
     question.type !== "mcq" && imageFile
       ? await uploadAnswerImage({
