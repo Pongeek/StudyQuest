@@ -2,9 +2,26 @@
 
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
-import { Brain, Sword, Trophy } from "lucide-react";
+import {
+  Brain,
+  Sword,
+  Trophy,
+  Repeat,
+  BookOpenCheck,
+  GraduationCap,
+} from "lucide-react";
 
+/**
+ * "Equip your kit" — the feature grid. Six cards in two rows of three.
+ *
+ * Row 1 covers the FOUNDATION loop (analyze → battle → progress).
+ * Row 2 covers the MASTERY loop (re-surface → settle scores → teach back).
+ *
+ * Each card pairs a Lucide icon with a single sentence — landing-page
+ * copy needs to be one-glance scannable, not a feature spec.
+ */
 const features = [
+  // ── Row 1: foundation loop ────────────────────────────────────────────
   {
     icon: Brain,
     iconColor: "text-indigo-400",
@@ -12,7 +29,7 @@ const features = [
     eyebrow: "EPISODE 1",
     eyebrowTone: "text-indigo-400/90",
     title: "AI Course Analysis",
-    desc: "Upload any PDF — Claude AI reads your material and builds a structured quest map with episodes, topics, and key concepts.",
+    desc: "Upload any PDF — Claude reads your material and builds a structured quest map with episodes, topics, and key concepts.",
   },
   {
     icon: Sword,
@@ -21,7 +38,7 @@ const features = [
     eyebrow: "EPISODE 2",
     eyebrowTone: "text-indigo-400/90",
     title: "Smart Combat",
-    desc: "Battle-test your knowledge with AI-generated questions. Open answers are graded with personalized feedback.",
+    desc: "Battle-test your knowledge with AI-generated questions — text answers AND hand-drawn diagrams graded by Claude vision.",
   },
   {
     icon: Trophy,
@@ -30,7 +47,35 @@ const features = [
     eyebrow: "EPISODE 3",
     eyebrowTone: "text-amber-400/90",
     title: "Level Up System",
-    desc: "Earn XP, climb levels, unlock achievements, maintain streaks, and track mastery — from Novice to Master.",
+    desc: "Earn XP, climb levels, unlock achievements, maintain streaks. Your rank chrome morphs through six tiers — Novice to Sage.",
+  },
+  // ── Row 2: mastery loop ───────────────────────────────────────────────
+  {
+    icon: Repeat,
+    iconColor: "text-cyan-400",
+    nail: "bg-cyan-400",
+    eyebrow: "EPISODE 4",
+    eyebrowTone: "text-cyan-400/90",
+    title: "Spaced Repetition",
+    desc: "The forgetting curve, automated. Topics resurface on the SM-2 schedule right before they decay — never re-learn from scratch.",
+  },
+  {
+    icon: BookOpenCheck,
+    iconColor: "text-purple-400",
+    nail: "bg-purple-400",
+    eyebrow: "EPISODE 5",
+    eyebrowTone: "text-purple-400/90",
+    title: "Mistake Grimoire",
+    desc: "Every question you've missed twice becomes a demon. Open the Grimoire and slay them all in one targeted review session.",
+  },
+  {
+    icon: GraduationCap,
+    iconColor: "text-emerald-400",
+    nail: "bg-emerald-400",
+    eyebrow: "EPISODE 6",
+    eyebrowTone: "text-emerald-400/90",
+    title: "Feynman Mode",
+    desc: "Failed a topic? Teach it back to an AI peer who refuses to give you the answer. Earn XP when you can explain it cold.",
   },
 ];
 
@@ -58,13 +103,13 @@ export default function LandingFeatures() {
         </p>
       </motion.div>
 
-      <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {features.map(({ icon: Icon, iconColor, nail, eyebrow, eyebrowTone, title, desc }, i) => (
           <motion.div
             key={title}
             initial={{ opacity: 0, y: 30 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.5, delay: i * 0.15 }}
+            transition={{ duration: 0.5, delay: i * 0.1 }}
             className="rpg-card rounded-2xl p-7 group sparkle-hover tilt-card relative overflow-hidden transition-shadow duration-300 ease-out hover:shadow-[0_18px_50px_-12px_rgba(99,102,241,0.35)]"
           >
             {/* Pixel nail corners — feature-color, ties to family */}
