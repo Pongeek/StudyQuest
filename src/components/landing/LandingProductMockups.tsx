@@ -2,7 +2,19 @@
 
 import { useRef } from "react";
 import { AnimatePresence, motion, useInView } from "framer-motion";
-import { Skull, Zap, Play, CheckCircle, Lock, Star, Trophy, RotateCcw } from "lucide-react";
+import {
+  Skull,
+  Zap,
+  Play,
+  CheckCircle,
+  Lock,
+  Star,
+  Trophy,
+  RotateCcw,
+  CalendarDays,
+  Timer,
+  BookOpen,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBossFightDemo } from "@/components/landing/useBossFightDemo";
 
@@ -239,6 +251,81 @@ function BossMock() {
   );
 }
 
+// ─── Exam Prep mock ──────────────────────────────────────────────────────────
+// Mirrors the per-course Exam Prep landing — countdown chip + "Past Exam
+// Prep" header + the two CTAs (Untimed Practice / Timed Exam). The point
+// of this mockup is to communicate that StudyQuest is also an exam tool,
+// not just a daily-quiz toy.
+
+function ExamMock() {
+  return (
+    <div className="space-y-3">
+      {/* Header row — course name + countdown chip (the "12 DAYS LEFT" tile
+          students obsess over). Matches ExamCountdownCard's identity. */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-pixel text-[7px] tracking-wider text-slate-500 flex items-center gap-1">
+            <CalendarDays className="w-2.5 h-2.5" />
+            FINAL · MON, JUL 27
+          </p>
+          <p className="text-xs font-bold text-white mt-0.5 truncate">
+            Comp Models
+          </p>
+        </div>
+        <div
+          className="shrink-0 inline-flex flex-col items-center justify-center px-2 py-1.5 pixel-border bg-slate-950/40 text-orange-300"
+          aria-label="12 days left"
+        >
+          <span className="text-base font-extrabold tabular-nums leading-none">
+            12
+          </span>
+          <span className="font-pixel text-[6px] tracking-wider opacity-80 mt-0.5">
+            DAYS LEFT
+          </span>
+        </div>
+      </div>
+
+      {/* Eyebrow + tiny stat row matching the real exam landing chrome */}
+      <div className="space-y-1.5">
+        <p className="font-pixel text-[7px] tracking-wider text-amber-400/90">
+          PAST EXAM PREP
+        </p>
+        <div className="flex items-center gap-3 text-[9px] text-slate-500">
+          <span className="flex items-center gap-1">
+            <BookOpen className="w-2.5 h-2.5" />
+            18 questions
+          </span>
+          <span className="text-slate-700">·</span>
+          <span>2 hours</span>
+        </div>
+      </div>
+
+      {/* The two CTAs — Untimed (indigo, low-pressure) + Timed (amber,
+          real-exam pressure). Matches the actual exam landing's two-button
+          row exactly. */}
+      <div className="space-y-1.5 pt-1">
+        <div className="pixel-border bg-indigo-500/10 text-indigo-300 px-2.5 py-1.5 flex items-center gap-2">
+          <BookOpen className="w-3 h-3 flex-shrink-0" />
+          <span className="font-pixel text-[8px] tracking-wider">
+            UNTIMED PRACTICE
+          </span>
+        </div>
+        <div className="pixel-border bg-amber-500/10 text-amber-300 px-2.5 py-1.5 flex items-center gap-2">
+          <Timer className="w-3 h-3 flex-shrink-0" />
+          <span className="font-pixel text-[8px] tracking-wider">
+            TIMED EXAM
+          </span>
+        </div>
+      </div>
+
+      {/* Tiny outcome promise — matches the AI debrief output */}
+      <p className="font-pixel text-[7px] tracking-wider text-slate-600 text-center pt-0.5">
+        AI DEBRIEF · PREDICTED SCORE · GAPS
+      </p>
+    </div>
+  );
+}
+
 // ─── Main section ─────────────────────────────────────────────────────────────
 
 const mockups = [
@@ -256,6 +343,11 @@ const mockups = [
     title: "Boss Fight",
     caption: "Boss fight",
     component: <BossMock />,
+  },
+  {
+    title: "Exam Prep",
+    caption: "Past exam prep",
+    component: <ExamMock />,
   },
 ];
 
@@ -288,11 +380,13 @@ export default function LandingProductMockups() {
           transition={{ duration: 0.45, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="text-slate-400 max-w-md mx-auto text-sm"
         >
-          Three surfaces, one coherent adventure. Your dashboard, your map, and the boss fight waiting at the end.
+          Four surfaces, one coherent adventure. Your dashboard, your map,
+          the boss waiting at the end of every chapter, and the past-exam
+          prep mode when finals close in.
         </motion.p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
         {mockups.map(({ title, caption, component }, i) => (
           <motion.div
             key={title}
