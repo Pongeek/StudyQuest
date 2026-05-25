@@ -39,12 +39,31 @@ export interface ClassifiedAiError {
   retryable: boolean;
 }
 
+// Word-boundary regex builders for HTTP status codes so we don't match
+// random digits in error text like "after 4014 bytes" or "request id 12401".
+// `\b` doesn't recognize a leading digit boundary in JS regex (digits ARE
+// word chars), so we anchor on non-digit / start-of-string / end-of-string.
+const STATUS_RE = (code: number) =>
+  new RegExp(`(^|[^0-9])${code}([^0-9]|$)`);
+
 export function classifyAiError(err: unknown): ClassifiedAiError {
   const raw = err instanceof Error ? err.message : String(err);
   const msg = raw.toLowerCase();
+  // Also peek at .status from Anthropic SDK errors — more reliable than
+  // string matching. SDK throws `APIError` subclasses with a `.status`
+  // numeric property and a `.message` field.
+  const status: number | undefined =
+    typeof err === "object" && err !== null && "status" in err
+      ? (err as { status?: number }).status
+      : undefined;
 
   // Anthropic 429 — rate limited. Almost always recoverable in <60s.
-  if (msg.includes("429") || msg.includes("rate_limit") || msg.includes("rate limit")) {
+  if (
+    status === 429 ||
+    STATUS_RE(429).test(msg) ||
+    msg.includes("rate_limit") ||
+    msg.includes("rate limit")
+  ) {
     return {
       code: "RATE_LIMITED",
       userMessage:
@@ -55,9 +74,10 @@ export function classifyAiError(err: unknown): ClassifiedAiError {
 
   // Anthropic 529 / overloaded_error — server-side capacity issue.
   if (
-    msg.includes("529") ||
-    msg.includes("overloaded") ||
-    msg.includes("overloaded_error")
+    status === 529 ||
+    STATUS_RE(529).test(msg) ||
+    msg.includes("overloaded_error") ||
+    msg.includes("overloaded")
   ) {
     return {
       code: "OVERLOADED",
@@ -85,7 +105,8 @@ export function classifyAiError(err: unknown): ClassifiedAiError {
 
   // Misconfigured key — deploy / env issue, not the user's fault.
   if (
-    msg.includes("401") ||
+    status === 401 ||
+    STATUS_RE(401).test(msg) ||
     msg.includes("invalid api key") ||
     msg.includes("unauthorized") ||
     msg.includes("claude_api_key is not set")
@@ -99,7 +120,12 @@ export function classifyAiError(err: unknown): ClassifiedAiError {
   }
 
   // Vercel function timeout (60s on the answer routes).
-  if (msg.includes("timeout") || msg.includes("function timed out") || msg.includes("504")) {
+  if (
+    status === 504 ||
+    STATUS_RE(504).test(msg) ||
+    msg.includes("timeout") ||
+    msg.includes("function timed out")
+  ) {
     return {
       code: "TIMEOUT",
       userMessage:
@@ -130,6 +156,24 @@ export function classifyAiError(err: unknown): ClassifiedAiError {
       "Something went wrong while grading. Try submitting again — your answer is saved.",
     retryable: true,
   };
+}
+
+/**
+ * Build a `{ error: ClassifiedAiError }` body for routes to return. Use
+ * this for EVERY user-facing error response from a route whose client
+ * uses `readClassifiedErrorFromResponse` — the helper only recognizes
+ * the object-shape envelope, so plain `{ error: "string" }` responses
+ * fall through to UNKNOWN with misleading "AI broken, retry" copy.
+ *
+ * Lives outside the route files so the shape stays consistent and the
+ * type is enforced at the call site.
+ */
+export function classifiedErrorBody(
+  code: AiErrorCode,
+  userMessage: string,
+  retryable = false,
+): { error: ClassifiedAiError } {
+  return { error: { code, userMessage, retryable } };
 }
 
 /**
