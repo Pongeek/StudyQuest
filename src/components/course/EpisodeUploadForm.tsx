@@ -1,14 +1,19 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useDropzone } from "react-dropzone";
+import { useState, useCallback, useMemo } from "react";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import { useRouter } from "next/navigation";
-import { Upload, X, FileText, Loader2, Plus } from "lucide-react";
+import { Upload, X, FileText, Loader2, Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  validatePdfSize,
+  UPLOAD_BLOCK_MB,
+  type UploadValidationResult,
+} from "@/lib/upload-validation";
 
 interface EpisodeUploadFormProps {
   courseId: string;
@@ -43,12 +48,41 @@ export default function EpisodeUploadForm({ courseId }: EpisodeUploadFormProps) 
     []
   );
 
+  // Dropzone surfaces oversize files in `fileRejections` instead of `onDrop`.
+  // Tell the user WHICH file was rejected and why, so the failure feels like
+  // a normal validation error instead of a silent no-op.
+  const onDropRejected = useCallback((rejections: FileRejection[]) => {
+    for (const rej of rejections) {
+      const reason = rej.errors[0];
+      if (reason?.code === "file-too-large") {
+        const sizeMb = Math.round((rej.file.size / 1024 / 1024) * 10) / 10;
+        toast.error(
+          `${rej.file.name} is ${sizeMb} MB — over the ${UPLOAD_BLOCK_MB} MB limit. Split into smaller chapters and try again.`,
+          { duration: 7000 },
+        );
+      } else if (reason?.code === "file-invalid-type") {
+        toast.error(`${rej.file.name} isn't a PDF.`);
+      } else {
+        toast.error(`${rej.file.name} couldn't be added: ${reason?.message ?? "unknown reason"}`);
+      }
+    }
+  }, []);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected,
     accept: { "application/pdf": [".pdf"] },
-    maxSize: 50 * 1024 * 1024,
+    maxSize: UPLOAD_BLOCK_MB * 1024 * 1024,
     multiple: true,
   });
+
+  // Per-file validation. Memoized off the files array so re-renders don't
+  // recompute on every keystroke in the title field.
+  const fileValidations: UploadValidationResult[] = useMemo(
+    () => files.map((f) => validatePdfSize(f)),
+    [files],
+  );
+  const hasErrorFile = fileValidations.some((v) => v.tier === "error");
 
   const removeFile = (idx: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== idx));
@@ -162,44 +196,81 @@ export default function EpisodeUploadForm({ courseId }: EpisodeUploadFormProps) 
           {isDragActive ? "Drop your PDFs here" : "Drop PDFs or click to browse"}
         </p>
         <p className="text-xs text-slate-500 mt-1">
-          Up to {MAX_FILES} PDFs per episode · max 50MB each
+          Up to {MAX_FILES} PDFs per episode · max {UPLOAD_BLOCK_MB}MB each
         </p>
       </div>
 
       {/* File list */}
       {files.length > 0 && (
         <div className="space-y-2">
-          {files.map((file, i) => (
-            <div
-              key={i}
-              className="rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2 flex items-center gap-3"
-            >
-              <div className="w-8 h-8 bg-white/[0.04] border border-white/[0.07] rounded-md flex items-center justify-center flex-shrink-0">
-                <FileText className="w-4 h-4 text-indigo-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-white font-medium truncate">{file.name}</p>
-                <p className="text-[11px] text-slate-500">
-                  {(file.size / 1024 / 1024).toFixed(1)} MB
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => removeFile(i)}
-                className="text-slate-600 hover:text-red-400 transition-colors p-1"
-                aria-label="Remove file"
+          {files.map((file, i) => {
+            const v = fileValidations[i];
+            return (
+              <div
+                key={i}
+                className={cn(
+                  "rounded-lg border px-3 py-2 flex items-center gap-3",
+                  v.tier === "error"
+                    ? "border-red-500/30 bg-red-500/[0.04]"
+                    : v.tier === "warn"
+                      ? "border-amber-500/30 bg-amber-500/[0.04]"
+                      : "border-white/[0.07] bg-white/[0.02]",
+                )}
               >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+                <div
+                  className={cn(
+                    "w-8 h-8 border rounded-md flex items-center justify-center flex-shrink-0",
+                    v.tier === "error"
+                      ? "bg-red-500/10 border-red-500/30"
+                      : v.tier === "warn"
+                        ? "bg-amber-500/10 border-amber-500/30"
+                        : "bg-white/[0.04] border-white/[0.07]",
+                  )}
+                >
+                  {v.tier === "ok" ? (
+                    <FileText className="w-4 h-4 text-indigo-400" />
+                  ) : (
+                    <AlertTriangle
+                      className={cn(
+                        "w-4 h-4",
+                        v.tier === "error" ? "text-red-400" : "text-amber-400",
+                      )}
+                    />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white font-medium truncate">{file.name}</p>
+                  <p
+                    className={cn(
+                      "text-[11px]",
+                      v.tier === "error"
+                        ? "text-red-400"
+                        : v.tier === "warn"
+                          ? "text-amber-400"
+                          : "text-slate-500",
+                    )}
+                  >
+                    {v.sizeMb} MB{v.message ? ` · ${v.message}` : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  className="text-slate-600 hover:text-red-400 transition-colors p-1"
+                  aria-label="Remove file"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* Submit */}
       <Button
         type="submit"
-        disabled={busy || files.length === 0}
+        disabled={busy || files.length === 0 || hasErrorFile}
         className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-medium gap-2"
       >
         {busy ? (
