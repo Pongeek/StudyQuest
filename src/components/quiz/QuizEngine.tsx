@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   DoorOpen,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +37,8 @@ import GradingOverlay from "@/components/effects/GradingOverlay";
 import RegenerateQuestionButton, {
   type RegeneratedQuestion,
 } from "@/components/quiz/RegenerateQuestionButton";
+import ConfidenceRow, { type Confidence } from "@/components/quiz/ConfidenceRow";
+import ClarifierThread from "@/components/quiz/ClarifierThread";
 import { calculateLevel, getLevelTitle, XP_REWARDS } from "@/lib/xp";
 import { readClassifiedErrorFromResponse, classifyAiError } from "@/lib/ai-error";
 import {
@@ -84,6 +87,13 @@ interface QuestionState {
   visited: boolean;
   /** True if the user navigated past without answering */
   skipped: boolean;
+  /** Phase 1 pilot: student's self-rated confidence (set after grading). */
+  confidence: "guessed" | "unsure" | "confident" | null;
+  /** Phase 1 pilot: whether the "Why was I wrong?" thread is mounted. */
+  clarifierOpen: boolean;
+  /** Phase 1 pilot: id of the persisted quiz_answers row — needed by the
+   *  confidence PATCH and the clarifier endpoint. Null until grading. */
+  answerId: string | null;
 }
 
 // Phase state machine for post-completion flow
@@ -139,6 +149,9 @@ function QuizEngineInner({
         result: null,
         visited: i === 0,
         skipped: false,
+        confidence: null,
+        clarifierOpen: false,
+        answerId: null,
       });
     });
     return map;
@@ -228,6 +241,9 @@ function QuizEngineInner({
         result: null,
         visited: false,
         skipped: false,
+        confidence: null,
+        clarifierOpen: false,
+        answerId: null,
       },
     [questionStates]
   );
@@ -243,6 +259,9 @@ function QuizEngineInner({
           result: null,
           visited: false,
           skipped: false,
+          confidence: null,
+          clarifierOpen: false,
+          answerId: null,
         };
         next.set(qId, { ...current, ...patch });
         return next;
@@ -328,6 +347,9 @@ function QuizEngineInner({
           result: null,
           visited: true,
           skipped: false,
+          confidence: null,
+          clarifierOpen: false,
+          answerId: null,
         });
         return next;
       });
@@ -442,7 +464,7 @@ function QuizEngineInner({
         toast.error(classified.userMessage, { duration: 6000 });
         return;
       }
-      const { score, feedback } = await res.json();
+      const { score, feedback, answerId } = await res.json();
 
       // Grade succeeded — answer is now in the DB, drop the local draft.
       clearDraft(sessionId, currentQuestion.id);
@@ -455,6 +477,7 @@ function QuizEngineInner({
           explanation: currentQuestion.explanation,
         },
         skipped: false,
+        answerId: answerId ?? null,
       });
 
       const correct = score >= 0.7;
@@ -1091,6 +1114,63 @@ function QuizEngineInner({
                         </MarkdownContent>
                       )}
                     </div>
+                  )}
+
+                  {/* ── Phase 1 pilot: confidence row + clarifier ──
+                       Both appear once the answer is graded AND we have
+                       an answerId from the server (the PATCH + clarifier
+                       endpoints key off it). ConfidenceRow is always
+                       visible; the clarifier button only shows on
+                       wrong / partial answers (score < 0.7). */}
+                  {curState.answerId && (
+                    <>
+                      <ConfidenceRow
+                        value={curState.confidence}
+                        dir={rtl ? "rtl" : "ltr"}
+                        onChange={(next: Confidence) => {
+                          updateQState(currentQuestion.id, { confidence: next });
+                          // Fire-and-forget. Silent on failure — the user
+                          // already has the grade; confidence isn't critical-path.
+                          fetch(
+                            `/api/quiz/answers/${curState.answerId}/confidence`,
+                            {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ confidence: next }),
+                            },
+                          ).catch((err) =>
+                            console.warn(
+                              "[QuizEngine] confidence PATCH failed:",
+                              err,
+                            ),
+                          );
+                        }}
+                      />
+
+                      {curState.result.score < 0.7 && !curState.clarifierOpen && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateQState(currentQuestion.id, { clarifierOpen: true })
+                          }
+                          className="mt-3 inline-flex items-center gap-1.5 pixel-chip px-3 py-1.5 font-pixel text-[9px] tracking-wider text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/10"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" />
+                          HELP ME UNDERSTAND →
+                        </button>
+                      )}
+
+                      {curState.result.score < 0.7 && curState.clarifierOpen && (
+                        <ClarifierThread
+                          answerKind="quiz"
+                          answerId={curState.answerId}
+                          dir={rtl ? "rtl" : "ltr"}
+                          onClose={() =>
+                            updateQState(currentQuestion.id, { clarifierOpen: false })
+                          }
+                        />
+                      )}
+                    </>
                   )}
                 </motion.div>
               )}

@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
     let userAnswer: string;
     let topicTitle: string;
     let imageFile: File | null = null;
+    let confidence: "guessed" | "unsure" | "confident" | null = null;
 
     if (contentType.includes("multipart/form-data")) {
       const fd = await request.formData();
@@ -50,12 +51,19 @@ export async function POST(request: NextRequest) {
       topicTitle = (fd.get("topicTitle") as string) ?? "";
       const f = fd.get("image");
       imageFile = f instanceof File ? f : null;
+      const c = fd.get("confidence");
+      if (typeof c === "string" && (c === "guessed" || c === "unsure" || c === "confident")) {
+        confidence = c;
+      }
     } else {
       const body = await request.json();
       sessionId = body.sessionId;
       questionId = body.questionId;
       userAnswer = body.userAnswer;
       topicTitle = body.topicTitle;
+      if (body.confidence === "guessed" || body.confidence === "unsure" || body.confidence === "confident") {
+        confidence = body.confidence;
+      }
     }
 
     const supabase = createServiceClient();
@@ -137,16 +145,25 @@ export async function POST(request: NextRequest) {
       feedback = result.feedback;
     }
 
-    await supabase.from("quiz_answers").insert({
-      session_id: sessionId,
-      question_id: questionId,
-      user_answer: userAnswer,
-      ai_score: score,
-      ai_feedback: feedback,
-      image_url: uploadedImage?.storagePath ?? null,
-    });
+    const { data: inserted } = await supabase
+      .from("quiz_answers")
+      .insert({
+        session_id: sessionId,
+        question_id: questionId,
+        user_answer: userAnswer,
+        ai_score: score,
+        ai_feedback: feedback,
+        image_url: uploadedImage?.storagePath ?? null,
+        confidence,
+      })
+      .select("id")
+      .single();
 
-    return NextResponse.json({ score, feedback });
+    return NextResponse.json({
+      score,
+      feedback,
+      answerId: inserted?.id ?? null,
+    });
   } catch (err) {
     console.error("[api/quiz/answers] grading failed:", err);
     // Classify the upstream failure so the client can keep the student's
