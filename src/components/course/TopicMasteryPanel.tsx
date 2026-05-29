@@ -13,6 +13,7 @@ import {
   Zap,
 } from "lucide-react";
 import StumbleRegenerateButton from "@/components/course/StumbleRegenerateButton";
+import MarkdownInline from "@/components/quiz/MarkdownInline";
 
 interface TopicMasteryPanelProps {
   topicId: string;
@@ -274,8 +275,11 @@ export default async function TopicMasteryPanel({
                 <li key={q.questionId}>
                   <details className="group pixel-border bg-amber-500/[0.04]">
                     <summary className="flex items-center justify-between gap-3 px-3 py-2.5 cursor-pointer list-none select-none">
-                      <span className="text-xs sm:text-sm text-slate-200 truncate flex-1 group-open:whitespace-normal group-open:truncate-none">
-                        {q.content}
+                      <span
+                        dir="auto"
+                        className="text-xs sm:text-sm text-slate-200 truncate flex-1 group-open:whitespace-normal group-open:truncate-none"
+                      >
+                        <MarkdownInline>{q.content}</MarkdownInline>
                       </span>
                       <span className="flex items-center gap-2 flex-shrink-0">
                         <span className="font-pixel text-[9px] tracking-wider text-amber-400 tabular-nums">
@@ -285,8 +289,8 @@ export default async function TopicMasteryPanel({
                       </span>
                     </summary>
                     <div className="px-3 pb-3 pt-1 text-xs text-slate-400 border-t border-amber-500/10">
-                      <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">
-                        {q.content}
+                      <p dir="auto" className="text-slate-300 leading-relaxed">
+                        <MarkdownInline>{q.content}</MarkdownInline>
                       </p>
                       <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
                         <p className="text-[11px] text-slate-500 flex-1 min-w-0">
