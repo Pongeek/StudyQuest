@@ -15,6 +15,7 @@ import WelcomeModal from "@/components/dashboard/WelcomeModal";
 import EmptyDashboardHero from "@/components/dashboard/EmptyDashboardHero";
 import NextBestActionCard from "@/components/dashboard/NextBestActionCard";
 import TierPreviewGrid from "@/components/dashboard/TierPreviewGrid";
+import TodayStatsStrip from "@/components/dashboard/TodayStatsStrip";
 import { cn } from "@/lib/utils";
 import { calculateLevel, xpProgressInCurrentLevel } from "@/lib/xp";
 import {
@@ -441,6 +442,11 @@ export default async function DashboardPage({
         streak={streak}
         isHotStreak={isHotStreak}
       />
+
+      {/* ── Today's stats strip ── slim row of TODAY's numbers (questions,
+            accuracy, minutes, XP). Renders null when there's no activity
+            yet today so a fresh-morning dashboard isn't cluttered with 0s. */}
+      <TodayStatsStrip dbUserId={dbUser.id} />
 
       {/* ── Urgency row: Exam Countdown (cycle) + Next Best Action ──
             Both surfaces answer "what's pressing right now?" from different
