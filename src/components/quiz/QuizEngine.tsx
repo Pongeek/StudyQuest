@@ -47,6 +47,7 @@ import {
   clearDraft,
   clearSessionDrafts,
 } from "@/lib/answer-draft";
+import { showFreezeToasts } from "@/lib/freeze-toast";
 
 function isRTL(text: string): boolean {
   return /[֐-׿؀-ۿ]/.test(text);
@@ -585,6 +586,10 @@ function QuizEngineInner({
 
       if (!res.ok) throw new Error("Failed to complete session");
       const data = await res.json();
+
+      // Freeze-token toasts (migration 021) — fire on burn / earn.
+      // No-op when the response doesn't carry the new fields.
+      showFreezeToasts(data);
 
       // Session is locked server-side now — every per-question draft is
       // safely persisted as a real answer, so the localStorage copies are

@@ -33,6 +33,7 @@ import RegenerateQuestionButton, {
   type RegeneratedQuestion,
 } from "@/components/quiz/RegenerateQuestionButton";
 import { readClassifiedErrorFromResponse, classifyAiError } from "@/lib/ai-error";
+import { showFreezeToasts } from "@/lib/freeze-toast";
 import {
   loadDraft,
   saveDraft,
@@ -401,6 +402,9 @@ function ReviewEngineInner({
 
       if (!res.ok) throw new Error("Failed to complete session");
       const data = await res.json();
+
+      // Freeze-token toasts (migration 021) — burn / earn.
+      showFreezeToasts(data);
 
       // Review locked server-side — drop all per-question drafts.
       clearSessionDrafts(sessionId);

@@ -9,6 +9,7 @@ import {
 import { calculateLevel, getLevelTitle } from "@/lib/xp";
 import { awardAchievementIfNew } from "@/lib/achievements";
 import { getGrimoireDemons } from "@/app/api/grimoire/route";
+import { computeStreakUpdate } from "@/lib/streak";
 
 export const maxDuration = 60;
 
@@ -24,7 +25,7 @@ export async function POST(
 
   const { data: dbUser } = await supabase
     .from("users")
-    .select("id, total_xp, current_streak, longest_streak, last_study_date")
+    .select("id, total_xp, current_streak, longest_streak, last_study_date, streak_freeze_tokens")
     .eq("clerk_id", userId)
     .single();
 
@@ -151,15 +152,15 @@ export async function POST(
     });
   }
 
-  // Update user XP and streak
+  // Update user XP and streak (with freeze-token forgiveness)
   const today = new Date().toISOString().split("T")[0];
-  const lastStudy = dbUser.last_study_date;
-  const yesterday = new Date(Date.now() - 86_400_000).toISOString().split("T")[0];
-
-  let newStreak = dbUser.current_streak || 0;
-  if (lastStudy !== today) {
-    newStreak = lastStudy === yesterday ? newStreak + 1 : 1;
-  }
+  const streakResult = computeStreakUpdate({
+    currentStreak: dbUser.current_streak || 0,
+    freezeTokens: dbUser.streak_freeze_tokens ?? 0,
+    lastStudyDate: dbUser.last_study_date,
+    today,
+  });
+  const newStreak = streakResult.newStreak;
   const newLongestStreak = Math.max(dbUser.longest_streak || 0, newStreak);
 
   const oldTotalXp = dbUser.total_xp || 0;
@@ -172,6 +173,7 @@ export async function POST(
       current_streak: newStreak,
       longest_streak: newLongestStreak,
       last_study_date: today,
+      streak_freeze_tokens: streakResult.newFreezeTokens,
     })
     .eq("id", dbUser.id);
 
@@ -247,6 +249,10 @@ export async function POST(
     newRank: leveledUp && getLevelTitle(oldLevel) !== getLevelTitle(newLevel)
       ? getLevelTitle(newLevel)
       : undefined,
+    streakAction: streakResult.action,
+    freezeTokensUsed: streakResult.tokensUsed,
+    freezeTokenEarned: streakResult.tokenEarned,
+    freezeTokensRemaining: streakResult.newFreezeTokens,
   });
 }
 

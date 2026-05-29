@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Plus } from "lucide-react";
+import { Plus, Snowflake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AnimatedCounter from "@/components/effects/AnimatedCounter";
 import TierLevelFrame from "@/components/gamification/TierLevelFrame";
@@ -22,6 +22,8 @@ interface HeroUser {
   topics_mastered: number;
   total_sessions: number;
   current_streak: number;
+  /** Migration 021. Number of unspent freeze tokens (0..3). */
+  streak_freeze_tokens?: number | null;
 }
 
 interface Props {
@@ -247,14 +249,34 @@ export default function DashboardHeroCard({
           glowColor={isHotStreak ? "rgba(249,115,22,0.14)" : "rgba(100,116,139,0.06)"}
           labelClass={isHotStreak ? "text-orange-400" : "text-slate-400"}
         >
-          <div
-            className={cn(
-              "text-2xl font-bold leading-none tracking-tight",
-              isHotStreak ? "text-orange-400 animate-fire-glow" : "text-white"
-            )}
-          >
-            {streak}
-            <span className="text-sm font-medium text-slate-500 ml-0.5">d</span>
+          <div className="flex items-baseline gap-2">
+            <div
+              className={cn(
+                "text-2xl font-bold leading-none tracking-tight",
+                isHotStreak ? "text-orange-400 animate-fire-glow" : "text-white"
+              )}
+            >
+              {streak}
+              <span className="text-sm font-medium text-slate-500 ml-0.5">d</span>
+            </div>
+            {/* Freeze tokens — migration 021. Always visible so the
+                mechanic is discoverable. Cyan when held, slate when empty. */}
+            <span
+              title={
+                (dbUser.streak_freeze_tokens ?? 0) > 0
+                  ? `${dbUser.streak_freeze_tokens} freeze token${dbUser.streak_freeze_tokens === 1 ? "" : "s"} — each one saves your streak from one missed day`
+                  : "Freeze tokens: earn 1 every 7-day streak. They protect against missed days."
+              }
+              className={cn(
+                "inline-flex items-center gap-0.5 text-[11px] font-semibold tabular-nums",
+                (dbUser.streak_freeze_tokens ?? 0) > 0
+                  ? "text-cyan-400"
+                  : "text-slate-600",
+              )}
+            >
+              <Snowflake className="w-3 h-3" />
+              {dbUser.streak_freeze_tokens ?? 0}
+            </span>
           </div>
         </StatTile>
 

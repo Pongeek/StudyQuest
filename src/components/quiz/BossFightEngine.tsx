@@ -38,6 +38,7 @@ import {
   clearDraft,
   clearSessionDrafts,
 } from "@/lib/answer-draft";
+import { showFreezeToasts } from "@/lib/freeze-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -507,6 +508,9 @@ function BossFightEngineInner({
       });
       if (!res.ok) throw new Error("Failed to complete boss fight");
       const data = await res.json();
+
+      // Freeze-token toasts (migration 021) — burn / earn.
+      showFreezeToasts(data);
 
       // Boss locked in — every strike persisted as a real answer, drop
       // all per-question drafts for this session.
