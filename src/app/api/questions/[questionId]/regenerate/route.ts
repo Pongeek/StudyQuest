@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { regenerateQuestion } from "@/lib/ai/regenerate-question";
 import { classifyAiError, classifiedErrorBody } from "@/lib/ai-error";
+import { adjustDifficultyForMastery } from "@/lib/adaptive-difficulty";
 
 export const maxDuration = 60;
 
@@ -118,6 +119,36 @@ export async function POST(
   const outputLanguage: "auto" | "en" | "he" =
     rawLang === "en" || rawLang === "he" ? rawLang : "auto";
 
+  // ── Adaptive difficulty ──────────────────────────────────────────────────
+  // Bias the generator's difficulty anchor based on the student's current
+  // mastery of THIS topic. Mastered → harder regen. Struggling → easier.
+  // Never attempted → unchanged. See src/lib/adaptive-difficulty.ts.
+  const { data: masteryRow } = await supabase
+    .from("user_topic_mastery")
+    .select("mastery_level, repetitions")
+    .eq("user_id", dbUser.id)
+    .eq("topic_id", oldQuestion.topic_id)
+    .maybeSingle();
+
+  const { difficulty: adjustedDifficulty, adjustment } = adjustDifficultyForMastery({
+    baseDifficulty: oldQuestion.difficulty,
+    mastery: masteryRow
+      ? {
+          masteryLevel: Number(masteryRow.mastery_level) || 0,
+          repetitions: Number(masteryRow.repetitions) || 0,
+        }
+      : null,
+  });
+
+  // Logged so the dev terminal shows the adjustment fired (verification
+  // signal for Max — no UI change in pilot).
+  console.log(
+    `[regenerate] adaptive-difficulty: base=${oldQuestion.difficulty} → ` +
+      `adjusted=${adjustedDifficulty} (${adjustment}); mastery=${
+        masteryRow ? `L${masteryRow.mastery_level}/R${masteryRow.repetitions}` : "none"
+      }`,
+  );
+
   // ── AI call — wrapped so Claude errors get classified ────────────────────
   let replacement;
   try {
@@ -131,7 +162,7 @@ export async function POST(
         type: oldQuestion.type as "mcq" | "open",
         content: oldQuestion.content,
         correct_answer: oldQuestion.correct_answer,
-        difficulty: oldQuestion.difficulty,
+        difficulty: adjustedDifficulty,
       },
       outputLanguage,
     });

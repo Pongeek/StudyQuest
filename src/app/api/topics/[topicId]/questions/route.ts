@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { generateTopicQuestions } from "@/lib/ai/generate-questions";
+import { adjustDifficultyForMastery } from "@/lib/adaptive-difficulty";
 
 export const maxDuration = 60;
 
@@ -83,13 +84,53 @@ export async function POST(
   const outputLanguage: "auto" | "en" | "he" =
     rawLang === "en" || rawLang === "he" ? rawLang : "auto";
 
+  // ── Adaptive difficulty ──────────────────────────────────────────────────
+  // Bias the generator's anchor based on this student's mastery of the topic.
+  // Only fires on regeneration (the bulk-regen path is the only writer here
+  // since first-time generation already skipped at the count > 0 branch
+  // above). See src/lib/adaptive-difficulty.ts.
+  const { data: dbUser } = await supabase
+    .from("users")
+    .select("id")
+    .eq("clerk_id", userId)
+    .single();
+
+  let adjustedDifficulty = topic.difficulty;
+  let adjustment: "easier" | "harder" | "none" = "none";
+  if (dbUser) {
+    const { data: masteryRow } = await supabase
+      .from("user_topic_mastery")
+      .select("mastery_level, repetitions")
+      .eq("user_id", dbUser.id)
+      .eq("topic_id", topicId)
+      .maybeSingle();
+
+    const result = adjustDifficultyForMastery({
+      baseDifficulty: topic.difficulty,
+      mastery: masteryRow
+        ? {
+            masteryLevel: Number(masteryRow.mastery_level) || 0,
+            repetitions: Number(masteryRow.repetitions) || 0,
+          }
+        : null,
+    });
+    adjustedDifficulty = result.difficulty;
+    adjustment = result.adjustment;
+    console.log(
+      `[topic-questions] adaptive-difficulty: base=${topic.difficulty} → ` +
+        `adjusted=${adjustedDifficulty} (${adjustment}); mastery=${
+          masteryRow ? `L${masteryRow.mastery_level}/R${masteryRow.repetitions}` : "none"
+        }`,
+    );
+  }
+
   const questions = await generateTopicQuestions({
     topicTitle: topic.title,
     topicSummary: topic.summary,
     keyConcepts: Array.isArray(topic.key_concepts) ? topic.key_concepts : [],
     episodeTitle: episode.title,
     courseSubject: course?.subject || "Academic",
-    difficulty: topic.difficulty,
+    difficulty: adjustedDifficulty,
     pageCount,
     outputLanguage,
   });
