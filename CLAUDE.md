@@ -219,6 +219,7 @@ The MVP plus three content layers (Scroll / Grimoire / Feynman), the exam-prep l
 019 — questions.replaced_by_id + questions.replaced_at (soft-replace for question regeneration, partial index on replaced_at IS NULL)
 020 — quiz_answers.confidence + answer_clarifications (Phase 1 pilot — Quiz only; clarifier table is polymorphic for Phase 2)
 021 — users.streak_freeze_tokens (forgiveness mechanic: earn 1 per 7-day streak, cap 3, burn lazily on next study after a gap)
+022 — topics.cheat_sheet + topics.cheat_sheet_generated_at (AI-generated 1-page summary per topic, cached until regenerated)
 ```
 
 The migration files live in `supabase/migrations/`. Always update this list when you add a migration so the next session can verify the live DB matches.

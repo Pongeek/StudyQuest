@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import StartQuizButton from "@/components/quiz/StartQuizButton";
 import TopicPDFViewer from "@/components/course/TopicPDFViewerClient";
 import TopicMasteryPanel from "@/components/course/TopicMasteryPanel";
+import CheatSheetPanel from "@/components/course/CheatSheetPanel";
 
 async function getTopicData(topicId: string, courseId: string, userId: string) {
   const supabase = createServiceClient();
@@ -201,6 +202,16 @@ export default async function TopicPage({
           fileName={sourceFile.file_name}
         />
       )}
+
+      {/* Cheat sheet (migration 022) — generated on demand, cached on
+          the topic row. Sits adjacent to the source PDF since both are
+          study material. */}
+      <CheatSheetPanel
+        topicId={topic.id}
+        initialContent={topic.cheat_sheet ?? null}
+        initialGeneratedAt={topic.cheat_sheet_generated_at ?? null}
+        dir={isRTL ? "rtl" : "ltr"}
+      />
 
       {/* Mastery progression */}
       <div className="rpg-card rounded-2xl p-5 sm:p-6">

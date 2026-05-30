@@ -98,11 +98,20 @@ export default function MarkdownContent({ children, className }: MarkdownContent
           ),
 
           // ─── Tables ───
-          // Tabular data (process timing, comparisons, schedules) must read
-          // LTR even when surrounded by Hebrew prose — columns are positional.
+          // Direction inherits from the parent context (`dir="auto"` on the
+          // wrapping prose). For Hebrew content, the parent dir="rtl"
+          // flips the column order naturally; for English content tables
+          // (process timing, schedules), parent dir="ltr" keeps the
+          // columns positional.
+          //
+          // Cell dir="auto" lets each cell pick its own direction from its
+          // content: Hebrew text reads RTL, math/code/Latin reads LTR.
+          // Math blocks ALREADY have unicode-bidi:isolate via the .katex CSS
+          // rule in globals.css, so they don't pollute the surrounding flow.
+          //
           // Wrap in a scroll container so wide tables don't blow up the layout.
           table: ({ children: tChildren }) => (
-            <div dir="ltr" className="overflow-x-auto my-3 -mx-1">
+            <div className="overflow-x-auto my-3 -mx-1">
               <table className="w-full border border-white/[0.08] rounded-md text-[13px] tabular-nums border-collapse">
                 {tChildren}
               </table>
@@ -117,8 +126,8 @@ export default function MarkdownContent({ children, className }: MarkdownContent
           ),
           th: ({ children: tChildren }) => (
             <th
-              dir="ltr"
-              className="px-3 py-2 text-left font-semibold text-slate-200 border-r border-white/[0.06] last:border-r-0 whitespace-nowrap"
+              dir="auto"
+              className="px-3 py-2 text-start font-semibold text-slate-200 border-r border-white/[0.06] last:border-r-0 whitespace-nowrap"
               style={{ unicodeBidi: "isolate" }}
             >
               {tChildren}
@@ -126,7 +135,7 @@ export default function MarkdownContent({ children, className }: MarkdownContent
           ),
           td: ({ children: tChildren }) => (
             <td
-              dir="ltr"
+              dir="auto"
               className="px-3 py-1.5 text-slate-300 border-r border-white/[0.06] last:border-r-0 align-top"
               style={{ unicodeBidi: "isolate" }}
             >
