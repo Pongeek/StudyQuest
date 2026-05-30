@@ -2,7 +2,12 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
-import { BookOpen, Plus, Sparkles, Swords, Map as MapIcon, Crown, Trophy } from "lucide-react";
+import {
+  BookOpen, Plus, Sparkles, Swords, Map as MapIcon, Crown, Trophy,
+  // Course-tile subject sigils — see src/lib/course-subject-icon.ts
+  Workflow, Code2, Compass, Atom, FlaskConical, Leaf, Languages, Scroll,
+  TrendingUp, Brain, Sword,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TodaysMission from "@/components/dashboard/TodaysMission";
 import ReviewQueueCard from "@/components/dashboard/ReviewQueueCard";
@@ -25,6 +30,27 @@ import {
   type StudyPlanEpisode,
 } from "@/lib/study-plan";
 import { pickNextBestActions } from "@/lib/next-best-action";
+import {
+  getCourseSubjectIcon,
+  type CourseSubjectIcon,
+} from "@/lib/course-subject-icon";
+
+// Subject-icon sigil registry — one Lucide component per subject. Resolved
+// from the helper's string return so the helper stays React-free (pure
+// data, easy to unit-test).
+const SUBJECT_ICON: Record<CourseSubjectIcon, typeof Workflow> = {
+  Workflow,
+  Code2,
+  Compass,
+  Atom,
+  FlaskConical,
+  Leaf,
+  Languages,
+  Scroll,
+  TrendingUp,
+  Brain,
+  Sword,
+};
 
 async function getOrCreateUser(clerkId: string, email: string, name: string) {
   const supabase = createServiceClient();
@@ -557,6 +583,13 @@ export default async function DashboardPage({
                         "bg-gradient-to-r from-transparent via-red-400/40 to-transparent",
                     };
 
+              const SigilIcon = SUBJECT_ICON[
+                getCourseSubjectIcon({
+                  title: course.title,
+                  themeName: course.theme_name,
+                })
+              ];
+
               return (
                 <Link key={course.id} href={`/dashboard/courses/${course.id}`}>
                   <div
@@ -566,6 +599,19 @@ export default async function DashboardPage({
                         "hover:ring-1 hover:ring-green-500/20"
                     )}
                   >
+                    {/* Subject sigil — large thematic icon in the bottom-right
+                        corner, faded to ~8% white opacity. Purposeful identity
+                        (one icon per course's subject) instead of decorative
+                        noise. Slight negative inset so the icon clips
+                        partially into the corner — feels embedded, not
+                        floating. Pointer-events:none keeps the parent Link
+                        the click target. See src/lib/course-subject-icon.ts. */}
+                    <SigilIcon
+                      aria-hidden
+                      className="absolute -bottom-3 -right-3 w-24 h-24 text-white opacity-[0.07] pointer-events-none transition-opacity duration-200 group-hover:opacity-[0.10]"
+                      strokeWidth={1.5}
+                    />
+
                     {/* Status accent line */}
                     <div className={cn("absolute top-0 inset-x-0 h-0.5", statusConfig.accent)} />
 
