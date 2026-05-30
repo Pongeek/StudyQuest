@@ -16,10 +16,28 @@ export async function POST(
 
   const supabase = createServiceClient();
 
+  // Resolve dbUser BEFORE the topic fetch so the ownership filter below
+  // can scope to this user. Without this, the previously-shipped query
+  // would happily return any user's topic (PostgREST `!inner` requires
+  // the relation to exist, not that it belongs to anyone) — and the bulk
+  // regen path would then soft-replace a stranger's questions and fire
+  // a billable Claude call on Max's API key.
+  const { data: dbUser } = await supabase
+    .from("users")
+    .select("id")
+    .eq("clerk_id", userId)
+    .single();
+  if (!dbUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
   const { data: topic } = await supabase
     .from("topics")
-    .select("*, episodes!inner(title, course_id, courses!inner(subject, output_language))")
+    .select(
+      "*, episodes!inner(title, course_id, courses!inner(user_id, subject, output_language))",
+    )
     .eq("id", topicId)
+    .eq("episodes.courses.user_id", dbUser.id)
     .single();
 
   if (!topic) return NextResponse.json({ error: "Topic not found" }, { status: 404 });
@@ -88,43 +106,31 @@ export async function POST(
   // Bias the generator's anchor based on this student's mastery of the topic.
   // Only fires on regeneration (the bulk-regen path is the only writer here
   // since first-time generation already skipped at the count > 0 branch
-  // above). See src/lib/adaptive-difficulty.ts.
-  const { data: dbUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("clerk_id", userId)
-    .single();
+  // above). See src/lib/adaptive-difficulty.ts. dbUser resolved above.
+  const { data: masteryRow } = await supabase
+    .from("user_topic_mastery")
+    .select("mastery_level, sessions_completed")
+    .eq("user_id", dbUser.id)
+    .eq("topic_id", topicId)
+    .maybeSingle();
 
-  let adjustedDifficulty = topic.difficulty;
-  let adjustment: "easier" | "harder" | "none" = "none";
-  if (dbUser) {
-    const { data: masteryRow } = await supabase
-      .from("user_topic_mastery")
-      .select("mastery_level, sessions_completed")
-      .eq("user_id", dbUser.id)
-      .eq("topic_id", topicId)
-      .maybeSingle();
-
-    const result = adjustDifficultyForMastery({
-      baseDifficulty: topic.difficulty,
-      mastery: masteryRow
-        ? {
-            masteryLevel: Number(masteryRow.mastery_level) || 0,
-            sessionsCompleted: Number(masteryRow.sessions_completed) || 0,
-          }
-        : null,
-    });
-    adjustedDifficulty = result.difficulty;
-    adjustment = result.adjustment;
-    console.log(
-      `[topic-questions] adaptive-difficulty: base=${topic.difficulty} → ` +
-        `adjusted=${adjustedDifficulty} (${adjustment}); mastery=${
-          masteryRow
-            ? `L${masteryRow.mastery_level}/S${masteryRow.sessions_completed}`
-            : "none"
-        }`,
-    );
-  }
+  const { difficulty: adjustedDifficulty, adjustment } = adjustDifficultyForMastery({
+    baseDifficulty: topic.difficulty,
+    mastery: masteryRow
+      ? {
+          masteryLevel: Number(masteryRow.mastery_level) || 0,
+          sessionsCompleted: Number(masteryRow.sessions_completed) || 0,
+        }
+      : null,
+  });
+  console.log(
+    `[topic-questions] adaptive-difficulty: base=${topic.difficulty} → ` +
+      `adjusted=${adjustedDifficulty} (${adjustment}); mastery=${
+        masteryRow
+          ? `L${masteryRow.mastery_level}/S${masteryRow.sessions_completed}`
+          : "none"
+      }`,
+  );
 
   const questions = await generateTopicQuestions({
     topicTitle: topic.title,
