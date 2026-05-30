@@ -175,6 +175,7 @@ export async function POST(
     debrief,
     newAchievements,
     masteryEvolution,
+    newStreak,
     streakAction: streakResult.action,
     freezeTokensUsed: streakResult.tokensUsed,
     freezeTokenEarned: streakResult.tokenEarned,
