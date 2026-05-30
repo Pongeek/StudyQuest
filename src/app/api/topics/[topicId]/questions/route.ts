@@ -100,7 +100,7 @@ export async function POST(
   if (dbUser) {
     const { data: masteryRow } = await supabase
       .from("user_topic_mastery")
-      .select("mastery_level, repetitions")
+      .select("mastery_level, sessions_completed")
       .eq("user_id", dbUser.id)
       .eq("topic_id", topicId)
       .maybeSingle();
@@ -110,7 +110,7 @@ export async function POST(
       mastery: masteryRow
         ? {
             masteryLevel: Number(masteryRow.mastery_level) || 0,
-            repetitions: Number(masteryRow.repetitions) || 0,
+            sessionsCompleted: Number(masteryRow.sessions_completed) || 0,
           }
         : null,
     });
@@ -119,7 +119,9 @@ export async function POST(
     console.log(
       `[topic-questions] adaptive-difficulty: base=${topic.difficulty} → ` +
         `adjusted=${adjustedDifficulty} (${adjustment}); mastery=${
-          masteryRow ? `L${masteryRow.mastery_level}/R${masteryRow.repetitions}` : "none"
+          masteryRow
+            ? `L${masteryRow.mastery_level}/S${masteryRow.sessions_completed}`
+            : "none"
         }`,
     );
   }

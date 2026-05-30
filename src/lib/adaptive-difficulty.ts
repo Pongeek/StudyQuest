@@ -6,10 +6,10 @@
  * at upload time.
  *
  * Rules (kept simple, easy to tune):
- *  - never attempted (`repetitions === 0` or no mastery row) → no change
- *  - mastered (`mastery_level >= 3`)                          → bump +1
- *  - struggling (`mastery_level <= 1` AND attempted)          → drop −1
- *  - in progress (`mastery_level === 2`)                       → no change
+ *  - never attempted (`sessionsCompleted === 0` or no mastery row) → no change
+ *  - mastered (`mastery_level >= 3`)                                 → bump +1
+ *  - struggling (`mastery_level <= 1` AND attempted)                 → drop −1
+ *  - in progress (`mastery_level === 2`)                              → no change
  *
  * Distinguishing "never attempted" from "tried once and failed" matters —
  * easing a topic the student has never seen would be confusing.
@@ -20,10 +20,10 @@
 export type DifficultyAdjustment = "easier" | "harder" | "none";
 
 export interface DifficultyMastery {
-  /** From `user_topic_mastery.mastery_level` (0..4 in this project). */
+  /** From `user_topic_mastery.mastery_level` (0..5 in this project). */
   masteryLevel: number;
-  /** From `user_topic_mastery.repetitions`. 0 means never attempted. */
-  repetitions: number;
+  /** From `user_topic_mastery.sessions_completed`. 0 means never attempted. */
+  sessionsCompleted: number;
 }
 
 export interface DifficultyAdjustmentResult {
@@ -41,15 +41,22 @@ export function adjustDifficultyForMastery(input: {
   // can't produce an out-of-band anchor.
   const base = Math.max(1, Math.min(5, baseDifficulty));
 
-  if (!mastery || mastery.repetitions === 0) {
+  if (!mastery || mastery.sessionsCompleted === 0) {
     return { difficulty: base, adjustment: "none" };
   }
 
+  // Compute the proposed next difficulty for the matching branch, then
+  // compare against base. If the clamp swallowed the bump (e.g. base=5
+  // and the rule wanted +1, base=1 and the rule wanted -1), report
+  // `adjustment: "none"` rather than "harder"/"easier" — otherwise the
+  // dev log claims a change that never reached the prompt.
   if (mastery.masteryLevel >= 3) {
-    return { difficulty: Math.min(5, base + 1), adjustment: "harder" };
+    const next = Math.min(5, base + 1);
+    return { difficulty: next, adjustment: next === base ? "none" : "harder" };
   }
   if (mastery.masteryLevel <= 1) {
-    return { difficulty: Math.max(1, base - 1), adjustment: "easier" };
+    const next = Math.max(1, base - 1);
+    return { difficulty: next, adjustment: next === base ? "none" : "easier" };
   }
   return { difficulty: base, adjustment: "none" };
 }
