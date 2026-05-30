@@ -177,9 +177,9 @@ Whenever improving the frontend, make the app feel like the user is **leveling u
 
 ---
 
-## Current State (Checkpoint — 2026-05-24)
+## Current State (Checkpoint — 2026-05-30)
 
-The MVP plus three content layers (Scroll / Grimoire / Feynman), the exam-prep loop, the image-answer pipeline, the per-episode upload pattern, full course/episode delete, the **Course Map redesign**, **weekly Study Report**, **per-topic Mastery Panel**, **Loremaster coach voice**, **grouped achievements + 6 new ones**, **first-run onboarding** (Welcome Modal + Empty Dashboard Hero), **episode-processing feedback** (Processing & Failed banners with classified errors + transition toasts), **grader/scroll/debrief failure UX** (classified errors + answer-draft persistence), **question regeneration** (soft-replace via Claude), **Smart Next Best Action widget** (cycling dashboard priority pill), **paired urgency row** (Exam Countdown cycle + NBA in one 2-col row), **6-tier level progression** (Novice/Apprentice/Adept/Expert/Master/Sage chrome with within-tier drift + RANK UP overlay + Sage gradient border + dual-color breathing), and a **12-fix code-review correctness sweep** (soft-replace history integrity, image-only open answers, classified error envelopes + word-boundary status regex, narrow try/catch on regenerate, timezone-aware streak-save NBA, ExamCountdown compact-mode hook, isTierUp demotion guard, Novice baseline glow) are all shipped. The app is in active polish + new-feature mode. Read this section AND the next ("What shipped in May 2026") before touching anything.
+The MVP plus three content layers (Scroll / Grimoire / Feynman), the exam-prep loop, the image-answer pipeline, the per-episode upload pattern, full course/episode delete, the **Course Map redesign**, **weekly Study Report**, **per-topic Mastery Panel**, **Loremaster coach voice**, **grouped achievements + 6 new ones**, **first-run onboarding** (Welcome Modal + Empty Dashboard Hero), **episode-processing feedback** (Processing & Failed banners with classified errors + transition toasts), **grader/scroll/debrief failure UX** (classified errors + answer-draft persistence), **question regeneration** (soft-replace via Claude), **Smart Next Best Action widget** (cycling dashboard priority pill), **paired urgency row** (Exam Countdown cycle + NBA in one 2-col row), **6-tier level progression** (Novice/Apprentice/Adept/Expert/Master/Sage chrome with within-tier drift + RANK UP overlay + Sage gradient border + dual-color breathing), a **12-fix code-review correctness sweep** (soft-replace history integrity, image-only open answers, classified error envelopes + word-boundary status regex, narrow try/catch on regenerate, timezone-aware streak-save NBA, ExamCountdown compact-mode hook, isTierUp demotion guard, Novice baseline glow), **Confidence rating + "Why was I wrong?" clarifier** (Quiz pilot), **adaptive difficulty on regeneration** (mastery-anchored), **Stumbles LaTeX rendering fix**, **client-side PDF upload size cap** (20MB warn / 32MB block), **streak freeze tokens** (forgiveness mechanic), **Today's stats strip** (under hero), **per-topic cheat sheet generator** (Markdown+LaTeX, cached), and the **MarkdownContent RTL table refactor** (universal Hebrew-table direction fix) are all shipped. The app is in active polish + new-feature mode. Read this section AND the next ("What shipped in May 2026") before touching anything.
 
 ### What's wired up
 
@@ -502,6 +502,83 @@ After the Tier-1 feature sprint, ran the bundled `/code-review` skill at extra-h
 - **Cluster fixes by file/area, not by finding number.** Final commits: `33c70e3` (Fix #4) → `50191f5` (Fix #5) → `c208c09` (Fix #7) → `614ff58` (Fix #8 + #9 helpers) → `609fb6f` (Fix #9 envelope adoption across 4 answer routes) → `25f0ea8` (Fix #10) → `c968ef6` (Fix #11 + #15, both touched `level-tier.ts`) → `af9d02f` (Fix #6 + #13, both timezone) → `0abd30e` (Fix #12). Plus the 3 morning commits (`771f185`, `9ac1e4a`, `50b8da5`). The grouping by topical pair (#11+#15, #6+#13) keeps related changes together without forcing artificial granularity.
 - The `boss-fight/answer` and `exams/answer` routes don't need `replaced_at` checks — their questions live in different tables. Code review originally claimed all 4 answer routes needed it; narrowing to 2 saved noise. Always trace the FK back to the actual question table before applying a "same-shape" fix.
 
+### 2026-05-30 sprint — 7 features + universal RTL table fix
+
+Seven commits on `pedagogy-clarifier-confidence-quiz` → merged to `main` once pushed. Branch started clean from `6b094e4`; rollback path is `git checkout main; git branch -D pedagogy-clarifier-confidence-quiz`.
+
+Final commit lineage on the branch (oldest first):
+```
+7d0f164 feat(pedagogy): Confidence rating + "Why was I wrong?" clarifier (Quiz pilot)
+b32a699 feat(pedagogy): adaptive difficulty on question regeneration
+110e579 fix(stumbles): render question content through MarkdownInline so LaTeX displays
+4463fba feat(upload): client-side PDF size cap with tiered warning
+d0beda4 feat(streak): freeze tokens — forgiveness mechanic for missed days
+d241138 feat(dashboard): Today's stats strip under the hero
+e097a75 feat(pedagogy): per-topic cheat sheet generator
+```
+
+**Confidence + "Why was I wrong?" clarifier — Quiz pilot (commit `7d0f164`)**
+- **Migration 020** — `quiz_answers.confidence` + polymorphic `answer_clarifications` table (`answer_kind` discriminator covers Phase 2 surfaces with zero schema work).
+- `src/lib/ai/clarify-answer.ts` — multi-turn Claude wrapper (precedent: `feynman-tutor.ts`), Loremaster persona, confidence-aware system prompt branch (`confident` → surface the gap, `guessed` → meet them where they are, `null` → balanced default), `max_tokens: 1024` per turn.
+- `POST /api/clarify` — single endpoint for all answer kinds. Pilot rejects non-`quiz` `answerKind` with classified 409. Ownership chain via `quiz_sessions!inner` join. **Server-side guard**: 6000 total output tokens / session cap, then soft-closes with `{ closed: true, reason: "budget" }`. **Existing-row lookup uses `.order().limit(1)` not `.maybeSingle()`** so dev React 19 StrictMode double-fire of the open useEffect (which races two opens past the existing-check) doesn't 404 every subsequent continue — `.maybeSingle()` errors on duplicate rows. Phase 2 will add `UNIQUE(answer_kind, answer_id)` + upsert at the schema level.
+- `PATCH /api/quiz/answers/[answerId]/confidence` — idempotent confidence update. Fire-and-forget from the client; silent on failure (confidence isn't critical-path).
+- `POST /api/quiz/answers` — accepts optional `confidence` field (JSON + multipart) + returns `answerId` so the engine can wire the PATCH and the clarifier.
+- `ConfidenceRow.tsx` + `ClarifierThread.tsx` — shared components in `components/quiz/` for Phase 2 reuse. Pixel-chip chrome, RTL-aware, draft preserved on error.
+- `QuizEngine.tsx` — per-question state extended with `confidence` + `clarifierOpen` + `answerId`. Render block in the feedback motion.div: ConfidenceRow always after grade; `🤔 Help me understand` button only when `score < 0.7`; `ClarifierThread` mounts inline below the button.
+- **Pilot scope**: Quiz only. Review/Boss/Exam server-side gated; CheatSheetPanel-style follow-up planned for Phase 2.
+- **SM-2 quality changes**: designed in the spec (`docs/superpowers/specs/2026-05-29-pedagogy-clarifier-confidence-design.md`), deferred to Phase 2 when Review adopts the column. Mapping table: `wrong + confident → quality 0` (overconfidence = strongest SR signal), `right + confident → 5`.
+
+**Adaptive difficulty on regeneration (commit `b32a699`)**
+- `src/lib/adaptive-difficulty.ts` — pure helper `adjustDifficultyForMastery({ baseDifficulty, mastery })`. Returns `{ difficulty, adjustment: "easier" | "harder" | "none" }`. Rules: `repetitions === 0` or no mastery row → no change (never attempted shouldn't be eased); `mastery_level >= 3` → bump +1 (cap 5); `mastery_level <= 1 AND attempted` → drop −1 (floor 1); otherwise no change.
+- Wired into the **single-question regen** (`/api/questions/[id]/regenerate`) and **bulk topic regen** (`/api/topics/[id]/questions?regenerate=1`) routes. Both fetch `user_topic_mastery` for `(user, topic)` and adjust the `difficulty` param passed to the generator before the AI call. Server-side `console.log` of the adjustment for verification (no UI surface in pilot).
+- The bulk topic regen route was missing `dbUser` resolution — added as part of this change. Pre-existing weak ownership check on the topic fetch left untouched (out of PR scope, flagged for future fix).
+- **Anti-scope:** no UI surface (the existing difficulty stars on questions update naturally when the new question lands). No changes to initial extraction (no user data exists at upload time). Boss + exam generators untouched.
+
+**Stumbles LaTeX rendering fix (commit `110e579`)**
+- Same bug pattern as the Grimoire `DemonCard` fix on 2026-05-23: `TopicMasteryPanel` Stumbles section was rendering `{q.content}` as plain text in both the truncated summary `<span>` and the expanded `<p>`, so questions with `$DFA$`, `\Sigma`, `\delta` displayed literally.
+- Swapped both sites to `MarkdownInline` + `dir="auto"`. Dropped `whitespace-pre-wrap` from the expanded view since MarkdownInline handles formatting.
+- **Pattern reinforcement**: any list / preview surface that renders AI-generated question text needs `MarkdownInline` (inline) or `MarkdownContent` (block). Never render `{question.content}` as plain text.
+
+**Client-side PDF upload size cap (commit `4463fba`)**
+- `src/lib/upload-validation.ts` — pure helper, `WARN_MB = 20` (warn) and `BLOCK_MB = 32` (Anthropic's PDF document-block limit). Returns `{ tier: "ok" | "warn" | "error", message, sizeMb }`.
+- `EpisodeUploadForm.tsx` — dropzone `maxSize` lowered from 50MB to 32MB; new `onDropRejected` callback fires a classified toast naming the file when oversize files are dropped (was silent before). Per-file row chrome flips amber on warn, red on block. Submit blocks if any error-tier file remains (defense in depth — dropzone should reject upstream).
+- Server-side `episode-error.ts` PDF_TOO_LARGE classifier (from 2026-05-24) remains as the safety net for anything that slips past client-side.
+
+**Streak freeze tokens (commit `d0beda4`)**
+- **Migration 021** — `users.streak_freeze_tokens INT NOT NULL DEFAULT 0`.
+- `src/lib/streak.ts` — pure helper `computeStreakUpdate({ currentStreak, freezeTokens, lastStudyDate, today })` returning `{ newStreak, newFreezeTokens, action, tokensUsed, tokenEarned }`. Action taxonomy: `first-study` / `same-day` / `continued` / `frozen` / `reset`. Constants: `MAX_FREEZE_TOKENS = 3`, `STREAK_MILESTONE_DAYS = 7`. **All-or-nothing burn** — if gap exceeds available tokens, streak resets and tokens are PRESERVED (no partial burn — fairer).
+- Wired into all 3 complete routes (`quiz` / `boss` / `review`). Each route's response now includes `streakAction` / `freezeTokensUsed` / `freezeTokenEarned` / `freezeTokensRemaining` so the client can toast.
+- `src/lib/freeze-toast.ts` — shared helper `showFreezeToasts(data)` called from all 3 engines' completion handlers. Burn toast: *"❄ Streak Freeze used — your N-day streak holds."* Earn toast: *"❄ +1 Streak Freeze earned!"*
+- `DashboardHeroCard.tsx` — `❄ N` chip next to the streak day count inside the Streak stat tile. Always visible (cyan when held, slate when empty) so the mechanic is discoverable; tooltip explains earning.
+
+**Today's stats strip (commit `d241138`)**
+- `src/components/dashboard/TodayStatsStrip.tsx` — server component, parallel queries against `quiz_sessions` / `boss_fight_sessions` / `review_sessions` filtered to `completed_at >= today_midnight_UTC`. Mirrors the CourseStudyReport pattern.
+- 4 chips: Questions / Accuracy / Minutes / XP earned. Accuracy color-banded (emerald ≥85, amber ≥70, red below). Minutes capped at 1h per session (same anti-AFK pattern as TopicMasteryPanel).
+- **Renders null when there's no activity yet today** so a fresh-morning dashboard isn't cluttered with 0s — TodaysMission already handles the pre-activity "go study" CTA.
+- Wired into `dashboard/page.tsx` immediately under the DashboardHeroCard.
+
+**Per-topic cheat sheet generator (commit `e097a75`)**
+- **Migration 022** — `topics.cheat_sheet TEXT` + `topics.cheat_sheet_generated_at TIMESTAMPTZ`. Cached on the topic row (no separate table — column adds load only when explicitly selected).
+- `src/lib/ai/generate-cheat-sheet.ts` — Loremaster persona, `max_tokens: 1536`, single non-streaming Claude call. Sections: Key definitions / Core formulas / Worked example / Common pitfalls.
+- `GET + POST /api/topics/[id]/cheat-sheet` — GET returns cached content + timestamp; POST generates fresh + overwrites. Ownership chain via topic → episode → course → user. Classified error envelope on Claude failure (502).
+- `CheatSheetPanel.tsx` (client) — cold state with amber `FORGE CHEAT SHEET` button; cached state with `REFORGE` + `PRINT` buttons + generated date + `Cmd/Ctrl+P` hint. Render via MarkdownContent. Pixel-bordered amber chrome matches Tier-B+ vocabulary.
+- Wired into topic detail page immediately after the PDF viewer so source + cheat sheet sit adjacent in the study flow.
+- **Hebrew + LaTeX bidi prompt rules** (iterated twice on Max's feedback): `$...$` inline math is **FORBIDDEN** on any line containing Hebrew characters. All math goes on its own line as `$$display$$` blocks with blank lines around it. Math symbols in Hebrew prose use Unicode (ε, Σ, δ, ⊆, →, q₀) NEVER LaTeX. `\text{Hebrew}` banned inside math blocks. Latin acronyms (NFA, DFA) stand alone with whitespace in Hebrew prose. Worked example baked into the prompt to anchor compliance.
+- **Iteration journey** worth remembering: first attempt allowed inline `$R$` in Hebrew prose → bidi scrambled lines and visually duplicated content. Second iteration banned inline math completely + added explicit "rules + worked example" structure → fixed.
+
+**MarkdownContent RTL table refactor (bundled with cheat sheet commit, universal benefit)**
+- Previously: MarkdownContent force-wrapped every `<table>` in `<div dir="ltr">` and applied `dir="ltr"` to every `<th>` / `<td>`. Intent was to keep process-timing tables and pseudocode columns positionally stable in Hebrew prose contexts. Side-effect: Hebrew-content tables (concept | definition style) showed columns in LTR visual order — first column on the left when it should be on the right.
+- Fix: removed `dir="ltr"` from the table wrapper (inherits parent direction now → Hebrew parent → RTL columns flip naturally); changed `dir="ltr"` on `<th>` / `<td>` to `dir="auto"` (cell content auto-detects — Hebrew text reads RTL, math/Latin cells read LTR via the existing `.katex { unicode-bidi: isolate }` rule). `text-left` → `text-start` so alignment follows direction.
+- **Universal benefit**: applies to every surface that renders Markdown — cheat sheet, quiz feedback, review feedback, debrief, scroll, stumbles, Grimoire. Hebrew quiz tables now flow RTL too.
+- **Risk flagged in commit message**: if a Hebrew-context table uses positional column ordering (e.g., a process scheduling table with `Process | Arrival | Burst`), columns will now appear in RTL visual order. For Automata material (concept/definition tables) this is correct; flag if anything regresses in non-CS-theory courses.
+
+**Process notes worth keeping for next time:**
+- **React 19 + Next.js dev StrictMode double-fires `useEffect`** in development mode, which races concurrent API calls past existence-checks and creates duplicate DB rows. The `.order().limit(1)` defensive read pattern (vs `.maybeSingle()`) handles the duplicate at read time without needing a UNIQUE constraint. Phase 2 still wants the constraint for production correctness, but the read-time fix unblocks pilot testing in dev.
+- **Hebrew + LaTeX cheat sheets are genuinely hard.** Two prompt iterations needed even with explicit rules. The winning structure: explicit BAN list + positive RULES list + WORKED EXAMPLE inside the prompt. Worked example anchors Claude to the desired output shape better than rules alone.
+- **MarkdownContent global behavior changes are surprisingly safe** in this codebase. The table direction fix applied universally and only one risk vector emerged (positional Hebrew tables — uncommon in Automata material). When a Markdown-renderer behavior is "wrong" for one surface, check whether it's wrong everywhere — often the fix belongs at the renderer, not the consumer.
+- **Test-then-push-if-loved discipline** worked well across 7 features. Each feature got its own focused commit on the same branch; the branch stays unpushed until Max's overall verdict. Workflow scales: features compound on each other in the branch without polluting `main` until ready.
+- **The session also surfaced a bug-class to remember**: `MarkdownContent` had been the silent source of two separate bidi issues today (Stumbles LaTeX → fixed with `MarkdownInline`; tables LTR → fixed at MarkdownContent itself). Renderer surfaces that touch AI output are the highest-risk fault lines in i18n correctness. Audit when adding any new Markdown surface.
+
 ### AI infrastructure upgrades
 
 - **Tool use for question generation** — `extract-episode.ts`, `extract-exam-questions.ts`, and topic-question generation all now use Anthropic tool use (`tool_choice: { type: "tool", name: "save_..." }`). This eliminated an entire class of "slightly malformed JSON" parsing failures because Anthropic validates against the tool schema before returning.
@@ -565,23 +642,34 @@ After the Tier-1 feature sprint, ran the bundled `/code-review` skill at extra-h
 - `src/components/dashboard/StreakWarningBanner.tsx`, `SoundToggle.tsx` — Tier-1 dopamine bits.
 - `src/app/dashboard/courses/[id]/exam/page.tsx` — exam prep landing per course; "Untimed Practice" + "Timed Exam" buttons.
 - `src/app/dashboard/courses/[id]/page.tsx` — course detail; mounts ExamDateButton + EpisodeUploadForm + EpisodeProcessingPoller + CourseMap + DeleteCourseDialog (danger zone).
+- `src/lib/ai/clarify-answer.ts` — multi-turn Claude wrapper for the "Why was I wrong?" clarifier. Loremaster persona, confidence-aware system prompt branch, `max_tokens: 1024`.
+- `src/lib/ai/generate-cheat-sheet.ts` — per-topic Markdown+LaTeX cheat sheet generator. Strict Hebrew+math rules in the prompt (no inline `$...$` in Hebrew lines, all math on its own `$$display$$` line, Unicode for inline symbols, Latin acronyms stand alone).
+- `src/lib/adaptive-difficulty.ts` — pure helper biasing the question generator's `difficulty` anchor by `user_topic_mastery.mastery_level`. Used in both regen routes.
+- `src/lib/streak.ts` — pure helper `computeStreakUpdate` with freeze-token forgiveness. All-or-nothing burn. `MAX_FREEZE_TOKENS = 3`, `STREAK_MILESTONE_DAYS = 7`.
+- `src/lib/freeze-toast.ts` — shared `showFreezeToasts(data)` for the 3 engines' completion handlers.
+- `src/lib/upload-validation.ts` — client-side PDF size tiering (`WARN_MB = 20`, `BLOCK_MB = 32`).
+- `src/components/quiz/ConfidenceRow.tsx` + `src/components/quiz/ClarifierThread.tsx` — shared confidence + clarifier UI for the Quiz pilot; live in `quiz/` for Phase 2 reuse by Review / Boss / Exam.
+- `src/components/dashboard/TodayStatsStrip.tsx` — server component, today's questions/accuracy/minutes/XP under the hero. Renders null when no activity today.
+- `src/components/course/CheatSheetPanel.tsx` — client component for the per-topic cheat sheet. Cold-state generate button + cached viewer with Reforge / Print.
+- `src/app/api/clarify/route.ts` — polymorphic clarifier endpoint (pilot only handles `answerKind: "quiz"`). Server-side 6000-token guard, `.order().limit(1)` defensive read pattern for React 19 StrictMode dev duplicates.
+- `src/app/api/topics/[topicId]/cheat-sheet/route.ts` — GET (cached) + POST (generate fresh) cheat sheet routes. Ownership chain via topic → episode → course → user.
 
-### Active work + queue (end of 2026-05-24)
+### Active work + queue (end of 2026-05-30)
 
 The user is actively studying their real Automata / Computational Models course on this app (primary use case, not a demo). Stated focus: "functionality of this application first to make it intuitive, fun, smart and without any bugs and security problems."
 
 **The entire Tier-1 menu shipped 2026-05-24:** ✅ first-run onboarding, ✅ episode-processing feedback, ✅ failed-episode error surfacing, ✅ grader/scroll/debrief failure UX (classified errors + answer-draft persistence), ✅ question regeneration (soft-replace via Claude), ✅ Smart Next Best Action widget, plus a bonus ✅ 6-tier level progression with Stitch v2 polish (gradient Sage border + dual-color breathing + Master scanlines scroll), and a closing ✅ 12-fix code-review correctness sweep (soft-replace integrity in 5 reader paths + answer routes / image-only open answers / classified error envelope across 4 routes / word-boundary status regex / narrow try/catch on regenerate / timezone-aware streak-save NBA / ExamCountdown compact-mode hook / isTierUp demotion guard / Novice baseline glow). Total commits on `main` for 2026-05-24: ~26.
 
-**Refreshed menu — Tier 2 (now the top priority):**
-- **Client-side pre-upload size cap** — extension of the 413 fix. If user uploads a >20 MB PDF, warn before submission instead of after a 30-second wait + a server-side classification. The classifier in `episode-error.ts` is now the right server-side safety net for anything that slips past.
-- **Adaptive difficulty** — question generator picks difficulty based on current mastery. AI accepts the param already; just wire it.
-- **Streak freeze tokens** — earn 1 per 7-day streak, auto-burn on missed day. Forgiveness mechanic.
+**Tier-2 menu cleared 2026-05-30:** ✅ Confidence rating + "Why was I wrong?" clarifier (Quiz pilot — Review/Boss/Exam Phase 2), ✅ adaptive difficulty on regeneration (mastery-anchored), ✅ client-side PDF upload size cap (20MB warn / 32MB block), ✅ streak freeze tokens (forgiveness mechanic), ✅ Today's stats strip (under hero), ✅ per-topic cheat sheet generator + ✅ universal RTL table fix (MarkdownContent refactor benefits every Markdown surface). One bug fix: ✅ Stumbles LaTeX rendering. Branch `pedagogy-clarifier-confidence-quiz` holds 7 feature commits + 1 docs commit, NOT YET pushed (test-then-push-if-loved pattern; Max hadn't given verbal "push" at session end).
 
-**Tier 3 — bigger lifts:**
+**Tier-3 — bigger lifts:**
+- **Phase 2 of confidence + clarifier** — expand to Review / Boss / Exam engines. Add `UNIQUE(answer_kind, answer_id)` on `answer_clarifications` + upsert pattern in the open branch. SM-2 quality changes designed in the spec but unimplemented.
+- **Question 👎 feedback button** — orthogonal to Regenerate (Regenerate = action; thumb-down = label). New `answer_feedback` table.
+- **Profile page Tier-B+ adoption** — page predates the Tier-B+ vocabulary. ~8 tasks.
 - **Daily review push/email** — habit loop. Needs email infra + cron job.
-- **Edit/reorder episodes** — last QoL item from the original course-area queue. PATCH `/api/episodes/[id]` for title, plus a reorder endpoint.
+- **Edit/reorder episodes** — last QoL item from the original course-area queue.
 - **Mobile responsive audit** — walk through key surfaces on small screens.
-- **Boss-fight per-episode illustration** — deferred (cost concern). Path forward documented in Known TODOs.
+- **Boss-fight per-episode illustration** — deferred (cost concern).
 
 Deliberately deferred: voice/TTS, cross-course topic linking, friend leaderboard (Max is solo-studying).
 
