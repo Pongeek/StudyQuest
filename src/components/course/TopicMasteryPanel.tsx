@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import StumbleRegenerateButton from "@/components/course/StumbleRegenerateButton";
 import MarkdownInline from "@/components/quiz/MarkdownInline";
+import MarkdownContent from "@/components/quiz/MarkdownContent";
 
 interface TopicMasteryPanelProps {
   topicId: string;
@@ -289,9 +290,9 @@ export default async function TopicMasteryPanel({
                       </span>
                     </summary>
                     <div className="px-3 pb-3 pt-1 text-xs text-slate-400 border-t border-amber-500/10">
-                      <p dir="auto" className="text-slate-300 leading-relaxed">
-                        <MarkdownInline>{q.content}</MarkdownInline>
-                      </p>
+                      <div dir="auto" className="text-slate-300 leading-relaxed">
+                        <MarkdownContent>{q.content}</MarkdownContent>
+                      </div>
                       <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
                         <p className="text-[11px] text-slate-500 flex-1 min-w-0">
                           Last attempted{" "}
