@@ -195,6 +195,18 @@ export async function POST(request: NextRequest) {
     if (!message) {
       if (existing) {
         // Resume — return prior history; don't burn a Claude call.
+        // Apply the same budget cap guard as CONTINUE so a capped
+        // session reopens already-closed at mount time, instead of
+        // letting the UI enable the textarea + Send and then yanking
+        // the typed turn when CONTINUE hits the cap.
+        if (existing.total_output_tokens >= SESSION_OUTPUT_TOKEN_CAP) {
+          return NextResponse.json({
+            clarificationId: existing.id,
+            messages: existing.messages,
+            closed: true,
+            reason: "budget",
+          });
+        }
         return NextResponse.json({
           clarificationId: existing.id,
           messages: existing.messages,
@@ -272,7 +284,7 @@ export async function POST(request: NextRequest) {
     const newTurns = existing.total_turns + 1;
     const newOutputTokens = existing.total_output_tokens + reply.outputTokens;
 
-    await supabase
+    const { error: updateErr } = await supabase
       .from("answer_clarifications")
       .update({
         messages: newMessages,
@@ -281,6 +293,24 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id);
+
+    if (updateErr) {
+      // The Claude reply was generated but never persisted. Returning
+      // 200 here would let the client render the new turn and then
+      // SILENTLY drop it on the next resume (the row in DB is still
+      // the pre-update state) — and the tokens are gone with nothing
+      // saved. Surface the failure instead so the client toasts +
+      // keeps the draft.
+      console.error("[api/clarify] update failed:", updateErr);
+      return NextResponse.json(
+        classifiedErrorBody(
+          "UNKNOWN",
+          "Couldn't save the Loremaster's reply — try again.",
+          true,
+        ),
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({
       clarificationId: existing.id,

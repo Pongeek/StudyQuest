@@ -77,7 +77,7 @@ Canonical correct answer (do NOT just paste this — scaffold to it):
 ${ctx.canonicalAnswer}
 
 Student's answer:
-${ctx.studentAnswer || "(image only — see attached)"}`;
+${ctx.studentAnswer || "(the student submitted a diagram only — the image is NOT available to you in this conversation. Ask them to describe what they drew before scaffolding the answer.)"}`;
 
   return withCoachPersona(task);
 }
