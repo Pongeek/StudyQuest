@@ -194,7 +194,7 @@ export default function SessionDebrief({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7, duration: 0.4 }}
           className={cn(
-            "pixel-border px-3.5 py-2.5 flex items-start gap-2.5 relative",
+            "pixel-border px-3.5 py-2.5 flex items-center justify-center gap-2.5 relative text-center",
             confidenceEffect.kind === "overconfident-stumble" &&
               "bg-red-500/10 text-red-200",
             confidenceEffect.kind === "confident-mastery" &&
@@ -244,13 +244,13 @@ export default function SessionDebrief({
           />
 
           {confidenceEffect.kind === "overconfident-stumble" && (
-            <AlertTriangle aria-hidden className="w-4 h-4 mt-0.5 shrink-0" />
+            <AlertTriangle aria-hidden className="w-4 h-4 shrink-0" />
           )}
           {confidenceEffect.kind === "confident-mastery" && (
-            <Sparkles aria-hidden className="w-4 h-4 mt-0.5 shrink-0" />
+            <Sparkles aria-hidden className="w-4 h-4 shrink-0" />
           )}
           {confidenceEffect.kind === "lucky-win" && (
-            <Dice5 aria-hidden className="w-4 h-4 mt-0.5 shrink-0" />
+            <Dice5 aria-hidden className="w-4 h-4 shrink-0" />
           )}
 
           <p className="text-sm leading-snug">{confidenceEffect.line}</p>
