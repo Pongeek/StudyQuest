@@ -234,7 +234,7 @@ export function describeConfidenceEffect(input: {
   const hasConfidentRight = answers.some(
     (a) => a.confidence === "confident" && a.ai_score >= 0.7,
   );
-  if (hasConfidentRight && adjustedQuality >= baseQuality) {
+  if (hasConfidentRight && adjustedQuality > baseQuality) {
     return {
       kind: "confident-mastery",
       line: "Mastered with confidence — pushed deeper into the queue.",
@@ -255,7 +255,12 @@ export function describeConfidenceEffect(input: {
 }
 ```
 
-The `adjustedQuality >= baseQuality` guard on the `confident-mastery` line catches the case where the user had a confident-right answer **and also a guessed-right answer in the same session**. The confident-right pushes that answer to quality 5; the guessed-right caps that answer at 3 (where its base might've been 4 or 5). After averaging, `adjustedQuality` can land equal to or below the pre-confidence `baseQuality` — and surfacing *"pushed deeper into the queue"* would lie in that case (the schedule didn't actually move deeper). The guard keeps the line honest: only fires when the confidence inputs net-positively moved the schedule out.
+The `adjustedQuality > baseQuality` guard on the `confident-mastery` line keeps the *"pushed deeper into the queue"* copy honest: it only fires when the confidence inputs **strictly** moved the SR quality higher than the score-derived baseline. Two cases the guard catches:
+
+1. **Perfect session with no headroom.** A session where `baseQuality === 5` already (`scorePct ≥ 90`), the confident-right answers can't push quality past 5, so `adjustedQuality === baseQuality === 5` and SM-2 produces an identical schedule. Saying "pushed deeper" would be misleading — nothing moved.
+2. **Confident-right + guessed-right in the same session.** Confident-right pushes that answer to quality 5; guessed-right caps the other answer at 3 (where its base might've been 4 or 5). After averaging, `adjustedQuality` can land equal to or below the pre-confidence `baseQuality` — and the chip would lie about the schedule moving deeper.
+
+A strict `>` (not `>=`) is necessary: equality means SM-2 produced the same result, which is the case the chip should not fire on.
 
 **Logging** (in the route, after the SR call):
 
