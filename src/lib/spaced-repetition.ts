@@ -106,7 +106,7 @@ export function describeConfidenceEffect(input: {
   const hasConfidentRight = answers.some(
     (a) => a.confidence === "confident" && a.ai_score >= 0.7,
   );
-  if (hasConfidentRight && adjustedQuality >= baseQuality) {
+  if (hasConfidentRight && adjustedQuality > baseQuality) {
     return {
       kind: "confident-mastery",
       line: "Mastered with confidence — pushed deeper into the queue.",
@@ -142,9 +142,13 @@ export function computeNextReviewFromQuality(
     reviewCount = 0;
   } else {
     // Passed — SM-2 interval progression
-    if (reviewCount === 0) intervalDays = 1;
-    else if (reviewCount === 1) intervalDays = 6;
-    else intervalDays = Math.round(intervalDays * easeFactor);
+    if (reviewCount === 0) {
+      intervalDays = 1;
+    } else if (reviewCount === 1) {
+      intervalDays = 6;
+    } else {
+      intervalDays = Math.round(intervalDays * easeFactor);
+    }
     // SM-2 ease update formula
     easeFactor = Math.max(
       MIN_EASE,
