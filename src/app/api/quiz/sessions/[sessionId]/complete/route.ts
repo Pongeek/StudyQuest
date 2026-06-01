@@ -3,7 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { generateSessionDebrief } from "@/lib/ai/session-debrief";
 import { calculateSessionXp, calculateMasteryLevel } from "@/lib/xp";
-import { computeNextReview } from "@/lib/spaced-repetition";
+import {
+  aiScoreToQuality,
+  adjustQualityForConfidence,
+  computeNextReviewFromQuality,
+  describeConfidenceEffect,
+  scoreToQuality,
+  type Confidence,
+} from "@/lib/spaced-repetition";
 import { computeStreakUpdate } from "@/lib/streak";
 
 export const maxDuration = 60;
@@ -56,6 +63,17 @@ export async function POST(
     ? (answers.reduce((sum: number, a: any) => sum + a.score, 0) / answers.length) * 100
     : 0;
 
+  // Fetch persisted per-answer confidence for this session's SR modulation.
+  // quiz_answers.confidence is set by the client AFTER initial answer
+  // submission (PATCH /api/quiz/answers/[answerId]/confidence), so the DB
+  // row is the source of truth — the request body's `answers` carries
+  // `score` but never `confidence`. Read both ai_score AND confidence here
+  // so the modulation uses one consistent source for both fields.
+  const { data: persistedAnswers } = await supabase
+    .from("quiz_answers")
+    .select("ai_score, confidence")
+    .eq("session_id", sessionId);
+
   // Get existing mastery to compute new level
   const { data: existingMastery } = await supabase
     .from("user_topic_mastery")
@@ -103,12 +121,51 @@ export async function POST(
     { onConflict: "user_id,topic_id" }
   );
 
-  // Compute SR scheduling — completing a regular quiz counts as a review
-  const nextSr = computeNextReview(scorePct, {
+  // Compute SR scheduling — completing a regular quiz counts as a review.
+  // Quiz /complete folds quiz_answers.confidence into a per-answer quality,
+  // averages across the session, then runs SM-2 against the adjusted quality.
+  // See spec docs/superpowers/specs/2026-06-01-confidence-weighted-sm2-design.md.
+  const sourceAnswers = (persistedAnswers ?? []).map(
+    (a: { ai_score: number | null; confidence: string | null }) => ({
+      ai_score: Number(a.ai_score) || 0,
+      confidence: (a.confidence as Confidence) ?? null,
+    })
+  );
+
+  const perAnswerQualities = sourceAnswers.map(
+    (a: { ai_score: number; confidence: Confidence }) => {
+      const base = aiScoreToQuality(a.ai_score);
+      const isCorrect = a.ai_score >= 0.7;
+      return adjustQualityForConfidence(base, isCorrect, a.confidence);
+    }
+  );
+  const adjustedQuality =
+    perAnswerQualities.length > 0
+      ? Math.round(
+          perAnswerQualities.reduce((s: number, q: number) => s + q, 0) /
+            perAnswerQualities.length,
+        )
+      : 0;
+
+  const baseQuality = scoreToQuality(scorePct);
+
+  const nextSr = computeNextReviewFromQuality(adjustedQuality, {
     intervalDays: existingMastery?.review_interval_days ?? 1,
     easeFactor: existingMastery?.ease_factor ?? 2.5,
     reviewCount: existingMastery?.review_count ?? 0,
   });
+
+  const confidenceEffect = describeConfidenceEffect({
+    answers: sourceAnswers,
+    adjustedQuality,
+    baseQuality,
+  });
+
+  console.log(
+    `[quiz/complete] SR: base=${baseQuality} confidence-adjusted=${adjustedQuality} ` +
+      `(${sourceAnswers.length} answers; effect=${confidenceEffect?.kind ?? "none"}; ` +
+      `interval=${nextSr.intervalDays}d)`,
+  );
 
   await supabase
     .from("user_topic_mastery")
@@ -206,6 +263,7 @@ export async function POST(
     newMasteryLevel,
     masteryEvolution,
     debrief,
+    confidenceEffect,
     newStreak,
     newAchievements,
     streakAction: streakResult.action,
