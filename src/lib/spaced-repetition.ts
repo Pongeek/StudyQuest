@@ -82,10 +82,11 @@ export function adjustQualityForConfidence(
  *  when no signal qualifies (all-unrated or all-unsure session).
  *
  *  Priority: overconfident-stumble > confident-mastery > lucky-win.
- *  confident-mastery requires `adjustedQuality >= baseQuality` so a session
- *  with both confident-right AND guessed-right (where the guessed-right cap
- *  drags the average back down to baseQuality) doesn't lie about pushing
- *  the schedule deeper. */
+ *  confident-mastery requires `adjustedQuality > baseQuality` (strict) so
+ *  the chip only fires when confidence STRICTLY moved the SR quality up.
+ *  Equality means SM-2 produces the same schedule — saying "pushed deeper"
+ *  in that case would lie. Catches both the perfect-session-no-headroom
+ *  case and the confident-right + guessed-right offset case. */
 export function describeConfidenceEffect(input: {
   answers: Array<{ ai_score: number; confidence: Confidence }>;
   adjustedQuality: number;
