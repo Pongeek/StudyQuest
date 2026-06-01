@@ -11,6 +11,12 @@
  *
  * Failures (quality < 3) reset interval to 1 day, decrement ease.
  * Successes extend interval by interval × ease, with standard SM-2 ease update.
+ *
+ * Confidence-weighted variant: Quiz /complete folds quiz_answers.confidence
+ * into a per-answer quality (see adjustQualityForConfidence + the 4-cell grid
+ * documented in docs/superpowers/specs/2026-06-01-confidence-weighted-sm2-design.md),
+ * averages across the session, and calls computeNextReviewFromQuality directly.
+ * Review's /complete keeps the legacy computeNextReview(scorePct, ...) call.
  */
 
 export interface ReviewState {
@@ -21,6 +27,18 @@ export interface ReviewState {
 
 export interface NextReviewResult extends ReviewState {
   nextReviewAt: Date;
+}
+
+export type Confidence = "guessed" | "unsure" | "confident" | null;
+
+export type ConfidenceEffectKind =
+  | "overconfident-stumble"
+  | "confident-mastery"
+  | "lucky-win";
+
+export interface ConfidenceEffect {
+  kind: ConfidenceEffectKind;
+  line: string;
 }
 
 const MIN_EASE = 1.3;
@@ -34,12 +52,87 @@ export function scoreToQuality(scorePct: number): number {
   return 0;
 }
 
-export function computeNextReview(
-  scorePct: number,
+/** Per-answer ai_score (0..1) → base SM-2 quality (0..5). Same thresholds as
+ *  scoreToQuality (which takes 0..100). */
+export function aiScoreToQuality(aiScore: number): number {
+  return scoreToQuality(aiScore * 100);
+}
+
+/** Four-cell symmetric confidence modulation (see spec §3.2):
+ *   confident + wrong  → 0   (overconfidence = strongest re-review signal)
+ *   confident + right  → 5   (strongest mastery signal)
+ *   guessed   + right  → min(base, 3)  (lucky guess; schedule sooner)
+ *   guessed   + wrong  → base          (already a fail; no double-punishment)
+ *   unsure / null      → base
+ * "Right" defined as ai_score >= 0.7 to match the existing route. */
+export function adjustQualityForConfidence(
+  base: number,
+  isCorrect: boolean,
+  confidence: Confidence,
+): number {
+  if (!confidence || confidence === "unsure") return base;
+  if (confidence === "confident") return isCorrect ? 5 : 0;
+  // confidence === "guessed"
+  if (isCorrect) return Math.min(base, 3);
+  return base;
+}
+
+/** Pick the highest-priority confidence signal in a session and return a
+ *  Loremaster-voiced one-liner for the SessionDebrief chip. Returns null
+ *  when no signal qualifies (all-unrated or all-unsure session).
+ *
+ *  Priority: overconfident-stumble > confident-mastery > lucky-win.
+ *  confident-mastery requires `adjustedQuality >= baseQuality` so a session
+ *  with both confident-right AND guessed-right (where the guessed-right cap
+ *  drags the average back down to baseQuality) doesn't lie about pushing
+ *  the schedule deeper. */
+export function describeConfidenceEffect(input: {
+  answers: Array<{ ai_score: number; confidence: Confidence }>;
+  adjustedQuality: number;
+  baseQuality: number;
+}): ConfidenceEffect | null {
+  const { answers, adjustedQuality, baseQuality } = input;
+
+  const hasConfidentWrong = answers.some(
+    (a) => a.confidence === "confident" && a.ai_score < 0.7,
+  );
+  if (hasConfidentWrong) {
+    return {
+      kind: "overconfident-stumble",
+      line: "Confident but stumbled — the trial returns sooner.",
+    };
+  }
+
+  const hasConfidentRight = answers.some(
+    (a) => a.confidence === "confident" && a.ai_score >= 0.7,
+  );
+  if (hasConfidentRight && adjustedQuality >= baseQuality) {
+    return {
+      kind: "confident-mastery",
+      line: "Mastered with confidence — pushed deeper into the queue.",
+    };
+  }
+
+  const hasLuckyWin = answers.some(
+    (a) => a.confidence === "guessed" && a.ai_score >= 0.7,
+  );
+  if (hasLuckyWin) {
+    return {
+      kind: "lucky-win",
+      line: "Lucky guess — back on the queue soon.",
+    };
+  }
+
+  return null;
+}
+
+/** Variant of computeNextReview that takes a pre-computed quality. Used by
+ *  Quiz /complete which folds confidence in per-answer. */
+export function computeNextReviewFromQuality(
+  quality: number,
   current: ReviewState,
-  now: Date = new Date()
+  now: Date = new Date(),
 ): NextReviewResult {
-  const quality = scoreToQuality(scorePct);
   let { intervalDays, easeFactor, reviewCount } = current;
 
   if (quality < 3) {
@@ -49,23 +142,29 @@ export function computeNextReview(
     reviewCount = 0;
   } else {
     // Passed — SM-2 interval progression
-    if (reviewCount === 0) {
-      intervalDays = 1;
-    } else if (reviewCount === 1) {
-      intervalDays = 6;
-    } else {
-      intervalDays = Math.round(intervalDays * easeFactor);
-    }
+    if (reviewCount === 0) intervalDays = 1;
+    else if (reviewCount === 1) intervalDays = 6;
+    else intervalDays = Math.round(intervalDays * easeFactor);
     // SM-2 ease update formula
     easeFactor = Math.max(
       MIN_EASE,
-      easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
+      easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)),
     );
     reviewCount += 1;
   }
 
   const nextReviewAt = new Date(now.getTime() + intervalDays * 86_400 * 1000);
   return { intervalDays, easeFactor, reviewCount, nextReviewAt };
+}
+
+/** Legacy entry point — Review's /complete still calls this. Identical
+ *  behavior to the pre-refactor version; just delegates through quality. */
+export function computeNextReview(
+  scorePct: number,
+  current: ReviewState,
+  now: Date = new Date(),
+): NextReviewResult {
+  return computeNextReviewFromQuality(scoreToQuality(scorePct), current, now);
 }
 
 /** XP earned per correct review answer. Smaller than a fresh quiz. */
