@@ -10,16 +10,22 @@ Built with **Next.js 16**, **React 19**, **Tailwind v4**, **Supabase**, **Clerk*
 
 ### Core learning loop
 - 📄 **PDF → Course extraction** - drop in a syllabus or textbook PDF; Claude classifies it into episodes and topics
+- 📚 **Per-episode upload pipeline** - upload one chapter PDF at a time (up to 32 MB; 20 MB warning tier) so big textbooks stay snappy and reliable
 - 🎯 **Mixed-format quizzes** - multiple-choice + open-ended questions per topic, AI-graded with feedback
+- 🖼️ **Image answers** - attach a hand-drawn diagram (automata, derivations, proofs); Claude vision grades the picture alongside the typed answer
 - 🐍 **Boss fights** - comprehensive end-of-episode challenges covering every topic in the episode
 - 📑 **Exam prep mode** - upload past exams; Claude extracts real questions for timed or untimed practice with a real-exam debrief at the end
 - 🧠 **Spaced repetition** - SM-2 algorithm schedules review sessions so things actually stick
 - 🎓 **Feynman mode** - teach a topic back to a curious AI student to prove deeper understanding
 - 📕 **Mistake Grimoire** - questions you've failed twice surface as "demons" to slay
+- 🤔 **"Why was I wrong?" clarifier** - inline multi-turn chat with the Loremaster after a wrong quiz answer; confidence-aware so it meets you where you are (currently Quiz-only; Review/Boss/Exam coming)
+- 🔄 **Regenerate question** - swap an ambiguous or hallucinated AI question for a fresh variant on the same concept (old row soft-replaced so quiz history stays intact)
+- 📜 **Per-topic cheat sheet** - one-page Markdown + LaTeX summary on demand; cached per topic, Hebrew + math rendered correctly
 
 ### Gamification & dopamine
 - 🏆 **XP, levels, ranks** - every answer earns XP; level-up moments are full-screen celebrations
-- 🔥 **Streaks** - daily-study streak with rescue prompts before it breaks
+- 🎖️ **6-tier rank progression** - Novice → Apprentice → Adept → Expert → Master → Sage, each with distinct frame chrome, glow, and accent color; tier crossings fire a full "RANK UP!" overlay with the new tier's identity as the reveal
+- 🔥 **Streaks + ❄ freeze tokens** - daily-study streak with rescue prompts before it breaks; earn 1 freeze token per 7-day streak (max 3) that automatically bridges a missed day so a single off-day doesn't wipe weeks of progress
 - ⭐ **Mastery tiers** - each topic evolves through Novice → Apprentice → Adept → Expert → Master, with distinct visual treatments per tier on the course map
 - 🎰 **Slot-machine achievements** - rare random unlocks alongside skill-based ones
 - 🎵 **Sound design** - Web Audio synth (no asset files) reacts to correct/wrong, combos, level-ups, and grading completion
@@ -28,8 +34,12 @@ Built with **Next.js 16**, **React 19**, **Tailwind v4**, **Supabase**, **Clerk*
 
 ### UI polish
 - 🎨 **Pixel-elegant Hero HUD** - distinct level frame, rank chip, segmented XP bar, pixel-font stat labels - shared across dashboard, profile, and landing
+- 🎯 **Smart Next Best Action widget** - cycling dashboard pill that picks the single highest-value next move (exam crunch, streak save, boss ready, demon pile, due reviews, today's quest); paired with the Exam Countdown card in one urgency row
+- 📊 **Today's stats strip** - slim row under the hero showing today's questions / accuracy / minutes / XP; hides cleanly on a fresh-morning visit
+- 🔮 **Subject-icon sigils** - each course tile picks a thematic Lucide icon (atom, flask, brain, sword, …) from its subject so the realm grid reads at a glance
 - 🌀 **Grading Overlay** - animated sigil + cycling status messages while Claude grades your session
 - 🌌 **Particle backgrounds**, **course map**, **achievement progress ring**, **study activity heatmap**
+- 🌍 **Hebrew & RTL support** - Hebrew courses render right-to-left throughout (questions, feedback, debriefs, cheat sheets, tables) with `dir="auto"` on every input
 - ♿ **WCAG AA contrast**, full keyboard navigation, `prefers-reduced-motion` respected
 
 ---
@@ -114,7 +124,7 @@ The fastest path:
 
 ### Caveats worth knowing
 
-- **PDF upload size**: `next.config.ts` permits 50 MB request bodies via the proxy, but Vercel functions have their own limits (4.5 MB body on Hobby, larger on Pro). For big course PDFs in production, expect to either bump to Pro or implement direct-to-Supabase-Storage uploads.
+- **PDF upload size**: the client-side dropzone blocks uploads over **32 MB** (Anthropic's PDF document-block ceiling) and warns at **20 MB** (extraction may take several minutes). `next.config.ts` still permits larger request bodies via the proxy, but Vercel functions have their own limits (4.5 MB body on Hobby, larger on Pro). For big textbooks, use the per-episode upload flow — one chapter PDF per episode keeps each request well under the limit.
 - **Long AI calls**: course extraction and exam processing run with `maxDuration: 300` (5 min). Vercel Hobby allows up to 60s of execution per function - Pro extends this. If you're on Hobby and your PDFs are large, processing may time out.
 - **Claude API costs**: every quiz, exam debrief, Feynman exchange, and daily Scroll calls Claude. Demoing this to friends with 5-10 users is fine; viral usage will rack up bills fast.
 
