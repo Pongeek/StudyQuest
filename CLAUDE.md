@@ -177,9 +177,9 @@ Whenever improving the frontend, make the app feel like the user is **leveling u
 
 ---
 
-## Current State (Checkpoint — 2026-05-30 evening)
+## Current State (Checkpoint — 2026-06-01)
 
-The MVP plus three content layers (Scroll / Grimoire / Feynman), the exam-prep loop, the image-answer pipeline, the per-episode upload pattern, full course/episode delete, the **Course Map redesign**, **weekly Study Report**, **per-topic Mastery Panel**, **Loremaster coach voice**, **grouped achievements + 6 new ones**, **first-run onboarding** (Welcome Modal + Empty Dashboard Hero), **episode-processing feedback** (Processing & Failed banners with classified errors + transition toasts), **grader/scroll/debrief failure UX** (classified errors + answer-draft persistence), **question regeneration** (soft-replace via Claude), **Smart Next Best Action widget** (cycling dashboard priority pill), **paired urgency row** (Exam Countdown cycle + NBA in one 2-col row), **6-tier level progression** (Novice/Apprentice/Adept/Expert/Master/Sage chrome with within-tier drift + RANK UP overlay + Sage gradient border + dual-color breathing), a **12-fix code-review correctness sweep** (soft-replace history integrity, image-only open answers, classified error envelopes + word-boundary status regex, narrow try/catch on regenerate, timezone-aware streak-save NBA, ExamCountdown compact-mode hook, isTierUp demotion guard, Novice baseline glow), **Confidence rating + "Why was I wrong?" clarifier** (Quiz pilot), **adaptive difficulty on regeneration** (mastery-anchored), **Stumbles LaTeX rendering fix**, **client-side PDF upload size cap** (20MB warn / 32MB block), **streak freeze tokens** (forgiveness mechanic), **Today's stats strip** (under hero), **per-topic cheat sheet generator** (Markdown+LaTeX, cached), the **MarkdownContent RTL table refactor** (universal Hebrew-table direction fix), a **5-fix `/code-review ultra` cluster on the 2026-05-30 sprint** (adaptive-difficulty dead-code column bug, boss-fight freeze toast missing `newStreak`, clarifier honest-image fallback + UPDATE error check + resume budget guard, bulk-regen IDOR ownership filter, Stumbles expanded-view block structure), and **subject-icon sigils on course tiles** (one Lucide ornament per course subject) are all shipped. The app is in active polish + new-feature mode. Read this section AND the next ("What shipped in May 2026") before touching anything.
+The MVP plus three content layers (Scroll / Grimoire / Feynman), the exam-prep loop, the image-answer pipeline, the per-episode upload pattern, full course/episode delete, the **Course Map redesign**, **weekly Study Report**, **per-topic Mastery Panel**, **Loremaster coach voice**, **grouped achievements + 6 new ones**, **first-run onboarding** (Welcome Modal + Empty Dashboard Hero), **episode-processing feedback** (Processing & Failed banners with classified errors + transition toasts), **grader/scroll/debrief failure UX** (classified errors + answer-draft persistence), **question regeneration** (soft-replace via Claude), **Smart Next Best Action widget** (cycling dashboard priority pill), **paired urgency row** (Exam Countdown cycle + NBA in one 2-col row), **6-tier level progression** (Novice/Apprentice/Adept/Expert/Master/Sage chrome with within-tier drift + RANK UP overlay + Sage gradient border + dual-color breathing), a **12-fix code-review correctness sweep** (soft-replace history integrity, image-only open answers, classified error envelopes + word-boundary status regex, narrow try/catch on regenerate, timezone-aware streak-save NBA, ExamCountdown compact-mode hook, isTierUp demotion guard, Novice baseline glow), **Confidence rating + "Why was I wrong?" clarifier** (Quiz pilot), **confidence-weighted SM-2 on the Quiz path** (4-cell symmetric grid: confident-wrong → quality 0, confident-right → 5, guessed-right → capped at 3; one-line indicator chip in SessionDebrief), **adaptive difficulty on regeneration** (mastery-anchored), **Stumbles LaTeX rendering fix**, **client-side PDF upload size cap** (20MB warn / 32MB block), **streak freeze tokens** (forgiveness mechanic), **Today's stats strip** (under hero), **per-topic cheat sheet generator** (Markdown+LaTeX, cached), the **MarkdownContent RTL table refactor** (universal Hebrew-table direction fix), a **5-fix `/code-review ultra` cluster on the 2026-05-30 sprint** (adaptive-difficulty dead-code column bug, boss-fight freeze toast missing `newStreak`, clarifier honest-image fallback + UPDATE error check + resume budget guard, bulk-regen IDOR ownership filter, Stumbles expanded-view block structure), and **subject-icon sigils on course tiles** (one Lucide ornament per course subject) are all shipped. The app is in active polish + new-feature mode. Read this section AND the next ("What shipped in May 2026") before touching anything.
 
 ### What's wired up
 
@@ -628,6 +628,41 @@ Final shipment of the day on `main` (commit `4443679`). Each course tile in the 
 - `src/app/dashboard/page.tsx` — `SUBJECT_ICON` const maps the slug → the actual Lucide component (kept on the consumer side so the helper stays React-free). Sigil renders as `<SigilIcon className="absolute -bottom-3 -right-3 w-24 h-24 text-white opacity-[0.07]" strokeWidth={1.5}/>` with `pointer-events-none` so the parent `<Link>` keeps the click target. Hover bumps to `opacity-[0.10]` for a subtle "alive" cue.
 - **Procedural patterns attempted first** (dots/grid/stripes) — felt ugly + competed with foreground text. Reverted before commit. One purposeful icon per tile reads cleanly. **Lesson**: when a tile feels visually empty, prefer ONE meaningful identifier over generic decoration.
 
+### Confidence-weighted SM-2 on the Quiz path (2026-06-01)
+
+First Phase-2 confidence shipment: folds `quiz_answers.confidence` (captured per migration 020) into the SM-2 quality calculation on Quiz `/complete`. Review / Boss / Exam SR paths unchanged this round.
+
+**Files touched:**
+- `src/lib/spaced-repetition.ts` — added `aiScoreToQuality`, `adjustQualityForConfidence`, `computeNextReviewFromQuality`, `describeConfidenceEffect` (all pure helpers). The legacy `computeNextReview(scorePct, …)` is now a thin wrapper delegating through `scoreToQuality` → `computeNextReviewFromQuality`. Review's call site is unchanged in behavior.
+- `src/app/api/quiz/sessions/[sessionId]/complete/route.ts` — added a fresh SELECT for persisted `(ai_score, confidence)` rows (the route never queried `quiz_answers` before — `answers` arrive via request body, and confidence is patched in post-grade via `PATCH /api/quiz/answers/[answerId]/confidence`, so the DB is the source of truth). Computes per-answer modulated quality, averages across the session, rounds, calls `computeNextReviewFromQuality`. Computes `confidenceEffect` for the indicator chip and includes it in the JSON response.
+- `src/components/quiz/QuizEngine.tsx` — threads `confidenceEffect` through `sessionSummary` state into the `<SessionDebrief>` prop (3 small changes, 6 lines total).
+- `src/components/quiz/SessionDebrief.tsx` — renders the indicator chip when non-null (red `AlertTriangle` / emerald `Sparkles` / amber `Dice5` with peer `pixel-border` + 4 corner-nail vocabulary). Spring-eased mount at 0.7s delay so it lands after the XP counter animation.
+
+**The four-cell symmetric grid (canonical reference):**
+
+| Confidence  | Wrong (< 0.7) | Right (≥ 0.7) |
+|-------------|---------------|---------------|
+| `confident` | **force 0**   | **force 5**   |
+| `guessed`   | base          | **min(base, 3)** |
+| `unsure`    | base          | base          |
+| `null`      | base          | base          |
+
+Per-answer quality is `aiScoreToQuality(ai_score)` then modulated by the grid; session quality is the rounded average. Server log line: `[quiz/complete] SR: base=N confidence-adjusted=N (M answers; effect=K; interval=Dd)`.
+
+**Indicator chip priority** (highest-priority signal wins when a session has multiple):
+1. Any `confident + wrong` → `overconfident-stumble` (red) — *"Confident but stumbled — the trial returns sooner."*
+2. Else any `confident + right` AND `adjustedQuality > baseQuality` (strict) → `confident-mastery` (emerald) — *"Mastered with confidence — pushed deeper into the queue."*
+3. Else any `guessed + right` → `lucky-win` (amber) — *"Lucky guess — back on the queue soon."*
+4. Else → `null` (chip hides).
+
+The **strict `>` guard** on `confident-mastery` catches two cases where the chip would otherwise lie: (a) a perfect session where `baseQuality === 5` already (confident-right answers can't push past 5 — SM-2 produces identical output); (b) a session with confident-right + guessed-right where the guessed-right `min(base, 3)` cap drags the average back to the pre-confidence baseline. Originally the spec said `>=`; ultra-review on Task 1 caught the bug and the implementation ships with `>`. Don't backslide.
+
+**Code-review pattern note** worth keeping: peer pixel-nail vocabulary uses `top-1.5 / bottom-1.5 / left-1.5 / right-1.5` + `z-[2]` on the nail spans. Tasks 3+4 initial commit had `top-1 / bottom-1` (4 px inset instead of the standard 6 px) — caught in code review. When adding a new pixel-bordered chip, grep `pixel-border` + `bg-red-400 z-` (or similar) in `src/components/dashboard/` or `src/components/course/` to verify peer offsets before committing.
+
+**Phase 2 follow-up still open:** Review's `confidence` column + UI + same modulation in Review `/complete`. Boss + Exam don't drive SR so no plan to add confidence there for SM-2 reasons (could still happen for clarifier).
+
+**Spec:** `docs/superpowers/specs/2026-06-01-confidence-weighted-sm2-design.md`. Plan: `docs/superpowers/plans/2026-06-01-confidence-weighted-sm2.md`. `docs/` is gitignored on purpose for laptop-local spec drafts; both files are committed in this round.
+
 ### AI infrastructure upgrades
 
 - **Tool use for question generation** — `extract-episode.ts`, `extract-exam-questions.ts`, and topic-question generation all now use Anthropic tool use (`tool_choice: { type: "tool", name: "save_..." }`). This eliminated an entire class of "slightly malformed JSON" parsing failures because Anthropic validates against the tool schema before returning.
@@ -713,7 +748,7 @@ The user is actively studying their real Automata / Computational Models course 
 **Tier-2 menu cleared 2026-05-30:** ✅ Confidence rating + "Why was I wrong?" clarifier (Quiz pilot — Review/Boss/Exam Phase 2), ✅ adaptive difficulty on regeneration (mastery-anchored), ✅ client-side PDF upload size cap (20MB warn / 32MB block), ✅ streak freeze tokens (forgiveness mechanic), ✅ Today's stats strip (under hero), ✅ per-topic cheat sheet generator + ✅ universal RTL table fix (MarkdownContent refactor benefits every Markdown surface). One bug fix: ✅ Stumbles LaTeX rendering. Branch `pedagogy-clarifier-confidence-quiz` shipped to `main` on 2026-05-30 evening — 7 feature commits + 1 docs commit. Followed same evening by a **`/code-review ultra` cluster of 5 single-fix commits** (adaptive-difficulty dead-code column, boss freeze toast missing `newStreak`, clarifier honest-image/UPDATE-check/resume-budget-guard, bulk regen IDOR, Stumbles expanded-view MarkdownContent) and a final ✅ **subject-icon sigils on course tiles** feature. All on `main`. Last commit of the day: `4443679` (subject sigils) at 2026-05-30 23:38 +03:00.
 
 **Tier-3 — bigger lifts:**
-- **Phase 2 of confidence + clarifier** — expand to Review / Boss / Exam engines. Add `UNIQUE(answer_kind, answer_id)` on `answer_clarifications` + upsert pattern in the open branch. SM-2 quality changes designed in the spec but unimplemented.
+- **Phase 2 of confidence + clarifier** — expand to Review / Boss / Exam engines. Add `UNIQUE(answer_kind, answer_id)` on `answer_clarifications` + upsert pattern in the open branch. SM-2 quality changes shipped on the Quiz path 2026-06-01; Review still needs the column + UI + the same modulation in its `/complete`.
 - **Question 👎 feedback button** — orthogonal to Regenerate (Regenerate = action; thumb-down = label). New `answer_feedback` table.
 - **Profile page Tier-B+ adoption** — page predates the Tier-B+ vocabulary. ~8 tasks.
 - **Daily review push/email** — habit loop. Needs email infra + cron job.
