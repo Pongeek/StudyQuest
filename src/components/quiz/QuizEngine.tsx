@@ -175,6 +175,10 @@ function QuizEngineInner({
     scorePct: number;
     debrief: { strengths: string[]; gaps: string[]; next_topic: string; reason: string } | null;
     masteryEvolution: { topicId: string; fromLevel: number; toLevel: number } | null;
+    confidenceEffect: {
+      kind: "overconfident-stumble" | "confident-mastery" | "lucky-win";
+      line: string;
+    } | null;
   } | null>(null);
   const [completionPhase, setCompletionPhase] = useState<CompletionPhase>("playing");
 
@@ -601,6 +605,7 @@ function QuizEngineInner({
         scorePct: data.scorePct,
         debrief: data.debrief,
         masteryEvolution: data.masteryEvolution ?? null,
+        confidenceEffect: data.confidenceEffect ?? null,
       });
       setCompletionPhase("summary-pending");
 
@@ -640,6 +645,7 @@ function QuizEngineInner({
         courseId={courseId}
         topicId={topicId}
         masteryEvolution={sessionSummary.masteryEvolution}
+        confidenceEffect={sessionSummary.confidenceEffect}
         results={buildResultsArray()}
       />
     );

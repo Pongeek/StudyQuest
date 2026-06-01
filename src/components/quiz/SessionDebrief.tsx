@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Trophy, Zap, ArrowRight, CheckCircle, XCircle, RotateCcw, Sparkles, Loader2 } from "lucide-react";
+import { Trophy, Zap, ArrowRight, CheckCircle, XCircle, RotateCcw, Sparkles, Loader2, AlertTriangle, Dice5 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Confetti from "@/components/effects/Confetti";
@@ -39,6 +39,13 @@ interface SessionDebriefProps {
    *  forwarded to the Course Map URL so the matching node plays the
    *  one-shot evolution celebration on arrival. */
   masteryEvolution?: { topicId: string; fromLevel: number; toLevel: number } | null;
+  /** Loremaster one-liner describing how confidence shifted the SR schedule.
+   *  Hidden when null (no confident or guessed answers in the session, or
+   *  the session's confidence didn't STRICTLY change the SR quality). */
+  confidenceEffect?: {
+    kind: "overconfident-stumble" | "confident-mastery" | "lucky-win";
+    line: string;
+  } | null;
   results: AnswerResult[];
 }
 
@@ -55,6 +62,7 @@ export default function SessionDebrief({
   topicId,
   sessionId,
   masteryEvolution,
+  confidenceEffect,
   results,
 }: SessionDebriefProps) {
   // Build the Course Map href, appending the evolution event when present so
@@ -175,6 +183,79 @@ export default function SessionDebrief({
           </motion.div>
         </div>
       </motion.div>
+
+      {/* ── Confidence-effect chip ──
+            Surfaces when at least one answer had a non-neutral confidence
+            rating AND that rating moved the SR schedule (strict > guard
+            in describeConfidenceEffect). Hidden cleanly otherwise. */}
+      {confidenceEffect && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7, duration: 0.4 }}
+          className={cn(
+            "pixel-border px-3.5 py-2.5 flex items-start gap-2.5 relative",
+            confidenceEffect.kind === "overconfident-stumble" &&
+              "bg-red-500/10 text-red-200",
+            confidenceEffect.kind === "confident-mastery" &&
+              "bg-emerald-500/10 text-emerald-200",
+            confidenceEffect.kind === "lucky-win" &&
+              "bg-amber-500/10 text-amber-200",
+          )}
+          role="status"
+          aria-live="polite"
+        >
+          {/* Pixel-nail corners — kind-tinted to match the chrome family. */}
+          <span
+            aria-hidden
+            className={cn(
+              "absolute top-1 left-1 w-1.5 h-1.5",
+              confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
+              confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
+              confidenceEffect.kind === "lucky-win" && "bg-amber-400",
+            )}
+          />
+          <span
+            aria-hidden
+            className={cn(
+              "absolute top-1 right-1 w-1.5 h-1.5",
+              confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
+              confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
+              confidenceEffect.kind === "lucky-win" && "bg-amber-400",
+            )}
+          />
+          <span
+            aria-hidden
+            className={cn(
+              "absolute bottom-1 left-1 w-1.5 h-1.5",
+              confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
+              confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
+              confidenceEffect.kind === "lucky-win" && "bg-amber-400",
+            )}
+          />
+          <span
+            aria-hidden
+            className={cn(
+              "absolute bottom-1 right-1 w-1.5 h-1.5",
+              confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
+              confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
+              confidenceEffect.kind === "lucky-win" && "bg-amber-400",
+            )}
+          />
+
+          {confidenceEffect.kind === "overconfident-stumble" && (
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          )}
+          {confidenceEffect.kind === "confident-mastery" && (
+            <Sparkles className="w-4 h-4 mt-0.5 shrink-0" />
+          )}
+          {confidenceEffect.kind === "lucky-win" && (
+            <Dice5 className="w-4 h-4 mt-0.5 shrink-0" />
+          )}
+
+          <p className="text-sm leading-snug">{confidenceEffect.line}</p>
+        </motion.div>
+      )}
 
       {/* AI Debrief */}
       {debrief && (
