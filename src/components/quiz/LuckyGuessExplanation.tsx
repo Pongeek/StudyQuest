@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Dice5, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,7 @@ export default function LuckyGuessExplanation({
 }: LuckyGuessExplanationProps) {
   const [status, setStatus] = useState<Status>("collapsed");
   const [content, setContent] = useState<string | null>(null);
+  const reduceMotion = useReducedMotion();
 
   const open = async () => {
     if (status === "loading" || status === "open") return;
@@ -77,6 +78,7 @@ export default function LuckyGuessExplanation({
         type="button"
         onClick={open}
         disabled={status === "loading"}
+        aria-busy={status === "loading"}
         className={cn(
           "mt-3 inline-flex items-center gap-1.5 pixel-chip px-3 py-1.5 font-pixel text-[9px] tracking-wider",
           "text-amber-300 border border-amber-500/30 hover:bg-amber-500/10",
@@ -100,33 +102,31 @@ export default function LuckyGuessExplanation({
 
   // status === "open"
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        role="region"
-        aria-label="Loremaster's take"
-        dir={dir}
-        className="mt-3 pixel-border bg-amber-500/10 px-4 py-3 relative"
-      >
-        {/* Pixel-nail corners — peer vocabulary: 1.5 offset + z-[2]. */}
-        <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[2]" />
-        <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[2]" />
-        <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[2]" />
-        <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[2]" />
+    <motion.div
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
+      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      role="region"
+      aria-label="Loremaster's take"
+      dir={dir}
+      className="mt-3 pixel-border bg-amber-500/10 px-4 py-3 relative"
+    >
+      {/* Pixel-nail corners — peer vocabulary: 1.5 offset + z-[2]. */}
+      <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[2]" />
+      <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[2]" />
+      <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[2]" />
+      <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[2]" />
 
-        <div className="flex items-center gap-2 mb-2">
-          <Dice5 aria-hidden className="w-4 h-4 text-amber-400" />
-          <span className="font-pixel text-[9px] tracking-wider text-amber-400">
-            LOREMASTER&apos;S TAKE
-          </span>
-        </div>
+      <div className="flex items-center gap-2 mb-2">
+        <Dice5 aria-hidden className="w-4 h-4 text-amber-400" />
+        <span className="font-pixel text-[9px] tracking-wider text-amber-400">
+          LOREMASTER&apos;S TAKE
+        </span>
+      </div>
 
-        <div className="text-sm text-slate-200 leading-relaxed">
-          <MarkdownContent>{content ?? ""}</MarkdownContent>
-        </div>
-      </motion.div>
-    </AnimatePresence>
+      <div className="text-sm text-slate-200 leading-relaxed">
+        <MarkdownContent>{content ?? ""}</MarkdownContent>
+      </div>
+    </motion.div>
   );
 }
