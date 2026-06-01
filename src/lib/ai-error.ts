@@ -27,6 +27,12 @@ export type AiErrorCode =
   // classified-error envelope so the existing answer-engine catch path
   // surfaces it as a useful toast instead of "AI broken, try again."
   | "QUESTION_RETIRED"
+  // A clarifier/coach session designed to be single-shot (e.g. lucky-guess
+  // explanations) rejecting a follow-up turn. Not retryable — the answer
+  // already happened and the session is intentionally closed. Distinct
+  // from QUESTION_RETIRED (where the underlying question changed) and
+  // from UNKNOWN (which implies the request might succeed on retry).
+  | "SESSION_CLOSED"
   | "UNKNOWN";
 
 export interface ClassifiedAiError {
