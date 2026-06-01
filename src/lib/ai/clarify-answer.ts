@@ -45,7 +45,7 @@ export interface ClarifierReply {
   stopReason: string;
 }
 
-function buildSystemPrompt(ctx: ClarifierContext): string {
+function buildWrongAnswerPrompt(ctx: ClarifierContext): string {
   const confidenceLine =
     ctx.confidence === "confident"
       ? "The student SAID they were CONFIDENT but got it wrong. Gently surface the gap — name what most students miss here. Do not shame."
@@ -80,6 +80,44 @@ Student's answer:
 ${ctx.studentAnswer || "(the student submitted a diagram only — the image is NOT available to you in this conversation. Ask them to describe what they drew before scaffolding the answer.)"}`;
 
   return withCoachPersona(task);
+}
+
+function buildLuckyGuessPrompt(ctx: ClarifierContext): string {
+  const task = `The student got this question RIGHT (score ${ctx.score.toFixed(2)}/1.0) but rated their confidence as GUESSED. They want to understand WHY their answer is correct so the next encounter isn't a guess.
+
+YOUR JOB
+- ONE paragraph. 3-5 sentences. No headers, no lists, no follow-up question.
+- OPEN by naming the trap — what about this question makes guessing tempting? (Distractors that look right, common confusion, surface-level pattern that misleads, etc.)
+- CLOSE with the actual reasoning behind the correct answer — conversational, not textbook.
+- Be neutral and instructive. No "Great job!" or "Lucky you!" — the Loremaster doesn't grovel.
+- Match the student's language. Hebrew in → Hebrew out.
+- Code blocks stay LTR; prose follows the student's direction.
+- Reference the source material implicitly, not by page number.
+
+CONTEXT
+Topic: ${ctx.topicTitle}
+${ctx.sourceExcerpt ? `Source excerpt:\n${ctx.sourceExcerpt}\n` : ""}
+Question:
+${ctx.question}
+
+The student's answer (which was correct):
+${ctx.studentAnswer || "(the student submitted a diagram only — the image is NOT available to you in this conversation. Reference what the correct answer would be in prose.)"}
+
+Canonical correct answer (don't paste verbatim — synthesize):
+${ctx.canonicalAnswer}`;
+
+  return withCoachPersona(task);
+}
+
+/** Polymorphic dispatch: lucky-guess (right + guessed) gets a single-paragraph
+ *  explainer; everything else (the original use case) gets the multi-turn
+ *  scaffolded wrong-answer chat. The branch is purely in the prompt — both
+ *  openClarifier and continueClarifier reuse this builder unchanged. */
+function buildSystemPrompt(ctx: ClarifierContext): string {
+  const isLuckyGuess = ctx.score >= 0.7 && ctx.confidence === "guessed";
+  return isLuckyGuess
+    ? buildLuckyGuessPrompt(ctx)
+    : buildWrongAnswerPrompt(ctx);
 }
 
 /**
