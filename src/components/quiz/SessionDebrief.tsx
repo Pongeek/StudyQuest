@@ -209,7 +209,7 @@ export default function SessionDebrief({
           <span
             aria-hidden
             className={cn(
-              "absolute top-1 left-1 w-1.5 h-1.5",
+              "absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[2]",
               confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
               confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
               confidenceEffect.kind === "lucky-win" && "bg-amber-400",
@@ -218,7 +218,7 @@ export default function SessionDebrief({
           <span
             aria-hidden
             className={cn(
-              "absolute top-1 right-1 w-1.5 h-1.5",
+              "absolute top-1.5 right-1.5 w-1.5 h-1.5 z-[2]",
               confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
               confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
               confidenceEffect.kind === "lucky-win" && "bg-amber-400",
@@ -227,7 +227,7 @@ export default function SessionDebrief({
           <span
             aria-hidden
             className={cn(
-              "absolute bottom-1 left-1 w-1.5 h-1.5",
+              "absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[2]",
               confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
               confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
               confidenceEffect.kind === "lucky-win" && "bg-amber-400",
@@ -236,7 +236,7 @@ export default function SessionDebrief({
           <span
             aria-hidden
             className={cn(
-              "absolute bottom-1 right-1 w-1.5 h-1.5",
+              "absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[2]",
               confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
               confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
               confidenceEffect.kind === "lucky-win" && "bg-amber-400",
@@ -244,13 +244,13 @@ export default function SessionDebrief({
           />
 
           {confidenceEffect.kind === "overconfident-stumble" && (
-            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+            <AlertTriangle aria-hidden className="w-4 h-4 mt-0.5 shrink-0" />
           )}
           {confidenceEffect.kind === "confident-mastery" && (
-            <Sparkles className="w-4 h-4 mt-0.5 shrink-0" />
+            <Sparkles aria-hidden className="w-4 h-4 mt-0.5 shrink-0" />
           )}
           {confidenceEffect.kind === "lucky-win" && (
-            <Dice5 className="w-4 h-4 mt-0.5 shrink-0" />
+            <Dice5 aria-hidden className="w-4 h-4 mt-0.5 shrink-0" />
           )}
 
           <p className="text-sm leading-snug">{confidenceEffect.line}</p>
