@@ -127,7 +127,7 @@ export async function POST(
   // See spec docs/superpowers/specs/2026-06-01-confidence-weighted-sm2-design.md.
   const sourceAnswers = (persistedAnswers ?? []).map(
     (a: { ai_score: number | null; confidence: string | null }) => ({
-      ai_score: Number(a.ai_score) || 0,
+      ai_score: a.ai_score ?? 0,
       confidence: (a.confidence as Confidence) ?? null,
     })
   );
