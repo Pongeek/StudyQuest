@@ -39,6 +39,7 @@ import RegenerateQuestionButton, {
 } from "@/components/quiz/RegenerateQuestionButton";
 import ConfidenceRow, { type Confidence } from "@/components/quiz/ConfidenceRow";
 import ClarifierThread from "@/components/quiz/ClarifierThread";
+import LuckyGuessExplanation from "@/components/quiz/LuckyGuessExplanation";
 import { calculateLevel, getLevelTitle, XP_REWARDS } from "@/lib/xp";
 import { readClassifiedErrorFromResponse, classifyAiError } from "@/lib/ai-error";
 import {
@@ -1179,6 +1180,15 @@ function QuizEngineInner({
                           onClose={() =>
                             updateQState(currentQuestion.id, { clarifierOpen: false })
                           }
+                        />
+                      )}
+
+                      {curState.result.score >= 0.7 &&
+                        curState.confidence === "guessed" &&
+                        curState.answerId && (
+                        <LuckyGuessExplanation
+                          answerId={curState.answerId}
+                          dir={rtl ? "rtl" : "ltr"}
                         />
                       )}
                     </>
