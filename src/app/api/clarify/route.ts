@@ -264,6 +264,25 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // ── Lucky-guess answers are SINGLE-SHOT — no follow-up turns ──
+    // Detected at the answer level: score >= 0.7 AND confidence === "guessed"
+    // (same condition used by buildSystemPrompt in clarify-answer.ts to pick
+    // the lucky-guess prompt). The lucky-guess UI never sends CONTINUE; this
+    // guard defends against any future client and is a no-op for the normal
+    // wrong-answer flow.
+    const isLuckyGuess =
+      Number(answerRow.ai_score) >= 0.7 && answerRow.confidence === "guessed";
+    if (isLuckyGuess) {
+      return NextResponse.json(
+        classifiedErrorBody(
+          "UNKNOWN",
+          "This explanation is single-shot — no follow-up available.",
+          false,
+        ),
+        { status: 409 },
+      );
+    }
+
     const history = existing.messages as ClarifierMessage[];
     const reply = await continueClarifier(ctx, history, message);
 
