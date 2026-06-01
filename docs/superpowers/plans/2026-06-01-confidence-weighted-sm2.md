@@ -842,11 +842,11 @@ Per-answer quality is `aiScoreToQuality(ai_score)` then modulated by the grid; s
 
 **Indicator chip priority** (highest-priority signal wins when a session has multiple):
 1. Any `confident + wrong` → `overconfident-stumble` (red) — *"Confident but stumbled — the trial returns sooner."*
-2. Else any `confident + right` AND `adjustedQuality >= baseQuality` → `confident-mastery` (emerald) — *"Mastered with confidence — pushed deeper into the queue."*
+2. Else any `confident + right` AND `adjustedQuality > baseQuality` (strict) → `confident-mastery` (emerald) — *"Mastered with confidence — pushed deeper into the queue."*
 3. Else any `guessed + right` → `lucky-win` (amber) — *"Lucky guess — back on the queue soon."*
 4. Else → `null` (chip hides).
 
-The `adjustedQuality >= baseQuality` guard on `confident-mastery` catches the edge where the same session has a `guessed-right` answer whose cap-at-3 drags the average back to the pre-confidence quality — the line would otherwise lie about pushing the schedule deeper.
+The strict `>` guard on `confident-mastery` catches two cases where the chip would otherwise lie: (a) a perfect session where `baseQuality === 5` already — SM-2 produces identical output regardless of confidence; (b) a session with confident-right + guessed-right where the guessed-right cap-at-3 drags the average back to the pre-confidence quality.
 
 **Phase 2 follow-up still open:** Review's `confidence` column + UI + same modulation in Review `/complete`. Boss + Exam don't drive SR so no plan to add confidence there for SM-2 reasons (could still happen for clarifier).
 
