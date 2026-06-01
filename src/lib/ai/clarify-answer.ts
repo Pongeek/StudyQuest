@@ -45,6 +45,16 @@ export interface ClarifierReply {
   stopReason: string;
 }
 
+/** Multi-turn scaffolded clarifier for the WRONG-ANSWER case.
+ *
+ *  Precondition (since the dispatcher branch landed): `ctx.score < 0.7` OR
+ *  (`ctx.score >= 0.7` AND `ctx.confidence !== "guessed"`). In practice this
+ *  is the "student got it wrong, any confidence" path — the original use
+ *  case the file was written for. The `confidence === "guessed"` arm of the
+ *  tone line below now silently means "wrong AND guessing" rather than
+ *  "guessing at any score"; the copy still fits because "Build from
+ *  primitives" is the right move whether the student was wrong because they
+ *  guessed or wrong for any other reason. */
 function buildWrongAnswerPrompt(ctx: ClarifierContext): string {
   const confidenceLine =
     ctx.confidence === "confident"
@@ -111,8 +121,12 @@ ${ctx.canonicalAnswer}`;
 
 /** Polymorphic dispatch: lucky-guess (right + guessed) gets a single-paragraph
  *  explainer; everything else (the original use case) gets the multi-turn
- *  scaffolded wrong-answer chat. The branch is purely in the prompt — both
- *  openClarifier and continueClarifier reuse this builder unchanged. */
+ *  scaffolded wrong-answer chat. The branch is transparent to both callers —
+ *  `openClarifier` and `continueClarifier` always call `buildSystemPrompt(ctx)`
+ *  with no awareness of which prompt body is selected. The route at
+ *  `/api/clarify` is responsible for gating CONTINUE on lucky-guess sessions
+ *  (single-shot enforcement) so the multi-paragraph prompt is never asked to
+ *  generate a follow-up turn it wasn't designed for. */
 function buildSystemPrompt(ctx: ClarifierContext): string {
   const isLuckyGuess = ctx.score >= 0.7 && ctx.confidence === "guessed";
   return isLuckyGuess
