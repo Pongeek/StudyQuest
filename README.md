@@ -19,12 +19,14 @@ Built with **Next.js 16**, **React 19**, **Tailwind v4**, **Supabase**, **Clerk*
 - 🎓 **Feynman mode** - teach a topic back to a curious AI student to prove deeper understanding
 - 📕 **Mistake Grimoire** - questions you've failed twice surface as "demons" to slay
 - 🤔 **"Why was I wrong?" clarifier** - inline multi-turn chat with the Loremaster after a wrong quiz answer; confidence-aware so it meets you where you are (currently Quiz-only; Review/Boss/Exam coming)
+- ✨ **Lucky-guess clarifier** - got the question right but rated it "I guessed"? One tap on `HEAR THE LOREMASTER'S TAKE →` opens a single-paragraph Loremaster explanation of why the answer is right and what trap made guessing tempting — so the next encounter isn't a guess
 - 🔄 **Regenerate question** - swap an ambiguous or hallucinated AI question for a fresh variant on the same concept (old row soft-replaced so quiz history stays intact)
 - 📜 **Per-topic cheat sheet** - one-page Markdown + LaTeX summary on demand; cached per topic, Hebrew + math rendered correctly
 
 ### Gamification & dopamine
 - 🏆 **XP, levels, ranks** - every answer earns XP; level-up moments are full-screen celebrations
 - 🎖️ **6-tier rank progression** - Novice → Apprentice → Adept → Expert → Master → Sage, each with distinct frame chrome, glow, and accent color; tier crossings fire a full "RANK UP!" overlay with the new tier's identity as the reveal
+- 🧠 **Confidence-weighted spacing** - rate each answer "guessed / unsure / confident" and the SM-2 scheduler folds that signal in. Confident-but-wrong fast-tracks the topic back tomorrow (overconfidence is the strongest re-review signal); confident-and-right pushes it deeper into the queue; lucky guesses come back sooner. A small chip on the debrief explains how the schedule moved.
 - 🔥 **Streaks + ❄ freeze tokens** - daily-study streak with rescue prompts before it breaks; earn 1 freeze token per 7-day streak (max 3) that automatically bridges a missed day so a single off-day doesn't wipe weeks of progress
 - ⭐ **Mastery tiers** - each topic evolves through Novice → Apprentice → Adept → Expert → Master, with distinct visual treatments per tier on the course map
 - 🎰 **Slot-machine achievements** - rare random unlocks alongside skill-based ones
