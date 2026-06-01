@@ -150,20 +150,27 @@ So Review's existing call site (`scorePct → quality → SM-2`) is unchanged in
 
 ### 3.4 Quiz `/complete` integration
 
-The existing SR call site becomes:
+The route currently receives `answers` via the **request body** (`{ answers, topicId, streakDays, maxCombo }`), not from a `quiz_answers` SELECT. The body's `answers` carry `score` but NEVER `confidence` — confidence is captured by the client AFTER initial answer submission via `PATCH /api/quiz/answers/[answerId]/confidence`, so the DB row is the source of truth for it. So `/complete` needs a fresh SELECT to read the persisted `(ai_score, confidence)` pairs:
 
 ```ts
-// Existing fetch — extend SELECT to include `confidence`.
-const { data: answers } = await supabase
+// New query — source of truth for the per-answer SR modulation.
+// Reads BOTH ai_score and confidence from the same row so the modulation
+// uses one consistent source (the persisted answer state at completion).
+const { data: persistedAnswers } = await supabase
   .from("quiz_answers")
-  .select("ai_score, confidence")          // confidence is the new field
+  .select("ai_score, confidence")
   .eq("session_id", sessionId);
 
+const sourceAnswers = (persistedAnswers ?? []).map((a) => ({
+  ai_score: Number(a.ai_score) || 0,
+  confidence: (a.confidence as Confidence) ?? null,
+}));
+
 // Per-answer confidence-modulated quality
-const perAnswerQualities = (answers ?? []).map((a) => {
-  const base = aiScoreToQuality(Number(a.ai_score) || 0);
-  const isCorrect = (Number(a.ai_score) || 0) >= 0.7;
-  return adjustQualityForConfidence(base, isCorrect, a.confidence as Confidence);
+const perAnswerQualities = sourceAnswers.map((a) => {
+  const base = aiScoreToQuality(a.ai_score);
+  const isCorrect = a.ai_score >= 0.7;
+  return adjustQualityForConfidence(base, isCorrect, a.confidence);
 });
 
 // Session-level quality: average, rounded
@@ -186,7 +193,7 @@ const nextSr = computeNextReviewFromQuality(adjustedQuality, currentState);
 const baseQuality = scoreToQuality(scorePct);
 
 const confidenceEffect = describeConfidenceEffect({
-  answers: answers ?? [],
+  answers: sourceAnswers,
   adjustedQuality,
   baseQuality,
 });
@@ -255,7 +262,7 @@ The `adjustedQuality >= baseQuality` guard on the `confident-mastery` line catch
 ```ts
 console.log(
   `[quiz/complete] SR: base=${baseQuality} confidence-adjusted=${adjustedQuality} ` +
-  `(${answers.length} answers; effect=${confidenceEffect?.kind ?? "none"}; ` +
+  `(${sourceAnswers.length} answers; effect=${confidenceEffect?.kind ?? "none"}; ` +
   `interval=${nextSr.intervalDays}d)`,
 );
 ```
