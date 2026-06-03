@@ -4,8 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { generateSessionDebrief } from "@/lib/ai/session-debrief";
 import { calculateSessionXp, calculateMasteryLevel } from "@/lib/xp";
 import {
-  aiScoreToQuality,
-  adjustQualityForConfidence,
+  computeConfidenceAdjustedQuality,
   computeNextReviewFromQuality,
   describeConfidenceEffect,
   scoreToQuality,
@@ -132,20 +131,7 @@ export async function POST(
     })
   );
 
-  const perAnswerQualities = sourceAnswers.map(
-    (a: { ai_score: number; confidence: Confidence }) => {
-      const base = aiScoreToQuality(a.ai_score);
-      const isCorrect = a.ai_score >= 0.7;
-      return adjustQualityForConfidence(base, isCorrect, a.confidence);
-    }
-  );
-  const adjustedQuality =
-    perAnswerQualities.length > 0
-      ? Math.round(
-          perAnswerQualities.reduce((s: number, q: number) => s + q, 0) /
-            perAnswerQualities.length,
-        )
-      : 0;
+  const adjustedQuality = computeConfidenceAdjustedQuality(sourceAnswers);
 
   const baseQuality = scoreToQuality(scorePct);
 

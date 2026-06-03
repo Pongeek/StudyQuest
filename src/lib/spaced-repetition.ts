@@ -77,6 +77,23 @@ export function adjustQualityForConfidence(
   return base;
 }
 
+/** Fold a set of graded + self-rated answers into a single SM-2 quality
+ *  (0..5). For each answer: base = aiScoreToQuality(ai_score), corrected by
+ *  adjustQualityForConfidence, then the per-answer qualities are averaged and
+ *  rounded. Used per-topic by Review /complete and session-wide for the
+ *  confidence chip. Mirrors the fold Quiz /complete applies. */
+export function computeConfidenceAdjustedQuality(
+  answers: Array<{ ai_score: number; confidence: Confidence }>,
+): number {
+  if (answers.length === 0) return 0;
+  const perAnswer = answers.map((a) => {
+    const base = aiScoreToQuality(a.ai_score);
+    const isCorrect = a.ai_score >= 0.7;
+    return adjustQualityForConfidence(base, isCorrect, a.confidence);
+  });
+  return Math.round(perAnswer.reduce((s, q) => s + q, 0) / perAnswer.length);
+}
+
 /** Pick the highest-priority confidence signal in a session and return a
  *  Loremaster-voiced one-liner for the SessionDebrief chip. Returns null
  *  when no signal qualifies (all-unrated or all-unsure session).
