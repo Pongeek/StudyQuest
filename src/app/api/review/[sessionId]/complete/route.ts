@@ -4,9 +4,12 @@ import { createServiceClient } from "@/lib/supabase/server";
 import {
   computeConfidenceAdjustedQuality,
   computeNextReviewFromQuality,
+  describeConfidenceEffect,
+  scoreToQuality,
   REVIEW_XP_PER_CORRECT,
   REVIEW_SESSION_BONUS_XP,
   type Confidence,
+  type ConfidenceEffectKind,
 } from "@/lib/spaced-repetition";
 import { calculateLevel, getLevelTitle } from "@/lib/xp";
 import { awardAchievementIfNew } from "@/lib/achievements";
@@ -176,6 +179,48 @@ export async function POST(
     });
   }
 
+  // ── Session-wide confidence chip (A2 Slice 2) ───────────────────────────────
+  // Mirrors the Quiz /complete path: one chip narrating the strongest
+  // confidence signal across the WHOLE session (all topics combined). The
+  // per-topic SR scheduling above stays per-topic (ADR-0001); this is purely
+  // a summary signal. Reuses the shared describeConfidenceEffect with
+  // session-wide inputs so the Quiz priority (overconfident-stumble >
+  // confident-mastery > lucky-win) carries over for free.
+  const sessionFoldAnswers = allAnswers.map((a) => ({
+    ai_score: a.ai_score,
+    confidence: a.confidence,
+  }));
+  const sessionScorePct =
+    totalAnswers > 0
+      ? (sessionFoldAnswers.reduce((s, a) => s + a.ai_score, 0) / totalAnswers) *
+        100
+      : 0;
+  const sessionAdjustedQuality = computeConfidenceAdjustedQuality(sessionFoldAnswers);
+  const sessionBaseQuality = scoreToQuality(sessionScorePct);
+  const rawConfidenceEffect = describeConfidenceEffect({
+    answers: sessionFoldAnswers,
+    adjustedQuality: sessionAdjustedQuality,
+    baseQuality: sessionBaseQuality,
+  });
+
+  // Re-voice the shared (singular) line for Review's multi-topic context
+  // WITHOUT mutating describeConfidenceEffect (Quiz must stay untouched). The
+  // chip's `kind` keeps the Quiz priority + visual treatment; only the copy
+  // pluralizes. Returns null cleanly when no signal qualifies.
+  const REVIEW_CONFIDENCE_LINES: Record<ConfidenceEffectKind, string> = {
+    "overconfident-stumble":
+      "Confident but stumbled — those trials return sooner.",
+    "confident-mastery":
+      "Mastered with confidence — pushed deeper into the queue.",
+    "lucky-win": "Lucky guesses — back on the queue soon.",
+  };
+  const confidenceEffect = rawConfidenceEffect
+    ? {
+        kind: rawConfidenceEffect.kind,
+        line: REVIEW_CONFIDENCE_LINES[rawConfidenceEffect.kind],
+      }
+    : null;
+
   // Update user XP and streak (with freeze-token forgiveness)
   const today = new Date().toISOString().split("T")[0];
   const streakResult = computeStreakUpdate({
@@ -266,6 +311,7 @@ export async function POST(
     totalCount: totalAnswers,
     newStreak,
     perTopicResults,
+    confidenceEffect,
     newAchievements,
     leveledUp,
     oldLevel,

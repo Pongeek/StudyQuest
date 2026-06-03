@@ -105,6 +105,12 @@ interface CompleteData {
   oldLevel: number;
   newLevel: number;
   newRank?: string;
+  /** Session-wide confidence chip (A2 Slice 2). Null when no confident/
+   *  guessed answer across the whole session moved the SR signal. */
+  confidenceEffect?: {
+    kind: "overconfident-stumble" | "confident-mastery" | "lucky-win";
+    line: string;
+  } | null;
 }
 
 interface ReviewEngineProps {
@@ -466,6 +472,7 @@ function ReviewEngineInner({
         oldLevel={completeData.oldLevel}
         newLevel={completeData.newLevel}
         newRank={completeData.newRank}
+        confidenceEffect={completeData.confidenceEffect}
       />
     );
   }

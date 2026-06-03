@@ -9,6 +9,9 @@ import {
   TrendingDown,
   Calendar,
   Home,
+  AlertTriangle,
+  Sparkles,
+  Dice5,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Confetti from "@/components/effects/Confetti";
@@ -49,6 +52,14 @@ const REVIEW_TIER_BADGE: Record<number, string> = {
   5: "border-amber-400/40 bg-amber-500/15 text-amber-300",
 };
 
+/** Session-wide confidence chip (A2 Slice 2). The strongest confidence signal
+ *  across the WHOLE session; null when nothing qualifies. `line` is the
+ *  Review-flavored (multi-topic) copy chosen server-side. */
+interface ConfidenceEffect {
+  kind: "overconfident-stumble" | "confident-mastery" | "lucky-win";
+  line: string;
+}
+
 interface ReviewSummaryProps {
   xpEarned: number;
   correctCount: number;
@@ -59,6 +70,7 @@ interface ReviewSummaryProps {
   oldLevel: number;
   newLevel: number;
   newRank?: string;
+  confidenceEffect?: ConfidenceEffect | null;
 }
 
 function formatInterval(days: number): string {
@@ -80,6 +92,7 @@ export default function ReviewSummary({
   oldLevel,
   newLevel,
   newRank,
+  confidenceEffect,
 }: ReviewSummaryProps) {
   const router = useRouter();
   const allPassed = perTopicResults.every((r) => r.passed);
@@ -176,6 +189,80 @@ export default function ReviewSummary({
             {correctCount} of {totalCount} correct &middot; {allPassed ? "All topics pushed forward" : "Some topics reset for extra practice"}
           </p>
         </motion.div>
+
+        {/* ── Session-wide confidence chip (A2 Slice 2) ──
+              One chip narrating the strongest confidence signal across the
+              whole session. Mirrors the SessionDebrief chip's pixel-border
+              treatment + kind-tinted corner nails + icon. Hidden cleanly when
+              no signal qualifies (chip prop is null). */}
+        {confidenceEffect && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+            className={cn(
+              "pixel-border px-3.5 py-2.5 flex items-center justify-center gap-2.5 relative text-center",
+              confidenceEffect.kind === "overconfident-stumble" &&
+                "bg-red-500/10 text-red-200",
+              confidenceEffect.kind === "confident-mastery" &&
+                "bg-emerald-500/10 text-emerald-200",
+              confidenceEffect.kind === "lucky-win" &&
+                "bg-amber-500/10 text-amber-200",
+            )}
+            role="status"
+            aria-live="polite"
+          >
+            {/* Pixel-nail corners — kind-tinted to match the chrome family. */}
+            <span
+              aria-hidden
+              className={cn(
+                "absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[2]",
+                confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
+                confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
+                confidenceEffect.kind === "lucky-win" && "bg-amber-400",
+              )}
+            />
+            <span
+              aria-hidden
+              className={cn(
+                "absolute top-1.5 right-1.5 w-1.5 h-1.5 z-[2]",
+                confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
+                confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
+                confidenceEffect.kind === "lucky-win" && "bg-amber-400",
+              )}
+            />
+            <span
+              aria-hidden
+              className={cn(
+                "absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[2]",
+                confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
+                confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
+                confidenceEffect.kind === "lucky-win" && "bg-amber-400",
+              )}
+            />
+            <span
+              aria-hidden
+              className={cn(
+                "absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[2]",
+                confidenceEffect.kind === "overconfident-stumble" && "bg-red-400",
+                confidenceEffect.kind === "confident-mastery" && "bg-emerald-400",
+                confidenceEffect.kind === "lucky-win" && "bg-amber-400",
+              )}
+            />
+
+            {confidenceEffect.kind === "overconfident-stumble" && (
+              <AlertTriangle aria-hidden className="w-4 h-4 shrink-0" />
+            )}
+            {confidenceEffect.kind === "confident-mastery" && (
+              <Sparkles aria-hidden className="w-4 h-4 shrink-0" />
+            )}
+            {confidenceEffect.kind === "lucky-win" && (
+              <Dice5 aria-hidden className="w-4 h-4 shrink-0" />
+            )}
+
+            <p className="text-sm leading-snug">{confidenceEffect.line}</p>
+          </motion.div>
+        )}
 
         {/* XP badge */}
         <motion.div
