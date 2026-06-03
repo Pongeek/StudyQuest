@@ -1,10 +1,16 @@
 // Multi-turn clarifier endpoint. Single endpoint serves all answer kinds
-// (quiz / review / boss / exam) so Phase 2 expansion adds no new routes —
-// but the pilot only accepts answerKind="quiz".
+// (quiz / review / boss / exam) so Phase 2 expansion adds no new routes.
+// Quiz + Review are live; boss / exam still return "coming soon".
 //
 // Body shapes:
 //   { answerKind, answerId }                  → open session (returns opener)
 //   { answerKind, answerId, message }         → continue (returns reply)
+//
+// All answer-table specifics are funneled through resolveAnswerContext(),
+// which returns a normalized, kind-agnostic shape. Every downstream branch
+// (question/topic fetch, transcript read/write, budget cap, lucky-guess
+// single-shot guard) consumes that shape and never touches a kind-specific
+// column again.
 
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
@@ -26,6 +32,103 @@ const SESSION_OUTPUT_TOKEN_CAP = 6000;
 
 type AnswerKind = "quiz" | "review" | "boss" | "exam";
 
+type SupabaseClient = ReturnType<typeof createServiceClient>;
+
+/**
+ * Normalized answer context — kind-agnostic. Resolved once per request from
+ * the answer-kind-specific table + ownership chain. ALL downstream logic
+ * consumes this shape and never re-touches a kind-specific column.
+ */
+interface AnswerContext {
+  userAnswer: string;
+  score: number;
+  confidence: ConfidenceValue | null;
+  questionId: string;
+  topicId: string;
+  ownerUserId: string;
+}
+
+/**
+ * Resolve + ownership-check an answer row, keyed on answerKind. Each live kind
+ * maps its own table + session ownership chain into the normalized shape.
+ *
+ * - quiz  : quiz_answers   → quiz_sessions(user_id)
+ * - review: review_answers → review_sessions(user_id)
+ *
+ * Returns null when the row doesn't exist OR the nested session can't be
+ * unwrapped (caller turns null into a 404). Ownership equality against the
+ * requesting dbUser is asserted by the caller via ctx.ownerUserId.
+ */
+async function resolveAnswerContext(
+  supabase: SupabaseClient,
+  answerKind: AnswerKind,
+  answerId: string,
+): Promise<AnswerContext | null> {
+  if (answerKind === "quiz") {
+    const { data: row } = await supabase
+      .from("quiz_answers")
+      .select(
+        `
+        user_answer,
+        ai_score,
+        confidence,
+        question_id,
+        quiz_sessions!inner ( user_id, topic_id )
+      `,
+      )
+      .eq("id", answerId)
+      .single();
+    if (!row) return null;
+    const session = Array.isArray(row.quiz_sessions)
+      ? row.quiz_sessions[0]
+      : row.quiz_sessions;
+    if (!session) return null;
+    return {
+      userAnswer: row.user_answer || "",
+      score: Number(row.ai_score) || 0,
+      confidence: (row.confidence as ConfidenceValue) || null,
+      questionId: row.question_id,
+      topicId: session.topic_id,
+      ownerUserId: session.user_id,
+    };
+  }
+
+  if (answerKind === "review") {
+    // review_answers carries its own topic_id (review sessions interleave
+    // topics), so we read it off the answer row, not the session.
+    const { data: row } = await supabase
+      .from("review_answers")
+      .select(
+        `
+        user_answer,
+        ai_score,
+        confidence,
+        question_id,
+        topic_id,
+        review_sessions!inner ( user_id )
+      `,
+      )
+      .eq("id", answerId)
+      .single();
+    if (!row) return null;
+    const session = Array.isArray(row.review_sessions)
+      ? row.review_sessions[0]
+      : row.review_sessions;
+    if (!session) return null;
+    return {
+      userAnswer: row.user_answer || "",
+      score: Number(row.ai_score) || 0,
+      confidence: (row.confidence as ConfidenceValue) || null,
+      questionId: row.question_id,
+      topicId: row.topic_id,
+      ownerUserId: session.user_id,
+    };
+  }
+
+  // boss / exam not wired yet — unreachable (gated earlier), but exhaustive.
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   let body: { answerKind?: AnswerKind; answerId?: string; message?: string };
   try {
@@ -45,9 +148,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Pilot scope: only quiz wired up. Review/Boss/Exam return a clean
-  // classified error so future client code can detect and gate.
-  if (answerKind !== "quiz") {
+  // Live scope: quiz + review. Boss/Exam return a clean classified error so
+  // future client code can detect and gate.
+  if (answerKind !== "quiz" && answerKind !== "review") {
     return NextResponse.json(
       classifiedErrorBody(
         "UNKNOWN",
@@ -85,41 +188,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Fetch the answer + ownership chain ─────────────────────────────────
-  // quiz_answers → quiz_sessions(user_id). The combined inner join gives
-  // us the answer + session user_id in one round-trip; we then assert it
-  // matches dbUser.id before doing anything else.
-  const { data: answerRow } = await supabase
-    .from("quiz_answers")
-    .select(
-      `
-      id,
-      user_answer,
-      ai_score,
-      ai_feedback,
-      image_url,
-      confidence,
-      question_id,
-      session_id,
-      quiz_sessions!inner ( user_id, topic_id )
-    `,
-    )
-    .eq("id", answerId)
-    .single();
-
-  if (!answerRow) {
+  // ── Resolve the answer + ownership via the kind-keyed normalizer ───────
+  const answerCtx = await resolveAnswerContext(supabase, answerKind, answerId);
+  if (!answerCtx) {
     return NextResponse.json(
       classifiedErrorBody("UNKNOWN", "That answer no longer exists. Refresh the page.", false),
       { status: 404 },
     );
   }
-
-  // Supabase types nested-join as an object OR array depending on relation
-  // metadata; defensively unwrap.
-  const session = Array.isArray(answerRow.quiz_sessions)
-    ? answerRow.quiz_sessions[0]
-    : answerRow.quiz_sessions;
-  if (!session || session.user_id !== dbUser.id) {
+  if (answerCtx.ownerUserId !== dbUser.id) {
     return NextResponse.json(
       classifiedErrorBody("AUTH_ERROR", "You don't have access to that trial.", false),
       { status: 403 },
@@ -128,11 +205,13 @@ export async function POST(request: NextRequest) {
 
   // ── Fetch question. INTENTIONALLY does NOT filter replaced_at IS NULL —
   // the clarifier MUST work against the question the student originally
-  // saw, even if it was soft-replaced later via Regenerate.
+  // saw, even if it was soft-replaced later via Regenerate. We resolve via
+  // the stored answer row's question_id, never a live lookup that could 404
+  // on a retired question.
   const { data: question } = await supabase
     .from("questions")
     .select("content, correct_answer, explanation, topic_id")
-    .eq("id", answerRow.question_id)
+    .eq("id", answerCtx.questionId)
     .single();
 
   if (!question) {
@@ -143,51 +222,37 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Fetch topic title ─────────────────────────────────────────────────
+  // Prefer the question's topic_id, falling back to the answer context's.
   const { data: topic } = await supabase
     .from("topics")
     .select("title")
-    .eq("id", question.topic_id)
+    .eq("id", question.topic_id ?? answerCtx.topicId)
     .single();
 
   // ── Existing clarification row (if any) ───────────────────────────────
-  // Use ordered .limit(1) + array access rather than .maybeSingle() so the
-  // query tolerates duplicate rows. Duplicates can appear in dev because
-  // React 19 + Next.js dev-mode StrictMode double-fires the useEffect that
-  // opens the clarifier — both opens race past the existing-check before
-  // either has committed, both INSERT, and we end up with 2 rows for the
-  // same (answer_kind, answer_id). .maybeSingle() errors on >1 rows and
-  // would make every continue call 404. .order().limit(1) always returns
-  // 0 or 1 — pick the oldest so we stay consistent with whatever the UI
-  // saw first. Production doesn't have StrictMode double-fire, but
-  // simultaneous tabs could still race; the same defensive pattern handles
-  // both. (Phase 2 follow-up: add UNIQUE(answer_kind, answer_id) +
-  // upsert with onConflict to eliminate the duplicate insert at the
-  // schema level.)
-  const { data: existingRows } = await supabase
+  // The migration-024 UNIQUE(answer_kind, answer_id) guarantees at most one
+  // row per session now, so .maybeSingle() is safe (no more StrictMode
+  // duplicate rows to tolerate).
+  const { data: existing } = await supabase
     .from("answer_clarifications")
     .select("id, messages, total_output_tokens, total_turns")
-    .eq("answer_kind", "quiz")
+    .eq("answer_kind", answerKind)
     .eq("answer_id", answerId)
-    .order("created_at", { ascending: true })
-    .limit(1);
-  const existing =
-    existingRows && existingRows.length > 0 ? existingRows[0] : null;
+    .maybeSingle();
 
   // ── Resolve confidence + image for the AI context ─────────────────────
-  // Pilot scope: image-only answers are supported in grading but the
-  // clarifier passes studentImage: null. If Max's manual test (Task 10)
-  // reveals the model can't clarify image-only answers well, the follow-up
-  // is to hydrate image bytes from quiz_answers.image_url via Supabase
-  // Storage. Not added preemptively (YAGNI).
+  // Image-only answers are supported in grading but the clarifier passes
+  // studentImage: null (parity with Quiz — YAGNI on Storage hydration; the
+  // system prompt honestly tells Claude the diagram isn't available).
   const ctx = {
     question: question.content,
-    studentAnswer: answerRow.user_answer || "",
+    studentAnswer: answerCtx.userAnswer,
     studentImage: null,
     canonicalAnswer: question.correct_answer || "",
-    score: Number(answerRow.ai_score) || 0,
+    score: answerCtx.score,
     topicTitle: topic?.title || "",
     sourceExcerpt: null,
-    confidence: (answerRow.confidence as ConfidenceValue) || null,
+    confidence: answerCtx.confidence,
   };
 
   try {
@@ -222,21 +287,28 @@ export async function POST(request: NextRequest) {
         createdAt: new Date().toISOString(),
       };
 
+      // Upsert on the (answer_kind, answer_id) unique constraint. If a
+      // concurrent open already inserted (e.g. StrictMode double-fire in
+      // dev), the conflict resolves to that row instead of erroring or
+      // creating a duplicate.
       const { data: created, error: insertErr } = await supabase
         .from("answer_clarifications")
-        .insert({
-          user_id: dbUser.id,
-          answer_kind: "quiz",
-          answer_id: answerId,
-          messages: [opener],
-          total_turns: 1,
-          total_output_tokens: reply.outputTokens,
-        })
+        .upsert(
+          {
+            user_id: dbUser.id,
+            answer_kind: answerKind,
+            answer_id: answerId,
+            messages: [opener],
+            total_turns: 1,
+            total_output_tokens: reply.outputTokens,
+          },
+          { onConflict: "answer_kind,answer_id", ignoreDuplicates: false },
+        )
         .select("id, messages")
         .single();
 
       if (insertErr || !created) {
-        console.error("[api/clarify] insert failed:", insertErr);
+        console.error("[api/clarify] upsert failed:", insertErr);
         return NextResponse.json(
           classifiedErrorBody("UNKNOWN", "Couldn't open the clarifier — try again.", true),
           { status: 500 },
@@ -273,7 +345,7 @@ export async function POST(request: NextRequest) {
     // single-shot wall" from a generic UNKNOWN ("try again, your answer is saved")
     // — the latter would mislead the user into retrying something that can't
     // succeed.
-    const isLuckyGuess = ctx.score >= 0.7 && answerRow.confidence === "guessed";
+    const isLuckyGuess = ctx.score >= 0.7 && answerCtx.confidence === "guessed";
     if (isLuckyGuess) {
       return NextResponse.json(
         classifiedErrorBody(

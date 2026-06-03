@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   DoorOpen,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,6 +31,7 @@ import ReviewSummary from "./ReviewSummary";
 import { type UnlockedAchievement } from "@/components/effects/AchievementUnlockOverlay";
 import AnswerImagePicker from "@/components/quiz/AnswerImagePicker";
 import ConfidenceRow, { type Confidence } from "@/components/quiz/ConfidenceRow";
+import ClarifierThread from "@/components/quiz/ClarifierThread";
 import RegenerateQuestionButton, {
   type RegeneratedQuestion,
 } from "@/components/quiz/RegenerateQuestionButton";
@@ -71,9 +73,12 @@ interface QuestionState {
   } | null;
   /** Phase 2: student's self-rated confidence (set after grading). */
   confidence: Confidence | null;
-  /** review_answers.id from the grade response — keys the confidence PATCH.
-   *  Null until graded. */
+  /** review_answers.id from the grade response — keys the confidence PATCH
+   *  and the clarifier thread. Null until graded. */
   answerId: string | null;
+  /** Slice 3: whether the wrong-answer clarifier thread is open. Stored
+   *  per-question so an open clarifier survives navigating away + back. */
+  clarifierOpen: boolean;
   visited: boolean;
   skipped: boolean;
 }
@@ -134,6 +139,7 @@ function ReviewEngineInner({
         result: null,
         confidence: null,
         answerId: null,
+        clarifierOpen: false,
         visited: i === 0,
         skipped: false,
       });
@@ -171,6 +177,7 @@ function ReviewEngineInner({
           result: null,
           confidence: null,
           answerId: null,
+          clarifierOpen: false,
           visited: true,
           skipped: false,
         });
@@ -234,6 +241,7 @@ function ReviewEngineInner({
         result: null,
         confidence: null,
         answerId: null,
+        clarifierOpen: false,
         visited: false,
         skipped: false,
       },
@@ -250,6 +258,7 @@ function ReviewEngineInner({
         result: null,
         confidence: null,
         answerId: null,
+        clarifierOpen: false,
         visited: false,
         skipped: false,
       };
@@ -941,33 +950,62 @@ function ReviewEngineInner({
                   </div>
                 )}
 
-                {/* ── Phase 2: confidence row ──
-                     Appears once the answer is graded AND we have an
-                     answerId (the PATCH endpoint keys off it). Shown for
-                     both correct and wrong answers, MCQ and open. The
-                     self-report folds into this topic's SM-2 schedule at
-                     /complete (per ADR-0001). The wrong-answer + lucky-guess
-                     clarifiers land in later slices. */}
+                {/* ── Phase 2: confidence row + wrong-answer clarifier ──
+                     Both appear once the answer is graded AND we have an
+                     answerId (the PATCH + clarifier endpoints key off it).
+                     ConfidenceRow is always visible; the clarifier button
+                     only shows on wrong / partial answers (score < 0.7).
+                     The self-report folds into this topic's SM-2 schedule at
+                     /complete (per ADR-0001). Indigo Loremaster chrome is
+                     kept intact even on Review's cyan surface. The
+                     lucky-guess clarifier (right answer rated "guessed")
+                     lands in a later slice. */}
                 {curState.answerId && (
-                  <ConfidenceRow
-                    value={curState.confidence}
-                    dir={rtl ? "rtl" : "ltr"}
-                    onChange={(next: Confidence) => {
-                      updateQState(currentQuestion.id, { confidence: next });
-                      // Fire-and-forget. Silent on failure — the user already
-                      // has the grade; confidence isn't critical-path.
-                      fetch(
-                        `/api/review/answers/${curState.answerId}/confidence`,
-                        {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ confidence: next }),
-                        },
-                      ).catch((err) =>
-                        console.warn("[ReviewEngine] confidence PATCH failed:", err),
-                      );
-                    }}
-                  />
+                  <>
+                    <ConfidenceRow
+                      value={curState.confidence}
+                      dir={rtl ? "rtl" : "ltr"}
+                      onChange={(next: Confidence) => {
+                        updateQState(currentQuestion.id, { confidence: next });
+                        // Fire-and-forget. Silent on failure — the user already
+                        // has the grade; confidence isn't critical-path.
+                        fetch(
+                          `/api/review/answers/${curState.answerId}/confidence`,
+                          {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ confidence: next }),
+                          },
+                        ).catch((err) =>
+                          console.warn("[ReviewEngine] confidence PATCH failed:", err),
+                        );
+                      }}
+                    />
+
+                    {curState.result.score < 0.7 && !curState.clarifierOpen && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateQState(currentQuestion.id, { clarifierOpen: true })
+                        }
+                        className="mt-3 inline-flex items-center gap-1.5 pixel-chip px-3 py-1.5 font-pixel text-[9px] tracking-wider text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/10"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                        HELP ME UNDERSTAND →
+                      </button>
+                    )}
+
+                    {curState.result.score < 0.7 && curState.clarifierOpen && (
+                      <ClarifierThread
+                        answerKind="review"
+                        answerId={curState.answerId}
+                        dir={rtl ? "rtl" : "ltr"}
+                        onClose={() =>
+                          updateQState(currentQuestion.id, { clarifierOpen: false })
+                        }
+                      />
+                    )}
+                  </>
                 )}
               </motion.div>
             )}

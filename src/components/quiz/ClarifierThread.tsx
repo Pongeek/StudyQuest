@@ -11,7 +11,7 @@ type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
 
 interface ClarifierThreadProps {
-  answerKind: "quiz";
+  answerKind: "quiz" | "review";
   answerId: string;
   dir?: "ltr" | "rtl" | "auto";
   onClose: () => void;
