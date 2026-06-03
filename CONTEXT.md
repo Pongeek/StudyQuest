@@ -1,0 +1,38 @@
+# StudyQuest — Context Glossary
+
+A shared vocabulary for StudyQuest. Definitions only — no implementation
+details. When a term here conflicts with how the code or a conversation uses a
+word, the conflict gets resolved and this file updated.
+
+## Sessions
+
+- **Quiz session** — a study session scoped to a **single topic**. Spaced-repetition
+  scheduling produces one update for that topic at completion.
+- **Review session** — a spaced-repetition session that **interleaves multiple
+  topics** (several topics, a small number of questions each). Scheduling is
+  computed **independently per topic** at completion, not once for the session.
+- **Boss fight** — an end-of-episode comprehensive trial covering a whole episode.
+- **Exam (prep) session** — practice against questions extracted from a real past
+  exam; feedback is deferred to the end to mimic real exam conditions.
+
+## Spaced repetition
+
+- **Quality** — the SM-2 grade (0–5) derived from how an answer scored. Drives
+  the next-review interval.
+- **Confidence** — the learner's **self-reported** certainty about an answer,
+  captured *after* grading: `guessed`, `unsure`, or `confident`. Distinct from
+  Quality (which is measured, not self-reported).
+- **Confidence-weighted scheduling** — folding Confidence into Quality so that
+  self-knowledge changes the review interval (e.g. confident-but-wrong reviews
+  sooner; confident-and-right pushes deeper).
+- **Lucky guess** — a correct answer the learner marked `guessed`. Treated as a
+  weaker mastery signal than a confident-correct answer.
+- **Overconfident stumble** — a wrong answer the learner marked `confident`. The
+  strongest "review this again soon" signal.
+
+## Coaching voice
+
+- **Loremaster** — the single in-character coaching voice the AI uses for grading
+  feedback, debriefs, and the answer clarifier.
+- **Clarifier** — a short, in-character follow-up conversation that explains why an
+  answer was wrong (or why a lucky guess was still right).
