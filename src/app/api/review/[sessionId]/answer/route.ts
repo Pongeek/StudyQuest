@@ -138,17 +138,24 @@ export async function POST(
     feedback = result.feedback;
   }
 
-  await supabase.from("review_answers").insert({
-    review_session_id: sessionId,
-    question_id: questionId,
-    topic_id: topicId,
-    user_answer: userAnswer,
-    ai_score: score,
-    ai_feedback: feedback,
-    image_url: uploadedImage?.storagePath ?? null,
-  });
+  // Capture the inserted answer id so the client can PATCH confidence onto
+  // this exact row (parallel to the Quiz path). Null on insert failure —
+  // the confidence row simply won't render without an answerId.
+  const { data: inserted } = await supabase
+    .from("review_answers")
+    .insert({
+      review_session_id: sessionId,
+      question_id: questionId,
+      topic_id: topicId,
+      user_answer: userAnswer,
+      ai_score: score,
+      ai_feedback: feedback,
+      image_url: uploadedImage?.storagePath ?? null,
+    })
+    .select("id")
+    .single();
 
-  return NextResponse.json({ score, feedback });
+  return NextResponse.json({ score, feedback, answerId: inserted?.id ?? null });
   } catch (err) {
     console.error("[api/review/answer] grading failed:", err);
     const classified = classifyAiError(err);

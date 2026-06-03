@@ -12,11 +12,14 @@
  * Failures (quality < 3) reset interval to 1 day, decrement ease.
  * Successes extend interval by interval × ease, with standard SM-2 ease update.
  *
- * Confidence-weighted variant: Quiz /complete folds quiz_answers.confidence
- * into a per-answer quality (see adjustQualityForConfidence + the 4-cell grid
+ * Confidence-weighted variant: both Quiz and Review /complete fold per-answer
+ * confidence into a quality (see adjustQualityForConfidence + the 4-cell grid
  * documented in docs/superpowers/specs/2026-06-01-confidence-weighted-sm2-design.md),
- * averages across the session, and calls computeNextReviewFromQuality directly.
- * Review's /complete keeps the legacy computeNextReview(scorePct, ...) call.
+ * average via computeConfidenceAdjustedQuality, and call
+ * computeNextReviewFromQuality directly. Quiz folds across the whole session
+ * (single topic); Review folds per-topic, undampened (see ADR-0001). The
+ * legacy score-only computeNextReview(scorePct, ...) wrapper is retained for
+ * callers that have no per-answer confidence to fold.
  */
 
 export interface ReviewState {
@@ -179,8 +182,11 @@ export function computeNextReviewFromQuality(
   return { intervalDays, easeFactor, reviewCount, nextReviewAt };
 }
 
-/** Legacy entry point — Review's /complete still calls this. Identical
- *  behavior to the pre-refactor version; just delegates through quality. */
+/** Score-only convenience wrapper — schedules from a 0..100 percentage with
+ *  no confidence fold. Retained for callers without per-answer confidence;
+ *  Quiz and Review both fold confidence and call computeNextReviewFromQuality
+ *  directly. Delegates through quality, so behavior matches the score-only
+ *  path exactly. */
 export function computeNextReview(
   scorePct: number,
   current: ReviewState,

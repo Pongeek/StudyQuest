@@ -29,6 +29,7 @@ import { REVIEW_XP_PER_CORRECT } from "@/lib/spaced-repetition";
 import ReviewSummary from "./ReviewSummary";
 import { type UnlockedAchievement } from "@/components/effects/AchievementUnlockOverlay";
 import AnswerImagePicker from "@/components/quiz/AnswerImagePicker";
+import ConfidenceRow, { type Confidence } from "@/components/quiz/ConfidenceRow";
 import RegenerateQuestionButton, {
   type RegeneratedQuestion,
 } from "@/components/quiz/RegenerateQuestionButton";
@@ -68,6 +69,11 @@ interface QuestionState {
     correct_answer: string;
     explanation: string;
   } | null;
+  /** Phase 2: student's self-rated confidence (set after grading). */
+  confidence: Confidence | null;
+  /** review_answers.id from the grade response — keys the confidence PATCH.
+   *  Null until graded. */
+  answerId: string | null;
   visited: boolean;
   skipped: boolean;
 }
@@ -126,6 +132,8 @@ function ReviewEngineInner({
         openAnswer: "",
         openAnswerImage: null,
         result: null,
+        confidence: null,
+        answerId: null,
         visited: i === 0,
         skipped: false,
       });
@@ -161,6 +169,8 @@ function ReviewEngineInner({
           openAnswer: "",
           openAnswerImage: null,
           result: null,
+          confidence: null,
+          answerId: null,
           visited: true,
           skipped: false,
         });
@@ -222,6 +232,8 @@ function ReviewEngineInner({
         openAnswer: "",
         openAnswerImage: null,
         result: null,
+        confidence: null,
+        answerId: null,
         visited: false,
         skipped: false,
       },
@@ -236,6 +248,8 @@ function ReviewEngineInner({
         openAnswer: "",
         openAnswerImage: null,
         result: null,
+        confidence: null,
+        answerId: null,
         visited: false,
         skipped: false,
       };
@@ -360,7 +374,7 @@ function ReviewEngineInner({
         toast.error(classified.userMessage, { duration: 6000 });
         return;
       }
-      const { score, feedback } = await res.json();
+      const { score, feedback, answerId } = await res.json();
 
       // Grade succeeded — answer is in the DB, drop the local draft.
       clearDraft(sessionId, currentQuestion.id);
@@ -372,6 +386,7 @@ function ReviewEngineInner({
           correct_answer: currentQuestion.correct_answer,
           explanation: currentQuestion.explanation,
         },
+        answerId: answerId ?? null,
         skipped: false,
       });
 
@@ -924,6 +939,35 @@ function ReviewEngineInner({
                       </MarkdownContent>
                     )}
                   </div>
+                )}
+
+                {/* ── Phase 2: confidence row ──
+                     Appears once the answer is graded AND we have an
+                     answerId (the PATCH endpoint keys off it). Shown for
+                     both correct and wrong answers, MCQ and open. The
+                     self-report folds into this topic's SM-2 schedule at
+                     /complete (per ADR-0001). The wrong-answer + lucky-guess
+                     clarifiers land in later slices. */}
+                {curState.answerId && (
+                  <ConfidenceRow
+                    value={curState.confidence}
+                    dir={rtl ? "rtl" : "ltr"}
+                    onChange={(next: Confidence) => {
+                      updateQState(currentQuestion.id, { confidence: next });
+                      // Fire-and-forget. Silent on failure — the user already
+                      // has the grade; confidence isn't critical-path.
+                      fetch(
+                        `/api/review/answers/${curState.answerId}/confidence`,
+                        {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ confidence: next }),
+                        },
+                      ).catch((err) =>
+                        console.warn("[ReviewEngine] confidence PATCH failed:", err),
+                      );
+                    }}
+                  />
                 )}
               </motion.div>
             )}

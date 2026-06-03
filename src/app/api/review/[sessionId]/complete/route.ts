@@ -2,9 +2,11 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import {
-  computeNextReview,
+  computeConfidenceAdjustedQuality,
+  computeNextReviewFromQuality,
   REVIEW_XP_PER_CORRECT,
   REVIEW_SESSION_BONUS_XP,
+  type Confidence,
 } from "@/lib/spaced-repetition";
 import { calculateLevel, getLevelTitle } from "@/lib/xp";
 import { awardAchievementIfNew } from "@/lib/achievements";
@@ -44,26 +46,36 @@ export async function POST(
     return NextResponse.json({ error: "Session already completed" }, { status: 400 });
   }
 
-  // Load all answers for this session
+  // Load all answers for this session. confidence (migration 023) feeds the
+  // per-topic confidence-adjusted SM-2 schedule below.
   const { data: answers } = await supabase
     .from("review_answers")
-    .select("question_id, topic_id, ai_score")
+    .select("question_id, topic_id, ai_score, confidence")
     .eq("review_session_id", sessionId);
 
   interface AnswerRow {
     question_id: string;
     topic_id: string;
     ai_score: number;
+    confidence: Confidence;
   }
 
-  const allAnswers: AnswerRow[] = (answers ?? []) as AnswerRow[];
+  const allAnswers: AnswerRow[] = (answers ?? []).map(
+    (a: { question_id: string; topic_id: string; ai_score: number | null; confidence: string | null }) => ({
+      question_id: a.question_id,
+      topic_id: a.topic_id,
+      ai_score: a.ai_score ?? 0,
+      confidence: (a.confidence as Confidence) ?? null,
+    }),
+  );
 
-  // Group scores by topic
-  const topicScores = new Map<string, number[]>();
+  // Group full answer rows (score + confidence) by topic so each topic's
+  // SR schedule folds in its own confidence ratings (per ADR-0001).
+  const topicAnswers = new Map<string, Array<{ ai_score: number; confidence: Confidence }>>();
   for (const a of allAnswers) {
-    const scores = topicScores.get(a.topic_id) ?? [];
-    scores.push(a.ai_score);
-    topicScores.set(a.topic_id, scores);
+    const group = topicAnswers.get(a.topic_id) ?? [];
+    group.push({ ai_score: a.ai_score, confidence: a.confidence });
+    topicAnswers.set(a.topic_id, group);
   }
 
   // Count totals
@@ -91,10 +103,16 @@ export async function POST(
   // threshold used by quiz mastery calculations in lib/xp.ts.
   const REVIEW_EVOLUTION_THRESHOLD = 85;
 
-  for (const [topicId, scores] of topicScores.entries()) {
+  for (const [topicId, topicAnswerRows] of topicAnswers.entries()) {
+    // scorePct (raw accuracy) drives the display + mastery-evolution gate.
+    // The SR interval is driven separately by the confidence-adjusted
+    // quality below — a confident-but-wrong topic can reset to 1 day even
+    // when its raw scorePct looks middling (ADR-0001, undampened fold).
     const scorePct =
-      scores.length > 0
-        ? (scores.reduce((s, x) => s + x, 0) / scores.length) * 100
+      topicAnswerRows.length > 0
+        ? (topicAnswerRows.reduce((s, a) => s + a.ai_score, 0) /
+            topicAnswerRows.length) *
+          100
         : 0;
 
     // Fetch current SR state + mastery_level for this topic
@@ -112,7 +130,13 @@ export async function POST(
     };
     const currentMasteryLevel: number = (mastery as any)?.mastery_level ?? 0;
 
-    const nextSr = computeNextReview(scorePct, currentState);
+    // Per-topic, undampened confidence fold (ADR-0001). A topic with no
+    // confidence ratings has zero confidence influence — its quality is the
+    // pure avg-of-per-answer-qualities, exactly mirroring the Quiz unrated
+    // path (NOT quality-of-avg-score; the two diverge on multi-answer topics,
+    // see the spaced-repetition unit test).
+    const adjustedQuality = computeConfidenceAdjustedQuality(topicAnswerRows);
+    const nextSr = computeNextReviewFromQuality(adjustedQuality, currentState);
 
     // Decide whether this topic evolves this review session.
     let evolved: { fromLevel: number; toLevel: number } | null = null;
