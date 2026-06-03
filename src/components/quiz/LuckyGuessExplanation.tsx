@@ -9,8 +9,13 @@ import MarkdownContent from "./MarkdownContent";
 import { readClassifiedErrorFromResponse } from "@/lib/ai-error";
 
 interface LuckyGuessExplanationProps {
-  /** The persisted quiz_answers.id — required to scope the /api/clarify call. */
+  /** The persisted answer id — required to scope the /api/clarify call.
+   *  quiz_answers.id when answerKind is "quiz", review_answers.id when
+   *  "review". */
   answerId: string;
+  /** Which answer table answerId points at. Defaults to "quiz" so the
+   *  existing Quiz call site stays untouched; Review passes "review". */
+  answerKind?: "quiz" | "review";
   /** Parent direction — passed through so RTL Hebrew renders correctly. */
   dir?: "ltr" | "rtl";
 }
@@ -35,6 +40,7 @@ type Status = "collapsed" | "loading" | "open";
  */
 export default function LuckyGuessExplanation({
   answerId,
+  answerKind = "quiz",
   dir,
 }: LuckyGuessExplanationProps) {
   const [status, setStatus] = useState<Status>("collapsed");
@@ -48,7 +54,7 @@ export default function LuckyGuessExplanation({
       const res = await fetch("/api/clarify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answerKind: "quiz", answerId }),
+        body: JSON.stringify({ answerKind, answerId }),
       });
       if (!res.ok) {
         const classified = await readClassifiedErrorFromResponse(res);

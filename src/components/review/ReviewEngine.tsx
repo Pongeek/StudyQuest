@@ -32,6 +32,7 @@ import { type UnlockedAchievement } from "@/components/effects/AchievementUnlock
 import AnswerImagePicker from "@/components/quiz/AnswerImagePicker";
 import ConfidenceRow, { type Confidence } from "@/components/quiz/ConfidenceRow";
 import ClarifierThread from "@/components/quiz/ClarifierThread";
+import LuckyGuessExplanation from "@/components/quiz/LuckyGuessExplanation";
 import RegenerateQuestionButton, {
   type RegeneratedQuestion,
 } from "@/components/quiz/RegenerateQuestionButton";
@@ -1012,6 +1013,20 @@ function ReviewEngineInner({
                         }
                       />
                     )}
+
+                    {/* Lucky-guess explanation (Slice 4): right answer the
+                        learner rated "guessed" → single-shot Loremaster take.
+                        Mirrors the Quiz path; the clarifier endpoint's
+                        lucky-guess guard reads confidence off the review
+                        answer row, so follow-up turns are refused server-side. */}
+                    {curState.result.score >= 0.7 &&
+                      curState.confidence === "guessed" && (
+                        <LuckyGuessExplanation
+                          answerKind="review"
+                          answerId={curState.answerId}
+                          dir={rtl ? "rtl" : "ltr"}
+                        />
+                      )}
                   </>
                 )}
               </motion.div>
