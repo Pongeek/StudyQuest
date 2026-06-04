@@ -11,6 +11,12 @@ export interface StreakResponseFields {
   freezeTokensUsed?: number;
   freezeTokenEarned?: boolean;
   freezeTokensRemaining?: number;
+  /**
+   * Streak Title (B1) newly crossed this session — "Disciplined" … "Eternal",
+   * or null/undefined when no milestone was reached. Set by the quiz / boss /
+   * review complete routes via getEarnedStreakTitle.
+   */
+  streakTitleEarned?: string | null;
 }
 
 /**
@@ -33,5 +39,10 @@ export function showFreezeToasts(data: StreakResponseFields): void {
   }
   if (data.freezeTokenEarned) {
     toast.success(`❄ +1 Streak Freeze earned!`, { duration: 5000 });
+  }
+  if (data.streakTitleEarned) {
+    toast.success(`🔥 Streak Title unlocked — ${data.streakTitleEarned}!`, {
+      duration: 6000,
+    });
   }
 }

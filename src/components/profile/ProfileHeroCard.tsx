@@ -8,9 +8,10 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Swords } from "lucide-react";
+import { Swords, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TierLevelFrame from "@/components/gamification/TierLevelFrame";
+import { getStreakTitle } from "@/lib/streak";
 
 interface XPProgress {
   current: number;
@@ -105,6 +106,10 @@ export default function ProfileHeroCard({
   earnedCount,
   totalAchievements,
 }: Props) {
+  // Streak Title — pure function of the current streak (null below 7 days).
+  // Orthogonal to the level-derived Rank chip above the name.
+  const streakTitle = getStreakTitle(currentStreak);
+
   // Trigger CSS-transition XP fill after mount (same pattern as DashboardHeroCard).
   const [xpWidth, setXpWidth] = useState("0%");
   useEffect(() => {
@@ -170,6 +175,15 @@ export default function ProfileHeroCard({
           <h1 className="text-2xl sm:text-3xl font-bold text-white truncate leading-tight tracking-tight">
             {name || "Adventurer"}
           </h1>
+
+          {/* Streak Title — fire honorific earned at 7/14/30/60/100-day
+              streaks. Hidden below the first threshold. */}
+          {streakTitle && (
+            <div className="rank-chip streak-title-chip mt-2">
+              <Flame aria-hidden="true" className="w-2.5 h-2.5" />
+              <span>{streakTitle.toUpperCase()}</span>
+            </div>
+          )}
 
           {email ? (
             <p className="text-slate-500 text-sm mt-1 mb-3 truncate">{email}</p>

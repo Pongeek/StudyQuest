@@ -1677,6 +1677,15 @@
   line-height: 1;
 }
 
+/* ── Streak Title chip — fire/orange variant of .rank-chip ──
+   Streak-derived honorific (Disciplined → Eternal), distinct from Rank.
+   Compose as `.rank-chip .streak-title-chip`; only the palette changes. */
+.streak-title-chip {
+  border-color: rgba(249,115,22,0.32);
+  background: rgba(249,115,22,0.09);
+  color: rgba(251,146,60,0.92);
+}
+
 /* ── Segmented pixel XP bar ── */
 .pixel-xp-bar {
   position: relative;

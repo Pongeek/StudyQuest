@@ -14,7 +14,7 @@ import {
 import { calculateLevel, getLevelTitle } from "@/lib/xp";
 import { awardAchievementIfNew } from "@/lib/achievements";
 import { getGrimoireDemons } from "@/app/api/grimoire/route";
-import { computeStreakUpdate } from "@/lib/streak";
+import { computeStreakUpdate, getEarnedStreakTitle } from "@/lib/streak";
 
 export const maxDuration = 60;
 
@@ -232,6 +232,12 @@ export async function POST(
   const newStreak = streakResult.newStreak;
   const newLongestStreak = Math.max(dbUser.longest_streak || 0, newStreak);
 
+  // Streak Title (B1) — did this session cross a 7/14/30/60/100-day milestone?
+  const earnedStreakTitle = getEarnedStreakTitle(
+    dbUser.current_streak || 0,
+    newStreak,
+  );
+
   const oldTotalXp = dbUser.total_xp || 0;
   const newTotalXp = oldTotalXp + xpEarned;
 
@@ -323,6 +329,7 @@ export async function POST(
     freezeTokensUsed: streakResult.tokensUsed,
     freezeTokenEarned: streakResult.tokenEarned,
     freezeTokensRemaining: streakResult.newFreezeTokens,
+    streakTitleEarned: earnedStreakTitle?.title ?? null,
   });
 }
 

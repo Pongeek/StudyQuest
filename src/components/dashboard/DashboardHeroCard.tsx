@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Plus, Snowflake } from "lucide-react";
+import { Plus, Snowflake, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AnimatedCounter from "@/components/effects/AnimatedCounter";
 import TierLevelFrame from "@/components/gamification/TierLevelFrame";
 import { cn } from "@/lib/utils";
 import { getLevelTitle } from "@/lib/xp";
+import { getStreakTitle } from "@/lib/streak";
 
 interface XPProgress {
   current: number;
@@ -103,6 +104,10 @@ export default function DashboardHeroCard({
   streak,
   isHotStreak,
 }: Props) {
+  // Streak Title — pure function of the current streak (null below 7 days).
+  // Orthogonal to the level-derived Rank chip above the name.
+  const streakTitle = getStreakTitle(streak);
+
   // Trigger CSS-transition XP fill after mount (avoids SSR/hydration mismatch)
   const [xpWidth, setXpWidth] = useState("0%");
   useEffect(() => {
@@ -157,6 +162,15 @@ export default function DashboardHeroCard({
             <h1 className="text-2xl sm:text-3xl font-bold text-white truncate leading-tight tracking-tight">
               {dbUser.name.split(" ")[0] || "Adventurer"}
             </h1>
+
+            {/* Streak Title — fire honorific earned at 7/14/30/60/100-day
+                streaks. Hidden below the first threshold. */}
+            {streakTitle && (
+              <div className="rank-chip streak-title-chip mt-2">
+                <Flame aria-hidden="true" className="w-2.5 h-2.5" />
+                <span>{streakTitle.toUpperCase()}</span>
+              </div>
+            )}
 
             <p className="text-slate-500 text-sm mt-1 mb-3">
               {studiedToday
