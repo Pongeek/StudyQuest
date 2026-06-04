@@ -50,6 +50,26 @@ word, the conflict gets resolved and this file updated.
 - **Clarifier** — a short, in-character follow-up conversation that explains why an
   answer was wrong (or why a lucky guess was still right).
 
+## Achievements
+
+- **Achievement** — a data-driven badge (a row in the `achievements` table) a
+  learner earns by meeting a Condition. Carries an XP reward folded into the
+  learner's total when granted.
+- **Condition** — an Achievement's earn rule: a `condition_type` (e.g.
+  `streak_days`, `perfect_quiz`, `boss_fights_completed`) tested against a
+  `condition_value`. The catalogue of condition types is fixed in code.
+- **Award model** — how an Achievement is granted. Two coexist: *slug-based*
+  (imperative — "grant this specific badge now"; used by the Scroll and Feynman
+  flows, which already know the badge) and *condition-based* (evaluate every
+  applicable Condition after a session and grant whatever newly qualifies; used
+  by the session-completion routes). They are distinct interfaces, not two
+  adapters of one.
+- **Surface scope** — which session types a Condition is evaluated on under the
+  condition-based model. Most are *any-surface* — a streak milestone or a
+  mastery count is earned however the learner studied. A few are *scoped* to the
+  session type they semantically mean: `perfect_quiz`, `fast_quiz` and the
+  `random` lucky-badge are quiz-only; `course_completed` is quiz-or-boss.
+
 ## Surfaces
 
 - **Content** — text the AI generates *for* the learner (questions, feedback,
