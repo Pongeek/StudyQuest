@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { generateExamDebrief } from "@/lib/ai/grade-exam-answer";
+import { awardSessionAchievements } from "@/lib/achievements";
 
 export const maxDuration = 60;
 
@@ -17,7 +18,7 @@ export async function POST(
 
   const { data: dbUser } = await supabase
     .from("users")
-    .select("id, total_xp")
+    .select("id, total_xp, current_streak")
     .eq("clerk_id", userId)
     .single();
 
@@ -100,50 +101,23 @@ export async function POST(
   const xpEarned = Math.round(debrief.predicted_score_pct * 2);
   await supabase.rpc("increment_user_xp", { p_user_id: dbUser.id, amount: xpEarned });
 
-  // ── Achievement checks ──
-  // Combo Breaker (5x combo in any session) is the only achievement currently
-  // tied to exam sessions. The exam-specific achievements (exam_ready, etc.)
-  // are checked elsewhere. We award + collect newly-earned ones into the
-  // response so the engine's AchievementUnlockOverlay can surface them.
-  const newAchievements: Array<{
-    slug: string;
-    name: string;
-    description: string;
-    icon: string;
-    xp_reward: number;
-  }> = [];
-
-  if (maxCombo >= 5) {
-    const { data: comboAch } = await supabase
-      .from("achievements")
-      .select("id, slug, name, description, icon, xp_reward")
-      .eq("slug", "combo_breaker")
-      .single();
-    if (comboAch) {
-      const { data: existing } = await supabase
-        .from("user_achievements")
-        .select("id")
-        .eq("user_id", dbUser.id)
-        .eq("achievement_id", comboAch.id)
-        .maybeSingle();
-      if (!existing) {
-        await supabase
-          .from("user_achievements")
-          .insert({ user_id: dbUser.id, achievement_id: comboAch.id });
-        await supabase.rpc("increment_user_xp", {
-          p_user_id: dbUser.id,
-          amount: comboAch.xp_reward,
-        });
-        newAchievements.push({
-          slug: comboAch.slug,
-          name: comboAch.name,
-          description: comboAch.description,
-          icon: comboAch.icon,
-          xp_reward: comboAch.xp_reward,
-        });
-      }
-    }
-  }
+  // Achievements — evaluate every applicable Condition via the shared
+  // condition-based evaluator (evaluate-all; replaces the combo-only fork).
+  // Exam has no clean correctness % (scorePct null → perfect_day can't fire
+  // from a predicted-100 exam) and doesn't advance the streak (newStreak is the
+  // unchanged current streak). maxCombo (silently tracked) drives combo_session;
+  // quiz-only badges never fire here. The shell applies condition XP via the
+  // same atomic increment_user_xp RPC used for the session XP above.
+  const newAchievements = await awardSessionAchievements({
+    userId: dbUser.id,
+    supabase,
+    sessionType: "exam",
+    scorePct: null,
+    maxCombo,
+    sessionDurationMs: null,
+    newStreak: dbUser.current_streak ?? 0,
+    completedEpisodeIds: [],
+  });
 
   return NextResponse.json({
     predictedScore: debrief.predicted_score_pct,

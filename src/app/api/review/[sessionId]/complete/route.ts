@@ -12,7 +12,7 @@ import {
   type ConfidenceEffectKind,
 } from "@/lib/spaced-repetition";
 import { calculateLevel, getLevelTitle } from "@/lib/xp";
-import { awardAchievementIfNew } from "@/lib/achievements";
+import { awardAchievementIfNew, awardSessionAchievements } from "@/lib/achievements";
 import { getGrimoireDemons } from "@/app/api/grimoire/route";
 import { computeStreakUpdate, getEarnedStreakTitle } from "@/lib/streak";
 
@@ -264,14 +264,27 @@ export async function POST(
     })
     .eq("id", sessionId);
 
-  // Check review-specific achievements
-  const newAchievements = await checkReviewAchievements({
+  // Achievements — evaluate every applicable Condition via the shared
+  // condition-based evaluator (evaluate-all; replaces the review-only fork).
+  // The shell applies condition XP atomically via increment_user_xp, so the
+  // session-XP absolute set above is its base. Review tracks no combo and
+  // completes no episode, so maxCombo/sessionDurationMs are null and
+  // completedEpisodeIds is empty; quiz-only badges never fire here.
+  const newAchievements = await awardSessionAchievements({
     userId: dbUser.id,
     supabase,
+    sessionType: "review",
+    scorePct: sessionScorePct,
+    maxCombo: null,
+    sessionDurationMs: null,
+    newStreak,
+    completedEpisodeIds: [],
   });
 
   // ── Grimoire-specific achievement: Exorcist ─────────────────────────────────
-  // If this was a grimoire session, check whether all demons are now settled.
+  // Slug-based (imperative) award — stays separate from the condition-based
+  // evaluator. If this was a grimoire session and all demons are now settled,
+  // award Exorcist and fold its XP via the same atomic RPC the shell uses.
   if (session.source === "grimoire") {
     try {
       const remainingDemons = await getGrimoireDemons(dbUser.id);
@@ -285,24 +298,18 @@ export async function POST(
           slug: "exorcist",
           supabase,
         });
-        if (exorcist) newAchievements.push(exorcist);
+        if (exorcist) {
+          newAchievements.push(exorcist);
+          if (exorcist.xp_reward > 0) {
+            await supabase.rpc("increment_user_xp", {
+              p_user_id: dbUser.id,
+              amount: exorcist.xp_reward,
+            });
+          }
+        }
       }
     } catch {
       // Non-fatal — don't break the completion response
-    }
-  }
-
-  // Award all achievement XP bonuses in one update
-  if (newAchievements.length > 0) {
-    const xpBonus = newAchievements.reduce(
-      (sum: number, a: { xp_reward: number }) => sum + (a.xp_reward || 0),
-      0
-    );
-    if (xpBonus > 0) {
-      await supabase
-        .from("users")
-        .update({ total_xp: newTotalXp + xpBonus })
-        .eq("id", dbUser.id);
     }
   }
 
@@ -331,63 +338,4 @@ export async function POST(
     freezeTokensRemaining: streakResult.newFreezeTokens,
     streakTitleEarned: earnedStreakTitle?.title ?? null,
   });
-}
-
-async function checkReviewAchievements({
-  userId,
-  supabase,
-}: {
-  userId: string;
-  supabase: ReturnType<typeof import("@/lib/supabase/server").createServiceClient>;
-}) {
-  const { data: allAchievements } = await supabase
-    .from("achievements")
-    .select("*")
-    .in("condition_type", ["review_days"]);
-
-  if (!allAchievements || allAchievements.length === 0) return [];
-
-  const { data: earned } = await supabase
-    .from("user_achievements")
-    .select("achievement_id")
-    .eq("user_id", userId);
-
-  const earnedIds = new Set((earned || []).map((e: any) => e.achievement_id));
-
-  // Count distinct days with completed review sessions
-  const { data: reviewDays } = await supabase
-    .from("review_sessions")
-    .select("completed_at")
-    .eq("user_id", userId)
-    .not("completed_at", "is", null);
-
-  const distinctDays = new Set(
-    (reviewDays || []).map((r: any) =>
-      new Date(r.completed_at).toISOString().split("T")[0]
-    )
-  ).size;
-
-  const toAward: string[] = [];
-  for (const ach of allAchievements) {
-    if (earnedIds.has(ach.id)) continue;
-    if (ach.condition_type === "review_days" && distinctDays >= ach.condition_value) {
-      toAward.push(ach.id);
-    }
-  }
-
-  if (toAward.length === 0) return [];
-
-  await supabase.from("user_achievements").insert(
-    toAward.map((id) => ({ user_id: userId, achievement_id: id }))
-  );
-
-  return allAchievements
-    .filter((a: any) => toAward.includes(a.id))
-    .map((a: any) => ({
-      slug: a.slug,
-      name: a.name,
-      icon: a.icon,
-      description: a.description,
-      xp_reward: a.xp_reward,
-    }));
 }

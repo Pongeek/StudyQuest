@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { calculateBossFightXp } from "@/lib/xp";
 import { computeStreakUpdate, getEarnedStreakTitle } from "@/lib/streak";
+import { awardSessionAchievements } from "@/lib/achievements";
 
 export const maxDuration = 60;
 
@@ -166,12 +167,21 @@ export async function POST(
     })
     .eq("id", dbUser.id);
 
-  // Check boss fight achievements
-  const newAchievements = await checkBossAchievements({
+  // Achievements — evaluate every applicable Condition via the shared
+  // condition-based evaluator (evaluate-all; replaces the old boss-only fork).
+  // A passed fight on a fully-mastered episode drives course_completed (quiz+boss
+  // scoped); quiz-only badges (perfect_quiz/fast_quiz/random) never fire here.
+  const completedEpisodeIds =
+    passed && bfSession.episode_id ? [bfSession.episode_id] : [];
+  const newAchievements = await awardSessionAchievements({
     userId: dbUser.id,
+    supabase,
+    sessionType: "boss",
     scorePct,
     maxCombo: typeof maxCombo === "number" ? maxCombo : 0,
-    supabase,
+    sessionDurationMs: null,
+    newStreak,
+    completedEpisodeIds,
   });
 
   return NextResponse.json({
@@ -188,78 +198,4 @@ export async function POST(
     freezeTokensRemaining: streakResult.newFreezeTokens,
     streakTitleEarned: earnedStreakTitle?.title ?? null,
   });
-}
-
-async function checkBossAchievements({
-  userId,
-  scorePct,
-  maxCombo,
-  supabase,
-}: {
-  userId: string;
-  scorePct: number;
-  maxCombo: number;
-  supabase: any;
-}) {
-  const { data: allAchievements } = await supabase
-    .from("achievements")
-    .select("*")
-    .in("condition_type", ["boss_fights_completed", "combo_session", "random"]);
-
-  if (!allAchievements || allAchievements.length === 0) return [];
-
-  const { data: earned } = await supabase
-    .from("user_achievements")
-    .select("achievement_id")
-    .eq("user_id", userId);
-
-  const earnedIds = new Set((earned || []).map((e: any) => e.achievement_id));
-
-  const { count: bossCount } = await supabase
-    .from("boss_fight_sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("passed", true)
-    .not("completed_at", "is", null);
-
-  const toAward: string[] = [];
-  for (const ach of allAchievements) {
-    if (earnedIds.has(ach.id)) continue;
-
-    let qualifies = false;
-    switch (ach.condition_type) {
-      case "boss_fights_completed":
-        qualifies = (bossCount || 0) >= ach.condition_value;
-        break;
-      case "combo_session":
-        qualifies = maxCombo >= ach.condition_value;
-        break;
-      case "random":
-        qualifies = scorePct >= 100 && Math.random() < 0.05;
-        break;
-    }
-
-    if (qualifies) toAward.push(ach.id);
-  }
-
-  if (toAward.length === 0) return [];
-
-  await supabase.from("user_achievements").insert(
-    toAward.map((id) => ({ user_id: userId, achievement_id: id }))
-  );
-
-  const awarded = allAchievements.filter((a: any) => toAward.includes(a.id));
-
-  const xpBonus = awarded.reduce((sum: number, a: any) => sum + (a.xp_reward || 0), 0);
-  if (xpBonus > 0) {
-    await supabase.rpc("increment_user_xp", { p_user_id: userId, amount: xpBonus });
-  }
-
-  return awarded.map((a: any) => ({
-    slug: a.slug,
-    name: a.name,
-    icon: a.icon,
-    description: a.description,
-    xp_reward: a.xp_reward,
-  }));
 }

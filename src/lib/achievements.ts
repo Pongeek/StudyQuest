@@ -243,7 +243,7 @@ export async function awardSessionAchievements(
     0,
   );
   if (xpBonus > 0) {
-    await supabase.rpc("increment_user_xp", { user_id: userId, amount: xpBonus });
+    await supabase.rpc("increment_user_xp", { p_user_id: userId, amount: xpBonus });
   }
 
   return awarded.map(
