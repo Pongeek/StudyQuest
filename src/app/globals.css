@@ -1910,9 +1910,9 @@
 }
 
 /* ============================================================================
-   Grading Overlay — full-screen "AI is grading" sigil shown during quiz /
-   exam / boss-fight session completion (5-15s wait while Claude grades open
-   answers + generates the debrief).
+   Grading Overlay — full-screen sigil shown during quiz / exam / boss-fight
+   session completion (5-15s wait while Claude grades open answers + generates
+   the debrief). Copy lives in src/lib/loading-copy.ts.
    ========================================================================== */
 
 @keyframes grading-spin {

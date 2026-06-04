@@ -49,3 +49,14 @@ word, the conflict gets resolved and this file updated.
   feedback, debriefs, and the answer clarifier.
 - **Clarifier** — a short, in-character follow-up conversation that explains why an
   answer was wrong (or why a lucky guess was still right).
+
+## Surfaces
+
+- **Content** — text the AI generates *for* the learner (questions, feedback,
+  debriefs, cheat sheets, scrolls). Governed by the Loremaster persona, can be
+  Hebrew or English per the course's output language, and is RTL-rendered when
+  Hebrew.
+- **Chrome** — the app's own static UI text (buttons, labels, nav, loading copy).
+  Hand-written, always English, never AI-generated. The Loremaster persona does
+  not govern Chrome — any in-character flavor in Chrome is a hand-authored style
+  choice, kept lighter and more restrained than the AI's spoken voice.

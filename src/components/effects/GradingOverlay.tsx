@@ -4,78 +4,21 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 
-export type GradingOverlayKind =
-  | "quiz"
-  | "boss"
-  | "exam"
-  | "review"
-  | "feynman"
-  | "generic";
+import { getOverlayCopy, type OverlayKind } from "@/lib/loading-copy";
+
+/** @deprecated use {@link OverlayKind} from `@/lib/loading-copy`. */
+export type GradingOverlayKind = OverlayKind;
 
 interface GradingOverlayProps {
   /** Mount + visibility flag. Drives both presence and the cycle timer. */
   show: boolean;
   /** Controls which flavor messages cycle below the sigil. */
-  kind?: GradingOverlayKind;
+  kind?: OverlayKind;
   /** Optional override for the pixel-font title. */
   title?: string;
   /** Optional override for the cycling messages. Takes precedence over `kind`. */
   messages?: string[];
 }
-
-const KIND_MESSAGES: Record<GradingOverlayKind, { title: string; messages: string[] }> = {
-  quiz: {
-    title: "AI is grading",
-    messages: [
-      "Studying your answers...",
-      "Weighing each response...",
-      "Consulting the archive...",
-      "Composing your debrief...",
-    ],
-  },
-  boss: {
-    title: "Tallying the battle",
-    messages: [
-      "Recounting your strikes...",
-      "Measuring the boss's wounds...",
-      "Forging the victory record...",
-      "Inscribing the outcome...",
-    ],
-  },
-  exam: {
-    title: "Sealing the scroll",
-    messages: [
-      "Examining each response...",
-      "Cross-checking the answers...",
-      "Drafting your final results...",
-      "Predicting your score...",
-      "Preparing the debrief...",
-    ],
-  },
-  review: {
-    title: "Updating your knowledge",
-    messages: [
-      "Recalibrating intervals...",
-      "Reinforcing weak topics...",
-      "Filing your progress...",
-    ],
-  },
-  feynman: {
-    title: "The student is listening",
-    messages: [
-      "Considering your teaching...",
-      "Forming the next question...",
-    ],
-  },
-  generic: {
-    title: "Working",
-    messages: [
-      "Processing your request...",
-      "One moment...",
-      "Almost there...",
-    ],
-  },
-};
 
 /**
  * Full-screen overlay shown during AI-grading waits (quiz/exam/boss complete,
@@ -91,7 +34,7 @@ export default function GradingOverlay({
   title: titleOverride,
   messages: messagesOverride,
 }: GradingOverlayProps) {
-  const { title: defaultTitle, messages: defaultMessages } = KIND_MESSAGES[kind];
+  const { title: defaultTitle, messages: defaultMessages } = getOverlayCopy(kind);
   const messages = messagesOverride ?? defaultMessages;
   const title = titleOverride ?? defaultTitle;
 
