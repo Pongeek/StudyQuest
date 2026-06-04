@@ -30,6 +30,19 @@ word, the conflict gets resolved and this file updated.
 - **Overconfident stumble** — a wrong answer the learner marked `confident`. The
   strongest "review this again soon" signal.
 
+## Identity & titles
+
+- **Rank** — the **level-derived** title (Novice → Apprentice → Adept → Expert →
+  Master → Sage). Reflects *how strong* the learner is (accumulated XP). Shown in
+  the hero card's rank-chip above the name. Rank only ever rises.
+- **Streak Title** — a **streak-derived** honorific earned by studying on
+  consecutive days. Reflects *how disciplined* the learner is **right now**,
+  independent of Rank. Tiers: Disciplined (7d), Relentless (14d), Unbroken (30d),
+  Ascendant (60d), Eternal (100d). Unlike Rank, a Streak Title tracks the *current*
+  streak: it lapses if the streak resets and is re-earned on the next qualifying
+  run. Below 7 days the learner holds no Streak Title. A learner can hold a Rank
+  and a Streak Title at once; they are orthogonal identities and never merge.
+
 ## Coaching voice
 
 - **Loremaster** — the single in-character coaching voice the AI uses for grading

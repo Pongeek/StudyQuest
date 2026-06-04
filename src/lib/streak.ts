@@ -19,6 +19,64 @@
 export const MAX_FREEZE_TOKENS = 3;
 export const STREAK_MILESTONE_DAYS = 7;
 
+// ── Streak Titles ──────────────────────────────────────────────────────────
+// A streak-derived honorific (distinct from the level-derived Rank). Reflects
+// how disciplined the learner is *right now*: it tracks the current streak and
+// lapses on reset. See CONTEXT.md glossary.
+
+export type StreakTitle =
+  | "Disciplined"
+  | "Relentless"
+  | "Unbroken"
+  | "Ascendant"
+  | "Eternal";
+
+export interface StreakTitleTier {
+  title: StreakTitle;
+  /** Consecutive-day threshold at which this title is earned. */
+  days: number;
+}
+
+/** Ordered ascending by threshold. Single source of truth for the ladder. */
+export const STREAK_TITLE_TIERS: StreakTitleTier[] = [
+  { title: "Disciplined", days: 7 },
+  { title: "Relentless", days: 14 },
+  { title: "Unbroken", days: 30 },
+  { title: "Ascendant", days: 60 },
+  { title: "Eternal", days: 100 },
+];
+
+/**
+ * Highest Streak Title reached by a given streak, or null below the first
+ * threshold. Drives the hero-card chip.
+ */
+export function getStreakTitle(streak: number): StreakTitle | null {
+  let earned: StreakTitle | null = null;
+  for (const tier of STREAK_TITLE_TIERS) {
+    if (streak >= tier.days) earned = tier.title;
+  }
+  return earned;
+}
+
+/**
+ * The Streak Title newly earned when a streak advances from `prev` to `next`,
+ * or null if no threshold was crossed. Returns the highest threshold in the
+ * half-open range (prev, next], so a multi-day jump reports the top title
+ * reached — it doesn't assume single-day increments.
+ *
+ * Drives the celebratory toast fired on session completion.
+ */
+export function getEarnedStreakTitle(
+  prev: number,
+  next: number,
+): StreakTitleTier | null {
+  let earned: StreakTitleTier | null = null;
+  for (const tier of STREAK_TITLE_TIERS) {
+    if (tier.days > prev && tier.days <= next) earned = tier;
+  }
+  return earned;
+}
+
 export type StreakAction =
   | "first-study"
   | "same-day"
