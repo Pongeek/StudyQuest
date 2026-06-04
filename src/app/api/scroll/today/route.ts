@@ -5,13 +5,20 @@ import { generateScrollInsight } from "@/lib/ai/generate-scroll";
 import { awardAchievementsIfNew, applyAchievementXP } from "@/lib/achievements";
 
 // GET /api/scroll/today
-// Returns today's scroll for the authenticated user.
-// Generates one on first call of the day, then caches it in the DB.
+// Two phases so the client can show an in-world "Unrolling the scroll…" wait
+// without flashing a modal at users who have no scroll coming:
+//   - default (peek): never generates. Returns the cached scroll if one exists,
+//     `{ pending: true }` if a scroll *can* be generated, or `{ content: null }`
+//     if there's nothing to show. Cheap — no AI call.
+//   - ?generate=1: generates today's scroll (the original blocking behavior),
+//     caches it, and returns it. Called only after a peek reports `pending`.
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(request: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const generate = new URL(request.url).searchParams.get("generate") === "1";
 
   const supabase = createServiceClient();
   const todayStr = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
@@ -43,7 +50,9 @@ export async function GET() {
     });
   }
 
-  // No scroll yet — pick a random topic from user's ready courses
+  // No scroll yet — find candidate topics from the user's ready courses. In
+  // peek mode we only need to know whether at least one exists (limit 1); in
+  // generate mode we pull a pool to pick a random topic from.
   const { data: topics } = await supabase
     .from("topics")
     .select(`
@@ -64,11 +73,17 @@ export async function GET() {
     .eq("episodes.courses.user_id", dbUser.id)
     .eq("episodes.courses.status", "ready")
     .not("summary", "is", null)
-    .limit(50);
+    .limit(generate ? 50 : 1);
 
   // No courses ready yet — return null gracefully
   if (!topics || topics.length === 0) {
     return NextResponse.json({ content: null });
+  }
+
+  // Peek mode: a scroll can be generated, but defer the AI call until the
+  // client asks for it (so it can show the loading modal meanwhile).
+  if (!generate) {
+    return NextResponse.json({ pending: true });
   }
 
   // Pick a random topic

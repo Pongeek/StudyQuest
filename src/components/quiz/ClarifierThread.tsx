@@ -6,6 +6,7 @@ import MarkdownContent from "@/components/quiz/MarkdownContent";
 import { readClassifiedErrorFromResponse } from "@/lib/ai-error";
 import { toast } from "sonner";
 import { Check, Loader2 } from "lucide-react";
+import { INLINE_COPY } from "@/lib/loading-copy";
 
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
@@ -139,7 +140,7 @@ export default function ClarifierThread({
         {opening && messages.length === 0 && (
           <div className="flex items-center gap-2 text-slate-500 text-xs">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Loremaster is reading your answer…
+            {INLINE_COPY.clarifier}
           </div>
         )}
         {messages.map((m, i) => (

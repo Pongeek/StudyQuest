@@ -5,6 +5,7 @@ import { RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { readClassifiedErrorFromResponse, classifyAiError } from "@/lib/ai-error";
+import { INLINE_COPY } from "@/lib/loading-copy";
 
 /**
  * Re-generate a single question via Claude. Two visual variants:
@@ -114,7 +115,7 @@ export default function RegenerateQuestionButton({
         ) : (
           <RefreshCw className="w-3 h-3" aria-hidden />
         )}
-        {busy ? "RE-CASTING…" : confirming ? "CONFIRM?" : "REGENERATE"}
+        {busy ? INLINE_COPY.regenerateQuestion.toUpperCase() : confirming ? "CONFIRM?" : "REGENERATE"}
       </button>
     );
   }
@@ -151,7 +152,7 @@ export default function RegenerateQuestionButton({
         <RefreshCw className="w-3.5 h-3.5" aria-hidden />
       )}
       <span>
-        {busy ? "Regenerating…" : confirming ? "Tap again to confirm" : "Regenerate"}
+        {busy ? INLINE_COPY.regenerateQuestion : confirming ? "Tap again to confirm" : "Regenerate"}
       </span>
     </button>
   );

@@ -44,6 +44,7 @@ import {
   clearDraft,
   clearSessionDrafts,
 } from "@/lib/answer-draft";
+import { INLINE_COPY } from "@/lib/loading-copy";
 
 function isRTL(text: string): boolean {
   return /[֐-׿؀-ۿ]/.test(text);
@@ -743,7 +744,7 @@ function ReviewEngineInner({
                   {isGrading ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Saving...
+                      {INLINE_COPY.reviewFinish}
                     </>
                   ) : (
                     <>
@@ -1065,7 +1066,7 @@ function ReviewEngineInner({
                     {isGrading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Grading...
+                        {INLINE_COPY.reviewGrade}
                       </>
                     ) : (
                       <>

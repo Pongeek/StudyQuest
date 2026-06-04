@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import MarkdownContent from "@/components/quiz/MarkdownContent";
 import { readClassifiedErrorFromResponse } from "@/lib/ai-error";
+import { INLINE_COPY } from "@/lib/loading-copy";
 
 interface CheatSheetPanelProps {
   topicId: string;
@@ -95,7 +96,7 @@ export default function CheatSheetPanel({
           {busy ? (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              FORGING…
+              {INLINE_COPY.cheatSheet.toUpperCase()}
             </>
           ) : (
             <>
@@ -162,7 +163,7 @@ export default function CheatSheetPanel({
             ) : (
               <RefreshCw className="w-3 h-3" />
             )}
-            {busy ? "FORGING…" : "REFORGE"}
+            {busy ? INLINE_COPY.cheatSheet.toUpperCase() : "REFORGE"}
           </button>
         </div>
       </header>

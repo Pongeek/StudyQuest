@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useSound } from "@/lib/useSound";
 import { XPBurstProvider, useXPBurst } from "@/components/effects/XPBurst";
 import { toast } from "sonner";
+import { INLINE_COPY } from "@/lib/loading-copy";
 
 /** Detects Hebrew/Arabic so message bubbles get dir="rtl". */
 function isRTL(text: string): boolean {
@@ -236,15 +237,18 @@ function FeynmanSessionInner({
               🎓
             </div>
             <div className="bg-slate-800/70 border border-slate-700/50 rounded-2xl rounded-tl-sm px-4 py-3">
-              <div className="flex gap-1 items-center h-4">
-                {[0, 1, 2].map((i) => (
-                  <motion.div
-                    key={i}
-                    className="w-1.5 h-1.5 bg-slate-400 rounded-full"
-                    animate={{ y: [0, -4, 0] }}
-                    transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15 }}
-                  />
-                ))}
+              <div className="flex gap-2 items-center h-4">
+                <div className="flex gap-1 items-center">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className="w-1.5 h-1.5 bg-slate-400 rounded-full"
+                      animate={{ y: [0, -4, 0] }}
+                      transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15 }}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-slate-400">{INLINE_COPY.feynmanTurn}</span>
               </div>
             </div>
           </motion.div>
