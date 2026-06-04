@@ -11,6 +11,7 @@ import {
   type Confidence,
 } from "@/lib/spaced-repetition";
 import { computeStreakUpdate, getEarnedStreakTitle } from "@/lib/streak";
+import { awardSessionAchievements } from "@/lib/achievements";
 
 export const maxDuration = 60;
 
@@ -238,15 +239,33 @@ export async function POST(
     console.warn("Debrief generation failed:", err);
   }
 
-  const newAchievements = await checkAchievements({
+  // Achievements — evaluate every applicable Condition for this session via the
+  // shared condition-based evaluator (replaces the old inline checkAchievements).
+  // sessionDurationMs drives fast_quiz; completedEpisodeIds drives course_completed.
+  const { data: sessionRow } = await supabase
+    .from("quiz_sessions")
+    .select("started_at")
+    .eq("id", sessionId)
+    .single();
+  const { data: topicRow } = await supabase
+    .from("topics")
+    .select("episode_id")
+    .eq("id", topicId)
+    .single();
+  const sessionDurationMs = sessionRow?.started_at
+    ? Date.now() - new Date(sessionRow.started_at).getTime()
+    : null;
+  const completedEpisodeIds = topicRow?.episode_id ? [topicRow.episode_id] : [];
+
+  const newAchievements = await awardSessionAchievements({
     userId: dbUser.id,
-    streak: newStreak,
-    totalXp: newTotalXp,
-    scorePct,
-    sessionId,
-    topicId,
-    maxCombo: typeof maxCombo === "number" ? maxCombo : 0,
     supabase,
+    sessionType: "quiz",
+    scorePct,
+    maxCombo: typeof maxCombo === "number" ? maxCombo : 0,
+    sessionDurationMs,
+    newStreak,
+    completedEpisodeIds,
   });
 
   return NextResponse.json({
@@ -264,189 +283,4 @@ export async function POST(
     freezeTokensRemaining: streakResult.newFreezeTokens,
     streakTitleEarned: earnedStreakTitle?.title ?? null,
   });
-}
-
-async function checkAchievements({
-  userId,
-  streak,
-  totalXp,
-  scorePct,
-  sessionId,
-  topicId,
-  maxCombo,
-  supabase,
-}: {
-  userId: string;
-  streak: number;
-  totalXp: number;
-  scorePct: number;
-  sessionId: string;
-  topicId: string;
-  maxCombo: number;
-  supabase: any;
-}) {
-  const { data: allAchievements } = await supabase.from("achievements").select("*");
-  const { data: earned } = await supabase
-    .from("user_achievements")
-    .select("achievement_id")
-    .eq("user_id", userId);
-
-  const earnedIds = new Set((earned || []).map((e: any) => e.achievement_id));
-  const toAward: string[] = [];
-
-  const { count: sessionCount } = await supabase
-    .from("quiz_sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .not("completed_at", "is", null);
-
-  const { count: courseCount } = await supabase
-    .from("courses")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
-
-  const { data: session } = await supabase
-    .from("quiz_sessions")
-    .select("started_at, completed_at, session_type")
-    .eq("id", sessionId)
-    .single();
-
-  const { data: topic } = await supabase
-    .from("topics")
-    .select("episode_id")
-    .eq("id", topicId)
-    .single();
-
-  let allTopicsCompleted = false;
-  if (topic?.episode_id) {
-    const { data: courseTopics } = await supabase
-      .from("topics")
-      .select("id")
-      .eq("episode_id", topic.episode_id);
-
-    if (courseTopics && courseTopics.length > 0) {
-      const topicIds = courseTopics.map((t: any) => t.id);
-      const { data: masteries } = await supabase
-        .from("user_topic_mastery")
-        .select("topic_id, mastery_level")
-        .eq("user_id", userId)
-        .in("topic_id", topicIds)
-        .gte("mastery_level", 1);
-
-      allTopicsCompleted =
-        (masteries || []).length >= topicIds.length;
-    }
-  }
-
-  const { count: masterTopicCount } = await supabase
-    .from("user_topic_mastery")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .gte("mastery_level", 5);
-
-  const { count: examSessionCount } = await supabase
-    .from("quiz_sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("session_type", "exam")
-    .not("completed_at", "is", null);
-
-  let sessionDurationMs = Infinity;
-  if (session?.started_at && session?.completed_at) {
-    sessionDurationMs =
-      new Date(session.completed_at).getTime() -
-      new Date(session.started_at).getTime();
-  }
-  const twoMinutesMs = 2 * 60 * 1000;
-
-  for (const ach of allAchievements || []) {
-    if (earnedIds.has(ach.id)) continue;
-
-    let qualifies = false;
-    switch (ach.condition_type) {
-      case "quiz_sessions_completed":
-        qualifies = (sessionCount || 0) >= ach.condition_value;
-        break;
-      case "courses_uploaded":
-        qualifies = (courseCount || 0) >= ach.condition_value;
-        break;
-      case "streak_days":
-        qualifies = streak >= ach.condition_value;
-        break;
-      case "perfect_quiz":
-        qualifies = scorePct >= 100;
-        break;
-      case "course_completed":
-        qualifies = allTopicsCompleted;
-        break;
-      case "fast_quiz":
-        qualifies = sessionDurationMs < twoMinutesMs;
-        break;
-      case "master_topics":
-        qualifies = (masterTopicCount || 0) >= ach.condition_value;
-        break;
-      case "exam_sessions_completed":
-        qualifies = (examSessionCount || 0) >= ach.condition_value;
-        break;
-
-      // ── Slot-machine / probabilistic achievements ──────────────────────────
-      case "random":
-        // lucky_scholar: 5% chance on a perfect quiz
-        qualifies = scorePct >= 100 && Math.random() < 0.05;
-        break;
-      case "perfect_day": {
-        // Award when user scores 100% on 3+ distinct quizzes in a single day
-        if (scorePct >= 100) {
-          const todayStr = new Date().toISOString().split("T")[0];
-          const { count: perfectTodayCount } = await supabase
-            .from("quiz_sessions")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", userId)
-            .eq("score_pct", 100)
-            .gte("completed_at", `${todayStr}T00:00:00.000Z`);
-          qualifies = (perfectTodayCount || 0) >= ach.condition_value;
-        }
-        break;
-      }
-      case "combo_session":
-        // combo_breaker: client sends maxCombo achieved during session
-        qualifies = maxCombo >= ach.condition_value;
-        break;
-      case "review_days":
-        // Checked in review complete route — never triggers here
-        qualifies = false;
-        break;
-    }
-
-    if (qualifies) toAward.push(ach.id);
-  }
-
-  if (toAward.length === 0) return [];
-
-  await supabase.from("user_achievements").insert(
-    toAward.map((id) => ({ user_id: userId, achievement_id: id }))
-  );
-
-  const awarded = (allAchievements || []).filter((a: any) =>
-    toAward.includes(a.id)
-  );
-
-  const xpBonus = awarded.reduce(
-    (sum: number, a: any) => sum + (a.xp_reward || 0),
-    0
-  );
-  if (xpBonus > 0) {
-    await supabase.rpc("increment_user_xp", {
-      user_id: userId,
-      amount: xpBonus,
-    });
-  }
-
-  return awarded.map((a: any) => ({
-    slug: a.slug,
-    name: a.name,
-    icon: a.icon,
-    description: a.description,
-    xp_reward: a.xp_reward,
-  }));
 }
