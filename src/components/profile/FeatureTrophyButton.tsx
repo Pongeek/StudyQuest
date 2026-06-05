@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +30,14 @@ export default function FeatureTrophyButton({ achievementId, isFeatured }: Props
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ achievementId: isFeatured ? null : achievementId }),
       });
-      if (res.ok) router.refresh();
+      if (res.ok) {
+        router.refresh();
+      } else {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(data.error ?? "Couldn't update your featured trophy.");
+      }
+    } catch {
+      toast.error("Network error — please try again.");
     } finally {
       setPending(false);
     }
