@@ -85,46 +85,59 @@ export default async function ProfilePage() {
 
   if (!dbUser) redirect("/dashboard");
 
-  const { data: userAchievements } = await supabase
-    .from("user_achievements")
-    .select("*, achievements(*)")
-    .eq("user_id", dbUser.id)
-    .order("earned_at", { ascending: false });
-
-  const { data: allAchievements } = await supabase
-    .from("achievements")
-    .select("*")
-    .order("condition_value", { ascending: true });
-
-  const earnedIds = new Set(
-    (userAchievements || []).map((ua: any) => ua.achievement_id)
-  );
-
-  const { data: topMasteries } = await supabase
-    .from("user_topic_mastery")
-    .select("*, topics(title)")
-    .eq("user_id", dbUser.id)
-    .gte("mastery_level", 2)
-    .order("mastery_level", { ascending: false })
-    .limit(10);
-
-  const { count: totalSessions } = await supabase
-    .from("quiz_sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", dbUser.id)
-    .not("completed_at", "is", null);
-
-  // ── Activity heatmap — last 26 weeks ──────────────────────────────────────
+  // Every query below depends only on dbUser.id (or nothing), so they issue in
+  // a single parallel barrier instead of the four serial round-trips this page
+  // used to make. Distinct projections of the same table (heatmap = last 26
+  // weeks, lifetime = all-time, count, recent-5) are kept separate on purpose —
+  // they answer different questions and don't reduce to one fetch.
   const heatmapSince = new Date(
     Date.now() - 182 * 24 * 60 * 60 * 1000
   ).toISOString();
+  const reviewDueSince = new Date().toISOString();
+  // Session-level columns are the reliable source for lifetime questions /
+  // accuracy / time (quiz_answers carries no user_id or correctness flag).
+  const LIFETIME_COLS = "started_at, completed_at, question_count, correct_count";
 
   const [
+    { data: userAchievements },
+    { data: allAchievements },
+    { data: topMasteries },
+    { count: totalSessions },
     { data: heatQuiz },
     { data: heatBoss },
     { data: heatReview },
     { data: heatFeynman },
+    { data: recentSessions },
+    { count: bossFightsCompleted },
+    { count: examSessionsCompleted },
+    { count: coursesUploaded },
+    { count: masterTopicCount },
+    { data: dueMasteryRows },
+    { data: quizLife },
+    { data: bossLife },
+    { data: reviewLife },
   ] = await Promise.all([
+    supabase
+      .from("user_achievements")
+      .select("*, achievements(*)")
+      .eq("user_id", dbUser.id)
+      .order("earned_at", { ascending: false }),
+    supabase
+      .from("achievements")
+      .select("*")
+      .order("condition_value", { ascending: true }),
+    supabase
+      .from("user_topic_mastery")
+      .select("*, topics(title)")
+      .eq("user_id", dbUser.id)
+      .gte("mastery_level", 2)
+      .order("mastery_level", { ascending: false })
+      .limit(10),
+    supabase
+      .from("quiz_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", dbUser.id)
+      .not("completed_at", "is", null),
     supabase
       .from("quiz_sessions")
       .select("completed_at")
@@ -149,7 +162,65 @@ export default async function ProfilePage() {
       .eq("user_id", dbUser.id)
       .not("completed_at", "is", null)
       .gte("completed_at", heatmapSince),
+    supabase
+      .from("quiz_sessions")
+      .select(
+        "id, completed_at, score_pct, xp_earned, topic_id, topics!inner(title, episode_id, episodes!inner(course_id))"
+      )
+      .eq("user_id", dbUser.id)
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("boss_fight_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", dbUser.id)
+      .eq("passed", true)
+      .not("completed_at", "is", null),
+    supabase
+      .from("quiz_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", dbUser.id)
+      .eq("session_type", "exam")
+      .not("completed_at", "is", null),
+    supabase
+      .from("courses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", dbUser.id),
+    supabase
+      .from("user_topic_mastery")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", dbUser.id)
+      .gte("mastery_level", 5),
+    // Topics due for spaced-repetition review — shared getDueReviewTopics so
+    // the profile's "Needs Review" matches the real queue everywhere.
+    getDueReviewTopics(supabase, dbUser.id, { now: reviewDueSince }),
+    supabase
+      .from("quiz_sessions")
+      .select(LIFETIME_COLS)
+      .eq("user_id", dbUser.id)
+      .not("completed_at", "is", null)
+      // Lifetime accuracy means *practice* accuracy — exclude exam-mode rows,
+      // which defer grading and may carry question_count without correct_count
+      // (dragging accuracy down). NULL-safe: regular quizzes have a NULL
+      // session_type, and a bare .neq("session_type","exam") would drop them
+      // (SQL `NULL != 'exam'` is NULL, i.e. not matched).
+      .or("session_type.is.null,session_type.neq.exam"),
+    supabase
+      .from("boss_fight_sessions")
+      .select(LIFETIME_COLS)
+      .eq("user_id", dbUser.id)
+      .not("completed_at", "is", null),
+    supabase
+      .from("review_sessions")
+      .select(LIFETIME_COLS)
+      .eq("user_id", dbUser.id)
+      .not("completed_at", "is", null),
   ]);
+
+  const earnedIds = new Set(
+    (userAchievements || []).map((ua: any) => ua.achievement_id)
+  );
 
   const heatmapData: Record<string, number> = {};
   for (const row of [
@@ -162,17 +233,6 @@ export default async function ProfilePage() {
     const day = (row.completed_at as string).slice(0, 10);
     heatmapData[day] = (heatmapData[day] ?? 0) + 1;
   }
-
-  // ── Recent sessions ────────────────────────────────────────────────────────
-  const { data: recentSessions } = await supabase
-    .from("quiz_sessions")
-    .select(
-      "id, completed_at, score_pct, xp_earned, topic_id, topics!inner(title, episode_id, episodes!inner(course_id))"
-    )
-    .eq("user_id", dbUser.id)
-    .not("completed_at", "is", null)
-    .order("completed_at", { ascending: false })
-    .limit(5);
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const level = calculateLevel(dbUser.total_xp || 0);
@@ -251,72 +311,6 @@ export default async function ProfilePage() {
     { level: 2, label: "Apprentice", color: "#4ade80", ring: "rgba(34,197,94,0.14)" },
   ];
 
-  // ── Closest Trophies ladder (Overview) ────────────────────────────────────
-  // The countable-condition totals MUST mirror awardSessionAchievements'
-  // aggregate queries exactly, so the ladder's progress matches the count at
-  // which each badge actually fires. quiz_sessions_completed === totalSessions
-  // (same query); streak_days === current streak.
-  const reviewDueSince = new Date().toISOString();
-  // Session-level columns are the reliable source for lifetime questions /
-  // accuracy / time (quiz_answers carries no user_id or correctness flag).
-  const LIFETIME_COLS = "started_at, completed_at, question_count, correct_count";
-  const [
-    { count: bossFightsCompleted },
-    { count: examSessionsCompleted },
-    { count: coursesUploaded },
-    { count: masterTopicCount },
-    { data: dueMasteryRows },
-    { data: quizLife },
-    { data: bossLife },
-    { data: reviewLife },
-  ] = await Promise.all([
-    supabase
-      .from("boss_fight_sessions")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", dbUser.id)
-      .eq("passed", true)
-      .not("completed_at", "is", null),
-    supabase
-      .from("quiz_sessions")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", dbUser.id)
-      .eq("session_type", "exam")
-      .not("completed_at", "is", null),
-    supabase
-      .from("courses")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", dbUser.id),
-    supabase
-      .from("user_topic_mastery")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", dbUser.id)
-      .gte("mastery_level", 5),
-    // Topics due for spaced-repetition review — shared getDueReviewTopics so
-    // the profile's "Needs Review" matches the real queue everywhere.
-    getDueReviewTopics(supabase, dbUser.id, { now: reviewDueSince }),
-    supabase
-      .from("quiz_sessions")
-      .select(LIFETIME_COLS)
-      .eq("user_id", dbUser.id)
-      .not("completed_at", "is", null)
-      // Lifetime accuracy means *practice* accuracy — exclude exam-mode rows,
-      // which defer grading and may carry question_count without correct_count
-      // (dragging accuracy down). NULL-safe: regular quizzes have a NULL
-      // session_type, and a bare .neq("session_type","exam") would drop them
-      // (SQL `NULL != 'exam'` is NULL, i.e. not matched).
-      .or("session_type.is.null,session_type.neq.exam"),
-    supabase
-      .from("boss_fight_sessions")
-      .select(LIFETIME_COLS)
-      .eq("user_id", dbUser.id)
-      .not("completed_at", "is", null),
-    supabase
-      .from("review_sessions")
-      .select(LIFETIME_COLS)
-      .eq("user_id", dbUser.id)
-      .not("completed_at", "is", null),
-  ]);
-
   const dueTopics = toDueTopicTitles(dueMasteryRows);
 
   // review_days = distinct ISO days of completed reviews (matches the evaluator).
@@ -352,6 +346,11 @@ export default async function ProfilePage() {
   const STUDY_TIME_CAP_MIN = 20;
   const timeStudiedMin = sumCappedStudyMinutes(lifeSessions, STUDY_TIME_CAP_MIN);
 
+  // Closest Trophies ladder (Overview): the countable-condition totals MUST
+  // mirror awardSessionAchievements' aggregate queries exactly, so the ladder's
+  // progress matches the count at which each badge actually fires.
+  // quiz_sessions_completed === totalSessions (same query); streak_days ===
+  // current streak.
   const countableTotals: CountableTotals = {
     quiz_sessions_completed: totalSessions || 0,
     boss_fights_completed: bossFightsCompleted || 0,
