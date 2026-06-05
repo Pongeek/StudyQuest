@@ -1419,13 +1419,30 @@
   display: flex; gap: 12px; align-items: center;
   transition: transform .2s, box-shadow .2s, border-color .2s;
 }
-.trophy-card:hover {
+.trophy-card:hover,
+.trophy-card:focus-within {
   border-color: rgba(245,158,11,0.42);
   box-shadow:
     0 0 0 1px rgba(251,191,36,0.08),
     0 4px 20px -6px rgba(245,158,11,0.35),
     inset 0 1px 0 rgba(251,191,36,0.18);
   transform: translateY(-2px);
+}
+/* The card is focusable (tabindex) so touch + keyboard reach the same reveal
+   as hover. Distinct visible ring for keyboard focus. */
+.trophy-card:focus-visible {
+  outline: 2px solid rgba(251,191,36,0.7);
+  outline-offset: 2px;
+}
+/* Trophy icon pop on hover / focus — decorative, motion-safe only. */
+@media (prefers-reduced-motion: no-preference) {
+  .trophy-icon-tile {
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .trophy-card:hover .trophy-icon-tile,
+  .trophy-card:focus-within .trophy-icon-tile {
+    transform: scale(1.08) rotate(-3deg);
+  }
 }
 .trophy-card::before {
   content: ""; position: absolute; left: -10%; top: -50%;

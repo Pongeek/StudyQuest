@@ -769,7 +769,10 @@ function TrophyCard({
 }) {
   const isFeatured = featuredId != null && ach.id === featuredId;
   return (
-    <div className="trophy-card">
+    // Focusable so the hover reveal (lift + glow + icon pop) is reachable by
+    // touch (tap focuses) and keyboard; `title` surfaces full lore on hover
+    // without any layout shift.
+    <div className="trophy-card" tabIndex={0} title={ach.description}>
       <div className="trophy-icon-stage">
         <div className="trophy-icon-aura" aria-hidden />
         <div className="trophy-icon-tile">
