@@ -45,6 +45,7 @@ import QuestPulse from "@/components/profile/QuestPulse";
 import ClosestTrophiesLadder, {
   type LadderItem,
 } from "@/components/profile/ClosestTrophiesLadder";
+import ReviewQueueCard from "@/components/dashboard/ReviewQueueCard";
 import {
   computeClosestTrophies,
   type CountableTotals,
@@ -231,12 +232,14 @@ export default async function ProfilePage() {
   // aggregate queries exactly, so the ladder's progress matches the count at
   // which each badge actually fires. quiz_sessions_completed === totalSessions
   // (same query); streak_days === current streak.
+  const reviewDueSince = new Date().toISOString();
   const [
     { count: bossFightsCompleted },
     { count: examSessionsCompleted },
     { count: coursesUploaded },
     { count: masterTopicCount },
     { data: reviewDayRows },
+    { data: dueMasteryRows },
   ] = await Promise.all([
     supabase
       .from("boss_fight_sessions")
@@ -264,7 +267,20 @@ export default async function ProfilePage() {
       .select("completed_at")
       .eq("user_id", dbUser.id)
       .not("completed_at", "is", null),
+    // Topics due for spaced-repetition review — mirrors the dashboard's
+    // getReviewQueue so the profile's "Needs Review" matches the real queue.
+    supabase
+      .from("user_topic_mastery")
+      .select("topic_id, next_review_at, topics(title)")
+      .eq("user_id", dbUser.id)
+      .not("next_review_at", "is", null)
+      .lte("next_review_at", reviewDueSince)
+      .order("next_review_at", { ascending: true }),
   ]);
+
+  const dueTopics = (dueMasteryRows || []).map((row: any) => ({
+    topicTitle: (row.topics?.title ?? "Unknown topic") as string,
+  }));
 
   const reviewDays = new Set(
     (reviewDayRows || []).map(
@@ -330,6 +346,7 @@ export default async function ProfilePage() {
       <ProfileTabs
         overview={
           <div className="space-y-6">
+          <ReviewQueueCard dueCount={dueTopics.length} dueTopics={dueTopics} />
           <ClosestTrophiesLadder items={closestTrophies} />
           <section>
             <header className="flex items-center gap-3 mb-4 px-1">
