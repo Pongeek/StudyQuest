@@ -11,6 +11,7 @@ import { motion } from "framer-motion";
 import { Swords, Flame, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TierLevelFrame from "@/components/gamification/TierLevelFrame";
+import CountUp from "@/components/profile/CountUp";
 import { getStreakTitle, getStreakAuraLevel } from "@/lib/streak";
 
 interface XPProgress {
@@ -277,7 +278,7 @@ export default function ProfileHeroCard({
           labelClass="text-amber-400"
         >
           <div className="font-bold text-amber-400 text-2xl leading-none tracking-tight tabular-nums">
-            {totalXp.toLocaleString()}
+            <CountUp value={totalXp} animKey="hero-xp" />
           </div>
         </StatTile>
 
@@ -313,7 +314,7 @@ export default function ProfileHeroCard({
           labelClass="text-slate-400"
         >
           <div className="font-bold text-white text-2xl leading-none tracking-tight tabular-nums">
-            {totalSessions}
+            <CountUp value={totalSessions} animKey="hero-sessions" />
           </div>
         </StatTile>
 
@@ -325,7 +326,7 @@ export default function ProfileHeroCard({
           labelClass="text-purple-400"
         >
           <div className="font-bold text-white text-2xl leading-none tracking-tight tabular-nums">
-            {earnedCount}
+            <CountUp value={earnedCount} animKey="hero-trophies" />
             <span className="text-slate-600 text-lg font-normal">/{totalAchievements}</span>
           </div>
         </StatTile>
