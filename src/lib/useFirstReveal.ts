@@ -14,8 +14,6 @@ import { useReducedMotion } from "framer-motion";
 const revealedKeys = new Set<string>();
 
 export interface FirstReveal {
-  /** True when the user prefers reduced motion. */
-  reduce: boolean;
   /**
    * True if this surface is already settled — reduced-motion, or it has played
    * its entrance earlier this page session. Render the final value when true,
@@ -45,5 +43,5 @@ export function useFirstReveal(animKey: string): FirstReveal {
     if (!reduce) revealedKeys.add(animKey);
   }, [reduce, animKey]);
 
-  return { reduce, settled, markRevealed };
+  return { settled, markRevealed };
 }

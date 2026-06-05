@@ -40,7 +40,9 @@ export function getDueReviewTopics(
     .lte("next_review_at", now)
     .order("next_review_at", { ascending: true });
 
-  if (typeof limit === "number") query = query.limit(limit);
+  // Guard limit > 0: a future caller passing a computed 0 should mean "no cap",
+  // not .limit(0) (which would return an empty queue).
+  if (typeof limit === "number" && limit > 0) query = query.limit(limit);
 
   return query;
 }
