@@ -195,17 +195,15 @@ export default async function ProfilePage() {
     // Topics due for spaced-repetition review — shared getDueReviewTopics so
     // the profile's "Needs Review" matches the real queue everywhere.
     getDueReviewTopics(supabase, dbUser.id, { now: reviewDueSince }),
+    // No exam filter here: Exam Prep lives in its own exam_sessions table, so
+    // quiz_sessions never contains exam rows (and has no session_type column —
+    // filtering on it errors out and drops every quiz row from lifetime stats).
+    // Lifetime "practice accuracy" is therefore just the completed quizzes.
     supabase
       .from("quiz_sessions")
       .select(LIFETIME_COLS)
       .eq("user_id", dbUser.id)
-      .not("completed_at", "is", null)
-      // Lifetime accuracy means *practice* accuracy — exclude exam-mode rows,
-      // which defer grading and may carry question_count without correct_count
-      // (dragging accuracy down). NULL-safe: regular quizzes have a NULL
-      // session_type, and a bare .neq("session_type","exam") would drop them
-      // (SQL `NULL != 'exam'` is NULL, i.e. not matched).
-      .or("session_type.is.null,session_type.neq.exam"),
+      .not("completed_at", "is", null),
     supabase
       .from("boss_fight_sessions")
       .select(LIFETIME_COLS)
