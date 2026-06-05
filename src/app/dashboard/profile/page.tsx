@@ -40,6 +40,7 @@ import {
 } from "@/lib/xp";
 import { cn } from "@/lib/utils";
 import ProfileHeroCard from "@/components/profile/ProfileHeroCard";
+import ProfileTabs from "@/components/profile/ProfileTabs";
 import QuestPulse from "@/components/profile/QuestPulse";
 import {
   groupByCategory,
@@ -245,6 +246,160 @@ export default async function ProfilePage() {
         totalAchievements={totalAchievements}
       />
 
+      <ProfileTabs
+        overview={
+          <section>
+            <header className="flex items-center gap-3 mb-4 px-1">
+              <div className="w-9 h-9 pixel-border bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-pixel text-[9px] tracking-wider text-amber-400/90">
+                  RECENTLY EARNED
+                </div>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
+                  Latest Honors
+                </h2>
+              </div>
+            </header>
+            {earnedAchievementsList.length > 0 ? (
+              <div className="grid sm:grid-cols-2 gap-3">
+                {earnedAchievementsList.slice(0, 3).map((ach: any) => (
+                  <TrophyCard key={ach.id} ach={ach} />
+                ))}
+              </div>
+            ) : (
+              <div className="rpg-card rounded-xl p-8 text-center">
+                <Trophy className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-400">No relics yet</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Complete a quiz to claim your first trophy.
+                </p>
+              </div>
+            )}
+          </section>
+        }
+        trophyCase={
+          <section>
+            {/* Header with progress ring */}
+            <div className="rpg-card rounded-2xl p-5 sm:p-6 mb-4 flex items-center gap-5 sm:gap-6 relative overflow-hidden">
+              {/* Amber accent line — trophy stamp feel */}
+              <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
+              {/* Pixel nails — amber, trophy stamp */}
+              <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+              <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+              <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+              <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
+
+              <div className="achievement-ring-wrap">
+                <svg className="achievement-ring-svg" viewBox="0 0 132 132">
+                  <defs>
+                    <linearGradient id="sqRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#fbbf24" />
+                      <stop offset="50%" stopColor="#f59e0b" />
+                      <stop offset="100%" stopColor="#d97706" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="66" cy="66" r="56" strokeWidth="7" fill="none" className="achievement-ring-bg" />
+                  <circle
+                    cx="66" cy="66" r="56" strokeWidth="7" fill="none"
+                    className="achievement-ring-fill"
+                    strokeDasharray={2 * Math.PI * 56}
+                    strokeDashoffset={2 * Math.PI * 56 * (1 - achievementProgress / 100)}
+                  />
+                </svg>
+                <div className="achievement-ring-center">
+                  <div>
+                    <div className="text-3xl font-extrabold text-white tabular-nums tracking-tight leading-none">
+                      {earnedCount}
+                    </div>
+                    <div className="font-pixel text-[9px] tracking-wider text-amber-400/75 mt-1.5">
+                      OF {totalAchievements}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="min-w-0">
+                <div className="font-pixel text-[9px] tracking-wider text-amber-400/90 flex items-center gap-2 mb-2">
+                  <Crown className="w-3 h-3" />
+                  THE TROPHY CASE
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
+                  Honors &amp; Relics
+                </h2>
+                <p className="text-sm text-slate-400 mt-1.5">
+                  {earnedCount > 0
+                    ? `${earnedCount} of ${totalAchievements} relics claimed. ${totalAchievements - earnedCount} remain sealed.`
+                    : "Your trophy case awaits its first relic."}
+                </p>
+              </div>
+            </div>
+
+            {/* Earned */}
+            {earnedAchievementsList.length > 0 && (
+              <>
+                <div className="font-pixel text-[9px] tracking-wider text-amber-400/90 mb-3 flex items-center gap-2 px-1">
+                  <Sparkles className="w-3 h-3" />
+                  EARNED
+                  <span className="text-slate-700">&middot;</span>
+                  <span className="text-slate-500 tabular-nums">{earnedAchievementsList.length}</span>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3 mb-6">
+                  {earnedAchievementsList.map((ach: any) => (
+                    <TrophyCard key={ach.id} ach={ach} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Locked — collapsed by category. Native <details> keeps this a
+                server component; each category opens independently. Page height
+                stays bounded even as the achievement set grows past 30. */}
+            {lockedAchievementsList.length > 0 && (
+              <>
+                <div className="font-pixel text-[9px] tracking-wider text-slate-500 mb-3 flex items-center gap-2 px-1">
+                  <Lock className="w-3 h-3" />
+                  SEALED CHESTS
+                  <span className="text-slate-700">&middot;</span>
+                  <span className="text-slate-600 tabular-nums">{lockedAchievementsList.length}</span>
+                </div>
+                <div className="space-y-2">
+                  {groupByCategory(lockedAchievementsList).map((group) => {
+                    const Icon = CATEGORY_ICON_BY_NAME[group.meta.iconName];
+                    return (
+                      <details
+                        key={group.category}
+                        className="group bg-slate-900/40 border border-white/[0.05] hover:border-white/[0.10] transition-colors"
+                      >
+                        <summary className="flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none list-none">
+                          <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", group.meta.accent)} />
+                          <span className={cn(
+                            "font-pixel text-[9px] tracking-wider flex-1",
+                            group.meta.accent
+                          )}>
+                            {group.meta.label.toUpperCase()}
+                          </span>
+                          <span className="text-[10px] text-slate-600 tabular-nums">
+                            {group.items.length}
+                          </span>
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-600 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="grid sm:grid-cols-2 gap-3 px-3 pb-3 pt-1">
+                          {group.items.map((ach: any) => (
+                            <ChestCard key={ach.id} ach={ach} />
+                          ))}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </section>
+        }
+        journey={
+          <div className="space-y-6">
+
       {/* ─── STUDY ACTIVITY HEATMAP ─── */}
       <section>
         <header className="flex items-center gap-3 mb-4 px-1">
@@ -261,124 +416,6 @@ export default async function ProfilePage() {
           </div>
         </header>
         <QuestPulse data={heatmapData} currentStreak={currentStreak} />
-      </section>
-
-      {/* ─── ACHIEVEMENTS ─── */}
-      <section>
-        {/* Header with progress ring */}
-        <div className="rpg-card rounded-2xl p-5 sm:p-6 mb-4 flex items-center gap-5 sm:gap-6 relative overflow-hidden">
-          {/* Amber accent line — trophy stamp feel */}
-          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
-          {/* Pixel nails — amber, trophy stamp */}
-          <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
-          <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
-          <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
-          <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 z-[1]" />
-
-          <div className="achievement-ring-wrap">
-            <svg className="achievement-ring-svg" viewBox="0 0 132 132">
-              <defs>
-                <linearGradient id="sqRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#fbbf24" />
-                  <stop offset="50%" stopColor="#f59e0b" />
-                  <stop offset="100%" stopColor="#d97706" />
-                </linearGradient>
-              </defs>
-              <circle cx="66" cy="66" r="56" strokeWidth="7" fill="none" className="achievement-ring-bg" />
-              <circle
-                cx="66" cy="66" r="56" strokeWidth="7" fill="none"
-                className="achievement-ring-fill"
-                strokeDasharray={2 * Math.PI * 56}
-                strokeDashoffset={2 * Math.PI * 56 * (1 - achievementProgress / 100)}
-              />
-            </svg>
-            <div className="achievement-ring-center">
-              <div>
-                <div className="text-3xl font-extrabold text-white tabular-nums tracking-tight leading-none">
-                  {earnedCount}
-                </div>
-                <div className="font-pixel text-[9px] tracking-wider text-amber-400/75 mt-1.5">
-                  OF {totalAchievements}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="min-w-0">
-            <div className="font-pixel text-[9px] tracking-wider text-amber-400/90 flex items-center gap-2 mb-2">
-              <Crown className="w-3 h-3" />
-              THE TROPHY CASE
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
-              Honors &amp; Relics
-            </h2>
-            <p className="text-sm text-slate-400 mt-1.5">
-              {earnedCount > 0
-                ? `${earnedCount} of ${totalAchievements} relics claimed. ${totalAchievements - earnedCount} remain sealed.`
-                : "Your trophy case awaits its first relic."}
-            </p>
-          </div>
-        </div>
-
-        {/* Earned */}
-        {earnedAchievementsList.length > 0 && (
-          <>
-            <div className="font-pixel text-[9px] tracking-wider text-amber-400/90 mb-3 flex items-center gap-2 px-1">
-              <Sparkles className="w-3 h-3" />
-              EARNED
-              <span className="text-slate-700">&middot;</span>
-              <span className="text-slate-500 tabular-nums">{earnedAchievementsList.length}</span>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3 mb-6">
-              {earnedAchievementsList.map((ach: any) => (
-                <TrophyCard key={ach.id} ach={ach} />
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Locked — collapsed by category. Native <details> keeps this a
-            server component; each category opens independently. Page height
-            stays bounded even as the achievement set grows past 30. */}
-        {lockedAchievementsList.length > 0 && (
-          <>
-            <div className="font-pixel text-[9px] tracking-wider text-slate-500 mb-3 flex items-center gap-2 px-1">
-              <Lock className="w-3 h-3" />
-              SEALED CHESTS
-              <span className="text-slate-700">&middot;</span>
-              <span className="text-slate-600 tabular-nums">{lockedAchievementsList.length}</span>
-            </div>
-            <div className="space-y-2">
-              {groupByCategory(lockedAchievementsList).map((group) => {
-                const Icon = CATEGORY_ICON_BY_NAME[group.meta.iconName];
-                return (
-                  <details
-                    key={group.category}
-                    className="group bg-slate-900/40 border border-white/[0.05] hover:border-white/[0.10] transition-colors"
-                  >
-                    <summary className="flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none list-none">
-                      <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", group.meta.accent)} />
-                      <span className={cn(
-                        "font-pixel text-[9px] tracking-wider flex-1",
-                        group.meta.accent
-                      )}>
-                        {group.meta.label.toUpperCase()}
-                      </span>
-                      <span className="text-[10px] text-slate-600 tabular-nums">
-                        {group.items.length}
-                      </span>
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-600 transition-transform group-open:rotate-180" />
-                    </summary>
-                    <div className="grid sm:grid-cols-2 gap-3 px-3 pb-3 pt-1">
-                      {group.items.map((ach: any) => (
-                        <ChestCard key={ach.id} ach={ach} />
-                      ))}
-                    </div>
-                  </details>
-                );
-              })}
-            </div>
-          </>
-        )}
       </section>
 
       {/* ─── MASTERED TOPICS ─── */}
@@ -539,6 +576,9 @@ export default async function ProfilePage() {
           </div>
         )}
       </section>
+          </div>
+        }
+      />
     </div>
   );
 }
