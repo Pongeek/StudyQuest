@@ -33,7 +33,7 @@ export default function ProfileTabs({ overview, trophyCase, journey }: Props) {
     <Tabs.Root defaultValue="journey" className="space-y-6">
       <Tabs.List
         aria-label="Profile sections"
-        className="relative grid grid-cols-3 gap-1.5 p-1.5 pixel-border bg-slate-950/40"
+        className="relative grid grid-cols-3 gap-1 border-b border-white/[0.06]"
       >
         {TAB_DEFS.map(({ value, label, Icon }) => (
           <Tabs.Tab
