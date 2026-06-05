@@ -15,10 +15,11 @@ import { Tabs } from "@base-ui/react/tabs";
 import { LayoutDashboard, Trophy, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Journey leads — it's the default landing tab, so it also sits leftmost.
 const TAB_DEFS = [
+  { value: "journey", label: "JOURNEY", Icon: Map },
   { value: "overview", label: "OVERVIEW", Icon: LayoutDashboard },
   { value: "trophies", label: "TROPHY CASE", Icon: Trophy },
-  { value: "journey", label: "JOURNEY", Icon: Map },
 ] as const;
 
 interface Props {
@@ -29,7 +30,7 @@ interface Props {
 
 export default function ProfileTabs({ overview, trophyCase, journey }: Props) {
   return (
-    <Tabs.Root defaultValue="overview" className="space-y-6">
+    <Tabs.Root defaultValue="journey" className="space-y-6">
       <Tabs.List
         aria-label="Profile sections"
         className="relative grid grid-cols-3 gap-1.5 p-1.5 pixel-border bg-slate-950/40"
