@@ -8,6 +8,8 @@
 // animation is a separate polish slice (#25).
 
 import { Target, Trophy } from "lucide-react";
+import CountUp from "@/components/profile/CountUp";
+import ProgressFill from "@/components/profile/ProgressFill";
 
 export interface LadderItem {
   id: string;
@@ -69,15 +71,16 @@ export default function ClosestTrophiesLadder({ items }: { items: LadderItem[] }
                   aria-valuemax={100}
                   aria-label={`${it.name}: ${it.current} of ${it.target}, ${it.pct}% complete`}
                 >
-                  <div
-                    className="h-full xp-shimmer rounded-full"
-                    style={{ width: `${Math.max(it.pct, 4)}%` }}
+                  <ProgressFill
+                    pct={Math.max(it.pct, 4)}
+                    animKey={`ladder-bar-${it.id}`}
+                    className="xp-shimmer"
                   />
                 </div>
               </div>
               <div className="w-9 text-right shrink-0">
                 <span className="text-amber-400 font-bold tabular-nums text-sm">
-                  {it.pct}%
+                  <CountUp value={it.pct} animKey={`ladder-pct-${it.id}`} suffix="%" />
                 </span>
               </div>
             </div>

@@ -8,20 +8,13 @@
 
 import { ListChecks, Target, Crown, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import CountUp from "@/components/profile/CountUp";
 
 interface Props {
   questionsAnswered: number;
   accuracyPct: number;
   topicsMastered: number;
   timeStudiedMin: number;
-}
-
-/** Minutes → compact "Xh Ym" / "Xh" / "Xm". */
-function formatStudyTime(min: number): string {
-  if (min < 60) return `${min}m`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
 type Accent = "amber" | "emerald" | "purple" | "indigo";
@@ -41,7 +34,7 @@ function StatTile({
   Icon,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   sub: string;
   accent: Accent;
   Icon: typeof Target;
@@ -98,28 +91,28 @@ export default function LifetimeStatsGrid({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <StatTile
           label="QUESTIONS"
-          value={questionsAnswered.toLocaleString()}
+          value={<CountUp value={questionsAnswered} animKey="life-questions" />}
           sub="answered"
           accent="amber"
           Icon={ListChecks}
         />
         <StatTile
           label="ACCURACY"
-          value={`${accuracyPct}%`}
+          value={<CountUp value={accuracyPct} animKey="life-accuracy" suffix="%" />}
           sub="all-time correct"
           accent="emerald"
           Icon={Target}
         />
         <StatTile
           label="MASTERED"
-          value={topicsMastered.toLocaleString()}
+          value={<CountUp value={topicsMastered} animKey="life-mastered" />}
           sub="at master tier"
           accent="purple"
           Icon={Crown}
         />
         <StatTile
           label="TIME"
-          value={formatStudyTime(timeStudiedMin)}
+          value={<CountUp value={timeStudiedMin} animKey="life-time" mode="duration" />}
           sub="time studied"
           accent="indigo"
           Icon={Clock}
