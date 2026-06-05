@@ -209,15 +209,20 @@ export default async function ProfilePage() {
   // most-recently-earned (earnedAchievementsList is sorted newest-first) when
   // unset or stale. `featured_achievement_id` is undefined until migration 025
   // is applied, which the resolver treats as "unset".
+  const explicitFeaturedId =
+    (dbUser.featured_achievement_id as string | null | undefined) ?? null;
   const featuredTrophy = resolveFeaturedTrophy<{
     id: string;
     name: string;
     icon: string;
   }>(
-    (dbUser.featured_achievement_id as string | null | undefined) ?? null,
+    explicitFeaturedId,
     earnedAchievementsList as Array<{ id: string; name: string; icon: string }>
   );
-  const featuredId = featuredTrophy?.id ?? null;
+  // The card star reflects the EXPLICIT pin, not the resolved fallback — so the
+  // auto-featured most-recent trophy isn't shown as a starred, un-toggleable
+  // choice the user never made. The hero still shows the resolved trophy.
+  const featuredId = explicitFeaturedId;
 
   function sessionHref(s: any): string {
     const courseId = s.topics?.episodes?.course_id;
