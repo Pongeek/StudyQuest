@@ -303,7 +303,13 @@ export default async function ProfilePage() {
       .from("quiz_sessions")
       .select(LIFETIME_COLS)
       .eq("user_id", dbUser.id)
-      .not("completed_at", "is", null),
+      .not("completed_at", "is", null)
+      // Lifetime accuracy means *practice* accuracy — exclude exam-mode rows,
+      // which defer grading and may carry question_count without correct_count
+      // (dragging accuracy down). NULL-safe: regular quizzes have a NULL
+      // session_type, and a bare .neq("session_type","exam") would drop them
+      // (SQL `NULL != 'exam'` is NULL, i.e. not matched).
+      .or("session_type.is.null,session_type.neq.exam"),
     supabase
       .from("boss_fight_sessions")
       .select(LIFETIME_COLS)
@@ -603,8 +609,14 @@ export default async function ProfilePage() {
                 <div className="font-pixel text-[9px] tracking-wider text-emerald-400/90">
                   SKILL CONSTELLATIONS
                 </div>
+                {/* "Topic Mastery" — NOT "Mastered Topics". This lists every
+                    topic at Apprentice tier (mastery_level >= 2) and up, grouped
+                    by tier. The Overview "Topics Mastered" stat counts only the
+                    Master tier (>= 5, matching the master_topics achievement), so
+                    calling this whole list "Mastered" would contradict it (a user
+                    could see "0 mastered" on Overview beside a populated list). */}
                 <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
-                  Mastered Topics
+                  Topic Mastery
                 </h2>
               </div>
             </div>
