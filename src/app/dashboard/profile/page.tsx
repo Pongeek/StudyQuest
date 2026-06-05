@@ -52,6 +52,8 @@ import {
   type CountableTotals,
 } from "@/lib/trophy-progress";
 import { sumCappedStudyMinutes } from "@/lib/study-time";
+import { resolveFeaturedTrophy } from "@/lib/featured-trophy";
+import FeatureTrophyButton from "@/components/profile/FeatureTrophyButton";
 import {
   groupByCategory,
   type CategoryMeta,
@@ -202,6 +204,20 @@ export default async function ProfilePage() {
   const lockedAchievementsList = (allAchievements || []).filter(
     (a: any) => !earnedIds.has(a.id)
   );
+
+  // Featured Trophy — the achievement pinned to the crest. Falls back to the
+  // most-recently-earned (earnedAchievementsList is sorted newest-first) when
+  // unset or stale. `featured_achievement_id` is undefined until migration 025
+  // is applied, which the resolver treats as "unset".
+  const featuredTrophy = resolveFeaturedTrophy<{
+    id: string;
+    name: string;
+    icon: string;
+  }>(
+    (dbUser.featured_achievement_id as string | null | undefined) ?? null,
+    earnedAchievementsList as Array<{ id: string; name: string; icon: string }>
+  );
+  const featuredId = featuredTrophy?.id ?? null;
 
   function sessionHref(s: any): string {
     const courseId = s.topics?.episodes?.course_id;
@@ -384,6 +400,8 @@ export default async function ProfilePage() {
         totalSessions={totalSessions || 0}
         earnedCount={earnedCount}
         totalAchievements={totalAchievements}
+        featuredTrophyName={featuredTrophy?.name ?? null}
+        featuredTrophyIcon={featuredTrophy?.icon ?? null}
       />
 
       <ProfileTabs
@@ -414,7 +432,7 @@ export default async function ProfilePage() {
             {earnedAchievementsList.length > 0 ? (
               <div className="grid sm:grid-cols-2 gap-3">
                 {earnedAchievementsList.slice(0, 3).map((ach: any) => (
-                  <TrophyCard key={ach.id} ach={ach} />
+                  <TrophyCard key={ach.id} ach={ach} featuredId={featuredId} />
                 ))}
               </div>
             ) : (
@@ -496,7 +514,7 @@ export default async function ProfilePage() {
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3 mb-6">
                   {earnedAchievementsList.map((ach: any) => (
-                    <TrophyCard key={ach.id} ach={ach} />
+                    <TrophyCard key={ach.id} ach={ach} featuredId={featuredId} />
                   ))}
                 </div>
               </>
@@ -737,6 +755,7 @@ export default async function ProfilePage() {
 
 function TrophyCard({
   ach,
+  featuredId,
 }: {
   ach: {
     id: string;
@@ -746,7 +765,9 @@ function TrophyCard({
     xp_reward: number;
     earned_at?: string;
   };
+  featuredId?: string | null;
 }) {
+  const isFeatured = featuredId != null && ach.id === featuredId;
   return (
     <div className="trophy-card">
       <div className="trophy-icon-stage">
@@ -777,6 +798,9 @@ function TrophyCard({
               </span>
             </>
           )}
+        </div>
+        <div className="mt-2 -ml-1.5">
+          <FeatureTrophyButton achievementId={ach.id} isFeatured={isFeatured} />
         </div>
       </div>
     </div>

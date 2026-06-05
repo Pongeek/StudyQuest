@@ -221,6 +221,8 @@ The MVP plus the full feature set is shipped: three content layers (Scroll / Gri
 021 — users.streak_freeze_tokens (forgiveness mechanic: earn 1 per 7-day streak, cap 3, burn lazily on next study after a gap)
 022 — topics.cheat_sheet + topics.cheat_sheet_generated_at (AI-generated 1-page summary per topic, cached until regenerated)
 023 — review_answers.confidence (Phase 2 — Review; mirrors quiz_answers.confidence CHECK; feeds per-topic confidence-weighted SM-2 per ADR-0001)
+024 — answer_clarifications UNIQUE(answer_kind, answer_id) (clarifier upsert dedupe)
+025 — users.featured_achievement_id (Featured Trophy: pinned to the profile crest; nullable FK → achievements ON DELETE SET NULL; resolves to most-recently-earned when unset)
 ```
 
 The migration files live in `supabase/migrations/`. Always update this list when you add a migration so the next session can verify the live DB matches.
