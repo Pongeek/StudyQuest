@@ -77,6 +77,15 @@ export function getEarnedStreakTitle(
   return earned;
 }
 
+/**
+ * Streak aura intensity 0–5 for the profile crest: 0 below the first Streak
+ * Title threshold, then one level per tier reached (Disciplined→1 … Eternal→5).
+ * Shares STREAK_TITLE_TIERS so the aura strengthens in lockstep with the title.
+ */
+export function getStreakAuraLevel(streak: number): number {
+  return STREAK_TITLE_TIERS.filter((tier) => streak >= tier.days).length;
+}
+
 export type StreakAction =
   | "first-study"
   | "same-day"

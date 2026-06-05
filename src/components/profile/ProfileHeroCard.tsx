@@ -11,7 +11,7 @@ import { motion } from "framer-motion";
 import { Swords, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TierLevelFrame from "@/components/gamification/TierLevelFrame";
-import { getStreakTitle } from "@/lib/streak";
+import { getStreakTitle, getStreakAuraLevel } from "@/lib/streak";
 
 interface XPProgress {
   current: number;
@@ -110,6 +110,10 @@ export default function ProfileHeroCard({
   // Orthogonal to the level-derived Rank chip above the name.
   const streakTitle = getStreakTitle(currentStreak);
 
+  // Streak aura intensity (0–5) — strengthens the crest's fire halo in lockstep
+  // with the Streak Title. 0 below 7 days → no aura rendered.
+  const auraLevel = getStreakAuraLevel(currentStreak);
+
   // Trigger CSS-transition XP fill after mount (same pattern as DashboardHeroCard).
   const [xpWidth, setXpWidth] = useState("0%");
   useEffect(() => {
@@ -160,7 +164,18 @@ export default function ProfileHeroCard({
           initial={{ scale: 0.82, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", damping: 18, stiffness: 220, delay: 0.08 }}
+          className="relative"
         >
+          {/* Streak aura — fire halo behind the frame, only once a Streak Title
+              is held (auraLevel ≥ 1). Decorative; the Streak Title chip is the
+              non-decorative cue. */}
+          {auraLevel > 0 && (
+            <span
+              aria-hidden
+              className="profile-crest-aura"
+              style={{ ["--aura" as string]: auraLevel }}
+            />
+          )}
           <TierLevelFrame level={level} />
         </motion.div>
 

@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { getStreakTitle, getEarnedStreakTitle } from "./streak";
+import {
+  getStreakTitle,
+  getEarnedStreakTitle,
+  getStreakAuraLevel,
+} from "./streak";
 
 describe("getStreakTitle", () => {
   it("returns null below the first threshold (under 7 days)", () => {
@@ -49,5 +53,26 @@ describe("getEarnedStreakTitle", () => {
   it("reports the highest title when a jump crosses multiple thresholds", () => {
     // (6, 20] crosses both 7 and 14 → the higher title wins.
     expect(getEarnedStreakTitle(6, 20)).toEqual({ title: "Relentless", days: 14 });
+  });
+});
+
+describe("getStreakAuraLevel", () => {
+  it("is 0 below the first Streak Title threshold", () => {
+    expect(getStreakAuraLevel(0)).toBe(0);
+    expect(getStreakAuraLevel(6)).toBe(0);
+  });
+
+  it("climbs one level per Streak Title tier reached", () => {
+    expect(getStreakAuraLevel(7)).toBe(1); // Disciplined
+    expect(getStreakAuraLevel(14)).toBe(2); // Relentless
+    expect(getStreakAuraLevel(30)).toBe(3); // Unbroken
+    expect(getStreakAuraLevel(60)).toBe(4); // Ascendant
+    expect(getStreakAuraLevel(100)).toBe(5); // Eternal
+  });
+
+  it("holds the tier's level between thresholds and saturates at the top", () => {
+    expect(getStreakAuraLevel(13)).toBe(1);
+    expect(getStreakAuraLevel(59)).toBe(3);
+    expect(getStreakAuraLevel(250)).toBe(5);
   });
 });
