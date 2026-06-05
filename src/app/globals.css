@@ -1039,6 +1039,39 @@
     0 4px 0 0 rgba(0, 0, 0, 0.35);
 }
 
+/* Profile crest streak aura — a warm fire halo behind the hero level frame.
+   Intensity is driven by --aura (0–5, from getStreakAuraLevel), so the glow
+   strengthens in lockstep with the Streak Title. Decorative + aria-hidden;
+   sits behind the frame via negative z-index. */
+.profile-crest-aura {
+  position: absolute;
+  inset: -12px;
+  z-index: -1;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(249, 115, 22, calc(0.1 + var(--aura, 1) * 0.05)) 0%,
+    rgba(249, 115, 22, 0) 70%
+  );
+}
+@media (prefers-reduced-motion: no-preference) {
+  .profile-crest-aura {
+    animation: crest-aura-breathe 3.2s ease-in-out infinite;
+  }
+}
+@keyframes crest-aura-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
 /* HUD chip — pixel-bordered rectangle used for Lv / XP / streak modules in
    the nav. Square corners, no rounded-full. */
 .pixel-chip {
