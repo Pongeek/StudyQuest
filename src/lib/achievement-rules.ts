@@ -52,6 +52,27 @@ export interface AchievementRow {
   condition_value: number;
 }
 
+/**
+ * Conditions whose progress is a clean current-vs-target ratio — the set the
+ * profile's "Closest Trophies" ladder can draw a progress bar for. Single
+ * source of truth: every type here is a counting case in `qualifies()` below,
+ * and `trophy-progress.ts` consumes this set rather than re-listing them.
+ *
+ * Excluded by design: binary one-shots (`perfect_quiz`, `fast_quiz`,
+ * `course_completed`, `perfect_day`), `combo_session` (no stored lifetime
+ * best-combo aggregate to measure against), and the luck-based `random` drop
+ * (progress toward chance would be a lie). See CONTEXT.md → Closest Trophies.
+ */
+export const COUNTABLE_CONDITIONS: ReadonlySet<string> = new Set<string>([
+  "quiz_sessions_completed",
+  "boss_fights_completed",
+  "exam_sessions_completed",
+  "review_days",
+  "master_topics",
+  "streak_days",
+  "courses_uploaded",
+]);
+
 /** Conditions that only mean something on a quiz — never awarded elsewhere. */
 const QUIZ_ONLY = new Set<string>(["perfect_quiz", "fast_quiz", "random"]);
 /** Conditions earnable by completing a course via a quiz OR a boss fight. */
