@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Swords, Flame } from "lucide-react";
+import { Swords, Flame, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TierLevelFrame from "@/components/gamification/TierLevelFrame";
 import { getStreakTitle, getStreakAuraLevel } from "@/lib/streak";
@@ -33,6 +33,9 @@ interface Props {
   totalSessions: number;
   earnedCount: number;
   totalAchievements: number;
+  /** Featured Trophy pinned to the crest (resolved server-side). */
+  featuredTrophyName: string | null;
+  featuredTrophyIcon: string | null;
 }
 
 // ── Animation variants (mirror DashboardHeroCard) ───────────────────────────
@@ -105,6 +108,8 @@ export default function ProfileHeroCard({
   totalSessions,
   earnedCount,
   totalAchievements,
+  featuredTrophyName,
+  featuredTrophyIcon,
 }: Props) {
   // Streak Title — pure function of the current streak (null below 7 days).
   // Orthogonal to the level-derived Rank chip above the name.
@@ -197,6 +202,24 @@ export default function ProfileHeroCard({
             <div className="rank-chip streak-title-chip mt-2">
               <Flame aria-hidden="true" className="w-2.5 h-2.5" />
               <span>{streakTitle.toUpperCase()}</span>
+            </div>
+          )}
+
+          {/* Featured Trophy — pinned to the crest from the Trophy Case. A
+              display choice, distinct from the Rank / Streak Title chips. */}
+          {featuredTrophyName && (
+            <div
+              className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 border border-amber-400/20 px-2 py-1 max-w-full"
+              aria-label={`Featured trophy: ${featuredTrophyName}`}
+            >
+              <Star aria-hidden className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
+              <span className="text-[11px] text-amber-200/90 font-semibold truncate">
+                {featuredTrophyIcon ? `${featuredTrophyIcon} ` : ""}
+                {featuredTrophyName}
+              </span>
+              <span className="font-pixel text-[7px] tracking-wider text-amber-400/60 shrink-0">
+                FEATURED
+              </span>
             </div>
           )}
 
