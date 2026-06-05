@@ -46,10 +46,12 @@ import ClosestTrophiesLadder, {
   type LadderItem,
 } from "@/components/profile/ClosestTrophiesLadder";
 import ReviewQueueCard from "@/components/dashboard/ReviewQueueCard";
+import LifetimeStatsGrid from "@/components/profile/LifetimeStatsGrid";
 import {
   computeClosestTrophies,
   type CountableTotals,
 } from "@/lib/trophy-progress";
+import { sumCappedStudyMinutes } from "@/lib/study-time";
 import {
   groupByCategory,
   type CategoryMeta,
@@ -233,13 +235,18 @@ export default async function ProfilePage() {
   // which each badge actually fires. quiz_sessions_completed === totalSessions
   // (same query); streak_days === current streak.
   const reviewDueSince = new Date().toISOString();
+  // Session-level columns are the reliable source for lifetime questions /
+  // accuracy / time (quiz_answers carries no user_id or correctness flag).
+  const LIFETIME_COLS = "started_at, completed_at, question_count, correct_count";
   const [
     { count: bossFightsCompleted },
     { count: examSessionsCompleted },
     { count: coursesUploaded },
     { count: masterTopicCount },
-    { data: reviewDayRows },
     { data: dueMasteryRows },
+    { data: quizLife },
+    { data: bossLife },
+    { data: reviewLife },
   ] = await Promise.all([
     supabase
       .from("boss_fight_sessions")
@@ -262,11 +269,6 @@ export default async function ProfilePage() {
       .select("id", { count: "exact", head: true })
       .eq("user_id", dbUser.id)
       .gte("mastery_level", 5),
-    supabase
-      .from("review_sessions")
-      .select("completed_at")
-      .eq("user_id", dbUser.id)
-      .not("completed_at", "is", null),
     // Topics due for spaced-repetition review — mirrors the dashboard's
     // getReviewQueue so the profile's "Needs Review" matches the real queue.
     supabase
@@ -276,18 +278,59 @@ export default async function ProfilePage() {
       .not("next_review_at", "is", null)
       .lte("next_review_at", reviewDueSince)
       .order("next_review_at", { ascending: true }),
+    supabase
+      .from("quiz_sessions")
+      .select(LIFETIME_COLS)
+      .eq("user_id", dbUser.id)
+      .not("completed_at", "is", null),
+    supabase
+      .from("boss_fight_sessions")
+      .select(LIFETIME_COLS)
+      .eq("user_id", dbUser.id)
+      .not("completed_at", "is", null),
+    supabase
+      .from("review_sessions")
+      .select(LIFETIME_COLS)
+      .eq("user_id", dbUser.id)
+      .not("completed_at", "is", null),
   ]);
 
   const dueTopics = (dueMasteryRows || []).map((row: any) => ({
     topicTitle: (row.topics?.title ?? "Unknown topic") as string,
   }));
 
+  // review_days = distinct ISO days of completed reviews (matches the evaluator).
   const reviewDays = new Set(
-    (reviewDayRows || []).map(
-      (r: { completed_at: string }) =>
-        new Date(r.completed_at).toISOString().split("T")[0]
+    (reviewLife || []).map(
+      (r: any) => new Date(r.completed_at as string).toISOString().split("T")[0]
     )
   ).size;
+
+  // Lifetime stats — aggregated across every completed-session table.
+  const lifeSessions = [
+    ...(quizLife || []),
+    ...(bossLife || []),
+    ...(reviewLife || []),
+  ] as Array<{
+    started_at: string | null;
+    completed_at: string | null;
+    question_count: number | null;
+    correct_count: number | null;
+  }>;
+  const questionsAnswered = lifeSessions.reduce(
+    (s, r) => s + (r.question_count || 0),
+    0
+  );
+  const correctAnswers = lifeSessions.reduce(
+    (s, r) => s + (r.correct_count || 0),
+    0
+  );
+  const accuracyPct =
+    questionsAnswered > 0
+      ? Math.round((correctAnswers / questionsAnswered) * 100)
+      : 0;
+  const STUDY_TIME_CAP_MIN = 20;
+  const timeStudiedMin = sumCappedStudyMinutes(lifeSessions, STUDY_TIME_CAP_MIN);
 
   const countableTotals: CountableTotals = {
     quiz_sessions_completed: totalSessions || 0,
@@ -348,6 +391,12 @@ export default async function ProfilePage() {
           <div className="space-y-6">
           <ReviewQueueCard dueCount={dueTopics.length} dueTopics={dueTopics} />
           <ClosestTrophiesLadder items={closestTrophies} />
+          <LifetimeStatsGrid
+            questionsAnswered={questionsAnswered}
+            accuracyPct={accuracyPct}
+            topicsMastered={masterTopicCount || 0}
+            timeStudiedMin={timeStudiedMin}
+          />
           <section>
             <header className="flex items-center gap-3 mb-4 px-1">
               <div className="w-9 h-9 pixel-border bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
