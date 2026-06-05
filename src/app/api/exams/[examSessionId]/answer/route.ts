@@ -158,6 +158,10 @@ export async function POST(
     .eq("exam_question_id", questionId)
     .maybeSingle();
 
+  // Capture the answer row id on BOTH branches so the client can PATCH
+  // confidence onto this exact row (Phase-2 exam confidence plumbing — mirrors
+  // the quiz/review routes).
+  let answerId: string | null;
   if (existingAnswer) {
     await supabase
       .from("exam_answers")
@@ -170,21 +174,28 @@ export async function POST(
         ...(uploadedImage ? { image_url: uploadedImage.storagePath } : {}),
       })
       .eq("id", existingAnswer.id);
+    answerId = existingAnswer.id as string;
   } else {
-    await supabase.from("exam_answers").insert({
-      exam_session_id: examSessionId,
-      exam_question_id: questionId,
-      user_answer: userAnswer,
-      ai_score: score,
-      ai_feedback: feedback,
-      image_url: uploadedImage?.storagePath ?? null,
-    });
+    const { data: inserted } = await supabase
+      .from("exam_answers")
+      .insert({
+        exam_session_id: examSessionId,
+        exam_question_id: questionId,
+        user_answer: userAnswer,
+        ai_score: score,
+        ai_feedback: feedback,
+        image_url: uploadedImage?.storagePath ?? null,
+      })
+      .select("id")
+      .single();
+    answerId = inserted?.id ?? null;
   }
 
   return NextResponse.json({
     score,
     feedback,
     modelAnswer: modelAnswerForResponse,
+    answerId,
   });
   } catch (err) {
     console.error("[api/exams/answer] grading failed:", err);
