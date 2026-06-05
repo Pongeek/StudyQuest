@@ -64,6 +64,20 @@ word, the conflict gets resolved and this file updated.
   applicable Condition after a session and grant whatever newly qualifies; used
   by the session-completion routes). They are distinct interfaces, not two
   adapters of one.
+- **Featured Trophy** — the one earned Achievement a learner pins to their hero
+  crest as a display choice. It is a *display preference*, not an identity tier:
+  it does **not** join Rank and Streak Title as a third title, and the learner
+  picks it manually (Rank and Streak Title are auto-derived and never chosen).
+  Defaults to the most-recently-earned Achievement when unset, so the crest is
+  never empty for a learner who has earned anything.
+- **Closest Trophies** — the nearest *unearned* Achievements ranked by progress
+  toward their Condition, shown forward-looking on the profile Overview with a
+  live progress bar (e.g. `8 / 10 boss fights`). Only **countable** Conditions
+  are progressable (`quiz_sessions_completed`, `boss_fights_completed`,
+  `exam_sessions_completed`, `review_days`, `master_topics`, `streak_days`,
+  `courses_uploaded`). Binary one-shot Conditions (`perfect_quiz`, `fast_quiz`,
+  `course_completed`) have no meaningful ratio, and the luck-based `random` drop
+  is excluded outright — showing progress toward chance would be a lie.
 - **Surface scope** — which session types a Condition is evaluated on under the
   condition-based model. Most are *any-surface* — a streak milestone or a
   mastery count is earned however the learner studied. A few are *scoped* to the
