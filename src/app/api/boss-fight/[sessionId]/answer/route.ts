@@ -98,16 +98,22 @@ export async function POST(
     feedback = result.feedback;
   }
 
-  await supabase.from("boss_fight_answers").insert({
-    session_id: sessionId,
-    question_id: questionId,
-    user_answer: userAnswer,
-    ai_score: score,
-    ai_feedback: feedback,
-    image_url: uploadedImage?.storagePath ?? null,
-  });
+  // Return the inserted row's id so the client can PATCH confidence onto this
+  // exact row (Phase-2 boss confidence plumbing — mirrors the quiz/review routes).
+  const { data: inserted } = await supabase
+    .from("boss_fight_answers")
+    .insert({
+      session_id: sessionId,
+      question_id: questionId,
+      user_answer: userAnswer,
+      ai_score: score,
+      ai_feedback: feedback,
+      image_url: uploadedImage?.storagePath ?? null,
+    })
+    .select("id")
+    .single();
 
-  return NextResponse.json({ score, feedback });
+  return NextResponse.json({ score, feedback, answerId: inserted?.id ?? null });
   } catch (err) {
     console.error("[api/boss-fight/answer] grading failed:", err);
     const classified = classifyAiError(err);
