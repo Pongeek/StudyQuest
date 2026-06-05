@@ -42,6 +42,13 @@ import { cn } from "@/lib/utils";
 import ProfileHeroCard from "@/components/profile/ProfileHeroCard";
 import ProfileTabs from "@/components/profile/ProfileTabs";
 import QuestPulse from "@/components/profile/QuestPulse";
+import ClosestTrophiesLadder, {
+  type LadderItem,
+} from "@/components/profile/ClosestTrophiesLadder";
+import {
+  computeClosestTrophies,
+  type CountableTotals,
+} from "@/lib/trophy-progress";
 import {
   groupByCategory,
   type CategoryMeta,
@@ -219,6 +226,80 @@ export default async function ProfilePage() {
     { level: 2, label: "Apprentice", color: "#4ade80", ring: "rgba(34,197,94,0.14)" },
   ];
 
+  // ── Closest Trophies ladder (Overview) ────────────────────────────────────
+  // The countable-condition totals MUST mirror awardSessionAchievements'
+  // aggregate queries exactly, so the ladder's progress matches the count at
+  // which each badge actually fires. quiz_sessions_completed === totalSessions
+  // (same query); streak_days === current streak.
+  const [
+    { count: bossFightsCompleted },
+    { count: examSessionsCompleted },
+    { count: coursesUploaded },
+    { count: masterTopicCount },
+    { data: reviewDayRows },
+  ] = await Promise.all([
+    supabase
+      .from("boss_fight_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", dbUser.id)
+      .eq("passed", true)
+      .not("completed_at", "is", null),
+    supabase
+      .from("quiz_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", dbUser.id)
+      .eq("session_type", "exam")
+      .not("completed_at", "is", null),
+    supabase
+      .from("courses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", dbUser.id),
+    supabase
+      .from("user_topic_mastery")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", dbUser.id)
+      .gte("mastery_level", 5),
+    supabase
+      .from("review_sessions")
+      .select("completed_at")
+      .eq("user_id", dbUser.id)
+      .not("completed_at", "is", null),
+  ]);
+
+  const reviewDays = new Set(
+    (reviewDayRows || []).map(
+      (r: { completed_at: string }) =>
+        new Date(r.completed_at).toISOString().split("T")[0]
+    )
+  ).size;
+
+  const countableTotals: CountableTotals = {
+    quiz_sessions_completed: totalSessions || 0,
+    boss_fights_completed: bossFightsCompleted || 0,
+    exam_sessions_completed: examSessionsCompleted || 0,
+    review_days: reviewDays,
+    master_topics: masterTopicCount || 0,
+    streak_days: currentStreak,
+    courses_uploaded: coursesUploaded || 0,
+  };
+
+  const achById = new Map<string, any>(
+    (allAchievements || []).map((a: any) => [a.id as string, a])
+  );
+  const closestTrophies: LadderItem[] = computeClosestTrophies(
+    (allAchievements || []) as any,
+    earnedIds as Set<string>,
+    countableTotals,
+    3
+  ).map((t) => {
+    const a = achById.get(t.id);
+    return {
+      ...t,
+      name: (a?.name as string) ?? "Trophy",
+      icon: (a?.icon as string) ?? "🏆",
+    };
+  });
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-8">
 
@@ -248,6 +329,8 @@ export default async function ProfilePage() {
 
       <ProfileTabs
         overview={
+          <div className="space-y-6">
+          <ClosestTrophiesLadder items={closestTrophies} />
           <section>
             <header className="flex items-center gap-3 mb-4 px-1">
               <div className="w-9 h-9 pixel-border bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
@@ -278,6 +361,7 @@ export default async function ProfilePage() {
               </div>
             )}
           </section>
+          </div>
         }
         trophyCase={
           <section>
