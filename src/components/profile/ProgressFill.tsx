@@ -2,15 +2,14 @@
 
 // ─── ProgressFill ─────────────────────────────────────────────────────────────
 // A progress-bar inner fill that grows from 0 to `pct` on mount via a CSS width
-// transition. Same first-reveal-only semantics as CountUp (module-level guard
-// keyed by animKey, surviving tab unmount/remount). Reduced-motion renders the
-// final width with no transition.
+// transition. Same first-reveal-only semantics as CountUp via the shared
+// useFirstReveal hook (animate once per surface per page session, surviving the
+// tab unmount/remount). Reduced-motion renders the final width with no
+// transition.
 
 import { useEffect, useState } from "react";
-import { useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
-
-const filledKeys = new Set<string>();
+import { useFirstReveal } from "@/lib/useFirstReveal";
 
 interface Props {
   /** Target width percentage 0–100. */
@@ -20,19 +19,17 @@ interface Props {
 }
 
 export default function ProgressFill({ pct, animKey, className }: Props) {
-  const reduce = useReducedMotion();
-  const [width, setWidth] = useState(() =>
-    reduce || filledKeys.has(animKey) ? pct : 0
-  );
+  const { settled, markRevealed } = useFirstReveal(animKey);
+  const [width, setWidth] = useState(() => (settled() ? pct : 0));
 
   useEffect(() => {
     // Mark first reveal; either way we set the final width on the next frame so
     // the 0→pct change animates via the CSS transition (and state is never set
     // synchronously inside the effect body).
-    if (!reduce) filledKeys.add(animKey);
+    markRevealed();
     const id = requestAnimationFrame(() => setWidth(pct));
     return () => cancelAnimationFrame(id);
-  }, [pct, animKey, reduce]);
+  }, [pct, markRevealed]);
 
   return (
     <div

@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getDueReviewTopics } from "@/lib/review-queue";
 
 export async function GET(_req: NextRequest) {
   const { userId } = await auth();
@@ -16,35 +17,33 @@ export async function GET(_req: NextRequest) {
 
   if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const now = new Date().toISOString();
-
-  const { data: dueMasteries, error } = await supabase
-    .from("user_topic_mastery")
-    .select(`
-      topic_id,
-      next_review_at,
-      last_score,
-      mastery_level,
-      topics (
-        id,
-        title,
-        episode_id,
-        episodes (
+  const { data: dueMasteries, error } = await getDueReviewTopics(
+    supabase,
+    dbUser.id,
+    {
+      select: `
+        topic_id,
+        next_review_at,
+        last_score,
+        mastery_level,
+        topics (
           id,
           title,
-          course_id,
-          courses (
+          episode_id,
+          episodes (
             id,
             title,
-            theme_name
+            course_id,
+            courses (
+              id,
+              title,
+              theme_name
+            )
           )
         )
-      )
-    `)
-    .eq("user_id", dbUser.id)
-    .not("next_review_at", "is", null)
-    .lte("next_review_at", now)
-    .order("next_review_at", { ascending: true });
+      `,
+    }
+  );
 
   if (error) {
     console.error("Review queue fetch error:", error);

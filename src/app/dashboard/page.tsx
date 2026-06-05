@@ -9,6 +9,7 @@ import {
   TrendingUp, Brain, Sword,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getDueReviewTopics } from "@/lib/review-queue";
 import TodaysMission from "@/components/dashboard/TodaysMission";
 import ReviewQueueCard from "@/components/dashboard/ReviewQueueCard";
 import GrimoireWidget from "@/components/dashboard/GrimoireWidget";
@@ -97,15 +98,7 @@ async function getRecentAchievements(userId: string) {
 
 async function getReviewQueue(userId: string) {
   const supabase = createServiceClient();
-  const now = new Date().toISOString();
-
-  const { data } = await supabase
-    .from("user_topic_mastery")
-    .select("topic_id, next_review_at, topics(title)")
-    .eq("user_id", userId)
-    .not("next_review_at", "is", null)
-    .lte("next_review_at", now)
-    .order("next_review_at", { ascending: true });
+  const { data } = await getDueReviewTopics(supabase, userId);
 
   return (data ?? []).map((row: any) => ({
     topicId: row.topic_id as string,

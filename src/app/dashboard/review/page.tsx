@@ -5,19 +5,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Sparkles } from "lucide-react";
 import ReviewLauncher from "@/components/review/ReviewLauncher";
+import { getDueReviewTopics } from "@/lib/review-queue";
 
 async function getReviewQueue(userId: string) {
   const supabase = createServiceClient();
-  const now = new Date().toISOString();
-
-  const { data: dueMasteries } = await supabase
-    .from("user_topic_mastery")
-    .select("topic_id, topics(title)")
-    .eq("user_id", userId)
-    .not("next_review_at", "is", null)
-    .lte("next_review_at", now)
-    .order("next_review_at", { ascending: true });
-
+  const { data: dueMasteries } = await getDueReviewTopics(supabase, userId);
   return dueMasteries ?? [];
 }
 

@@ -52,6 +52,7 @@ import {
   type CountableTotals,
 } from "@/lib/trophy-progress";
 import { sumCappedStudyMinutes } from "@/lib/study-time";
+import { getDueReviewTopics, toDueTopicTitles } from "@/lib/review-queue";
 import { resolveFeaturedTrophy } from "@/lib/featured-trophy";
 import FeatureTrophyButton from "@/components/profile/FeatureTrophyButton";
 import {
@@ -290,15 +291,9 @@ export default async function ProfilePage() {
       .select("id", { count: "exact", head: true })
       .eq("user_id", dbUser.id)
       .gte("mastery_level", 5),
-    // Topics due for spaced-repetition review — mirrors the dashboard's
-    // getReviewQueue so the profile's "Needs Review" matches the real queue.
-    supabase
-      .from("user_topic_mastery")
-      .select("topic_id, next_review_at, topics(title)")
-      .eq("user_id", dbUser.id)
-      .not("next_review_at", "is", null)
-      .lte("next_review_at", reviewDueSince)
-      .order("next_review_at", { ascending: true }),
+    // Topics due for spaced-repetition review — shared getDueReviewTopics so
+    // the profile's "Needs Review" matches the real queue everywhere.
+    getDueReviewTopics(supabase, dbUser.id, { now: reviewDueSince }),
     supabase
       .from("quiz_sessions")
       .select(LIFETIME_COLS)
@@ -322,9 +317,7 @@ export default async function ProfilePage() {
       .not("completed_at", "is", null),
   ]);
 
-  const dueTopics = (dueMasteryRows || []).map((row: any) => ({
-    topicTitle: (row.topics?.title ?? "Unknown topic") as string,
-  }));
+  const dueTopics = toDueTopicTitles(dueMasteryRows);
 
   // review_days = distinct ISO days of completed reviews (matches the evaluator).
   const reviewDays = new Set(

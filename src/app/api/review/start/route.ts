@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { MAX_TOPICS_PER_SESSION, QUESTIONS_PER_TOPIC } from "@/lib/spaced-repetition";
+import { getDueReviewTopics } from "@/lib/review-queue";
 
 export async function POST(_req: NextRequest) {
   const { userId } = await auth();
@@ -17,23 +18,21 @@ export async function POST(_req: NextRequest) {
 
   if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const now = new Date().toISOString();
-
-  // Fetch due topics (same query as GET /api/review/queue)
-  const { data: dueMasteries, error: queueError } = await supabase
-    .from("user_topic_mastery")
-    .select(`
-      topic_id,
-      topics (
-        id,
-        title
-      )
-    `)
-    .eq("user_id", dbUser.id)
-    .not("next_review_at", "is", null)
-    .lte("next_review_at", now)
-    .order("next_review_at", { ascending: true })
-    .limit(MAX_TOPICS_PER_SESSION);
+  // Fetch due topics — shared getDueReviewTopics, capped to a session's worth.
+  const { data: dueMasteries, error: queueError } = await getDueReviewTopics(
+    supabase,
+    dbUser.id,
+    {
+      select: `
+        topic_id,
+        topics (
+          id,
+          title
+        )
+      `,
+      limit: MAX_TOPICS_PER_SESSION,
+    }
+  );
 
   if (queueError) {
     console.error("Start review queue error:", queueError);

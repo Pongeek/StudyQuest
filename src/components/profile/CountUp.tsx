@@ -3,18 +3,15 @@
 // ─── CountUp ──────────────────────────────────────────────────────────────────
 // Animates a number from 0 to its value on mount. Because inactive profile tab
 // panels unmount, mounting === "tab became visible", so this plays on tab-in.
-// A module-level guard keyed by `animKey` makes it animate only the FIRST time a
-// surface is revealed per page session (it survives the unmount/remount), so
-// re-entering a tab doesn't re-animate. Reduced-motion shows the final value
-// immediately.
+// The first-reveal-only guard (animate once per surface per page session, even
+// across the tab unmount/remount) lives in the shared useFirstReveal hook.
+// Reduced-motion shows the final value immediately.
 //
 // All props are serializable (no function props) so server components can render
 // this directly with `mode` / `suffix` instead of a formatter callback.
 
 import { useEffect, useRef, useState } from "react";
-import { useReducedMotion } from "framer-motion";
-
-const animatedKeys = new Set<string>();
+import { useFirstReveal } from "@/lib/useFirstReveal";
 
 interface Props {
   value: number;
@@ -42,22 +39,20 @@ export default function CountUp({
   durationMs = 700,
   className,
 }: Props) {
-  const reduce = useReducedMotion();
-  const [display, setDisplay] = useState(() =>
-    reduce || animatedKeys.has(animKey) ? value : 0
-  );
+  const { settled, markRevealed } = useFirstReveal(animKey);
+  const [display, setDisplay] = useState(() => (settled() ? value : 0));
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Instant path (reduced-motion or already animated this session): jump to
     // the value on the next frame — never set state synchronously in the effect.
-    if (reduce || animatedKeys.has(animKey)) {
+    if (settled()) {
       rafRef.current = requestAnimationFrame(() => setDisplay(value));
       return () => {
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
       };
     }
-    animatedKeys.add(animKey);
+    markRevealed();
     const start = performance.now();
     function tick(now: number) {
       const t = Math.min(1, (now - start) / durationMs);
@@ -70,7 +65,7 @@ export default function CountUp({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [value, animKey, durationMs, reduce]);
+  }, [value, durationMs, settled, markRevealed]);
 
   const n = Math.round(display);
   const text = mode === "duration" ? formatDuration(n) : n.toLocaleString();
