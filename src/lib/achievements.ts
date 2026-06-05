@@ -160,11 +160,14 @@ export async function awardSessionAchievements(
     .eq("user_id", userId)
     .not("completed_at", "is", null);
 
+  // Completed Exam Prep sessions live in their own exam_sessions table —
+  // quiz_sessions has no session_type column, so the old
+  // .eq("session_type","exam") errored and this count was silently always 0,
+  // which kept the exam_sessions_completed achievement condition stuck at 0.
   const { count: examSessionsCompleted } = await supabase
-    .from("quiz_sessions")
+    .from("exam_sessions")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
-    .eq("session_type", "exam")
     .not("completed_at", "is", null);
 
   const { count: coursesUploaded } = await supabase

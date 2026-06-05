@@ -177,11 +177,13 @@ export default async function ProfilePage() {
       .eq("user_id", dbUser.id)
       .eq("passed", true)
       .not("completed_at", "is", null),
+    // Completed Exam Prep sessions live in their own exam_sessions table —
+    // quiz_sessions has no session_type column, so the old
+    // .eq("session_type","exam") errored and this count was silently always 0.
     supabase
-      .from("quiz_sessions")
+      .from("exam_sessions")
       .select("id", { count: "exact", head: true })
       .eq("user_id", dbUser.id)
-      .eq("session_type", "exam")
       .not("completed_at", "is", null),
     supabase
       .from("courses")
