@@ -29,6 +29,29 @@ npm run lint     # eslint
 
 ---
 
+## Skill & tool routing (when to reach for what)
+
+I auto-receive the full skill/plugin/MCP list each session. This table is the StudyQuest-specific map so the *right* one fires deterministically. Process skills win over implementation skills (decide HOW before WHAT). User instructions always override.
+
+| When I'm about to… | Use |
+| --- | --- |
+| Start any non-trivial feature / behavior change | `superpowers:brainstorming` → then the brainstorm→spec→plan→subagent flow (see memory). Skip the visual-companion offer for backend-shaped work. |
+| Write a multi-step plan | `superpowers:writing-plans`; dispatch independent work via `superpowers:subagent-driven-development` / `dispatching-parallel-agents` |
+| Implement a feature or bugfix | `superpowers:test-driven-development` where tests exist; otherwise verify per `superpowers:verification-before-completion` before claiming done |
+| Hit a real bug / unexpected behavior | `superpowers:systematic-debugging` (or the `diagnose` skill for hard/perf bugs) — reproduce before fixing |
+| Look up Next 16 / React 19 / Supabase / shadcn / AI SDK API details | `context7` MCP (`resolve-library-id` → `query-docs`) or the matching `vercel:*` / `supabase:*` knowledge skill — **don't answer Next 16 from memory** |
+| Touch Anthropic SDK / model ids / prompts / tokens | `claude-api` skill (read before editing the file) |
+| Write/inspect a migration, RLS, or query | `supabase:supabase-postgres-best-practices` + `supabase` MCP to verify the live DB against the migration list |
+| Build/polish RPG UI | `frontend-design` or `ui-ux-pro-max`; reuse `globals.css` utilities first (see Design tokens) |
+| Verify a change actually works in the app | `verify` / `run` skill, or `playwright` MCP to drive a real browser |
+| Finish a sprint / before merge | `code-review` (bundled review caught real bugs the in-flight reviews missed — run AFTER the sprint, not during), then `simplify` |
+| Open a PR / manage issues | `github` MCP or `commit-commands:*` |
+| Deploy / env vars / Vercel platform | `vercel:*` skills + `vercel` MCP |
+
+If unsure whether a skill applies, invoke it — a wrong guess is cheap, a skipped skill is not.
+
+---
+
 ## Project layout
 
 ```
@@ -177,9 +200,9 @@ Whenever improving the frontend, make the app feel like the user is **leveling u
 
 ---
 
-## Current State (Checkpoint — 2026-06-01)
+## Current state
 
-The MVP plus the full feature set is shipped: three content layers (Scroll / Grimoire / Feynman), the exam-prep loop, image-answer pipeline, per-episode upload, full course/episode delete, Course Map redesign, weekly Study Report, per-topic Mastery Panel, Loremaster coach voice, grouped achievements, first-run onboarding, episode-processing + failure UX (classified errors + answer-draft persistence), question regeneration (soft-replace), Smart Next Best Action widget, paired urgency row, 6-tier level progression (Novice→Sage), streak freeze tokens, Today's stats strip, per-topic cheat sheets, universal RTL table fix, subject-icon sigils, and the 2026-06-01 confidence layer (Quiz "Why was I wrong?" clarifier, confidence-weighted SM-2, lucky-guess clarifier). Multiple code-review / `/code-review ultra` correctness sweeps have landed on top. The app is in active polish + new-feature mode. **For the dated detail behind any of these, see `CHANGELOG-agent.md`.** Read the rest of this section (wired-up surfaces, migrations, conventions, TODOs) before touching anything.
+The MVP plus the full feature set is shipped; the app is in active polish + new-feature mode. **Dated, feature-by-feature history lives in `CHANGELOG-agent.md`** — read it for the forensic detail behind any feature. The sections below are the durable facts (wired-up surfaces, migrations, gotchas, security, key files, queue) — read them before touching anything.
 
 ### What's wired up
 
@@ -227,7 +250,7 @@ The MVP plus the full feature set is shipped: three content layers (Scroll / Gri
 
 The migration files live in `supabase/migrations/`. Always update this list when you add a migration so the next session can verify the live DB matches.
 
-### Conventions established this round (don't break)
+### Gotchas (don't break)
 
 - **Router refresh timing:** never call `router.refresh()` right after `/complete` returns — server pages will see `completed_at` and redirect/404 before the celebration plays. Refresh on the **navigation button onClick** (Back to Course, Return to Realm, etc.). Applied in `SessionDebrief`, `ExamDebrief`, `ReviewSummary`, `BossFightEngine` victory screen.
 - **ComboHUD positioning:** `position: fixed` children inside transformed AnimatePresence wrappers get a new containing block. Render `ComboHUD` at the engine's **top level** outside any motion wrapper.
@@ -237,15 +260,8 @@ The migration files live in `supabase/migrations/`. Always update this list when
 - **Exam process route:** `api/exams/process` has `maxDuration: 300`, early NO_TEXT_LAYER detection (text < 800 chars OR < 50 meaningful words), ZERO_QUESTIONS detection, rolls back `course_files` row on failure.
 - **`dark` class on `<html>`:** required so shadcn `outline` variant (`bg-background`) resolves to dark. Already in `src/app/layout.tsx`. Don't remove.
 - **Arcade headlines:** `Press_Start_2P` font is loaded in root layout — use sparingly for arcade-flavored moments (level-up overlay, boss titles, landing hero accent), never for body copy.
-
-### Known TODOs / open threads
-
-Audited 2026-05-23 against actual code — kept only items that are *genuinely* still open. Verify before re-adding anything you think is a bug.
-
-- **Orphan PDFs in storage:** when a course/episode is deleted, FK CASCADE removes DB rows but the actual files in the `course-files` Supabase Storage bucket are NOT removed. The `DELETE /api/courses/[id]` docstring explicitly admits this. Harmless (few MB of quota) but eventually worth a sweeper. *Still open.*
-- **Edit episode title / reorder episodes:** `/api/episodes/[id]` only supports DELETE. No `PATCH` for title, no reorder endpoint. UI also has no affordance. Lowest-priority of the queue items.
-- **Boss-fight ambient illustration (per-episode):** discussed 2026-05-23 with proof-of-concept generated via Nano Banana 2 MCP (Church-Turing Thesis boss image at `generated_imgs/`). User liked the result but deferred building the production pipeline. Path forward if revisited: migration `episodes.boss_image_url`, server route calling Gemini SDK directly (not MCP — MCP is dev-only), Supabase Storage `boss-images/` prefix, auto-trigger after episode processing, skull fallback when null.
-- **User strategic queue (not yet picked):** onboarding flow polish, daily quests generator, smart dashboard widget. Profile page also pre-dates the Tier B+ vocabulary and could use a pass.
+- **Date formatting hydration:** use `"en-US"` explicitly in `toLocaleDateString()` — Node defaults to en-GB, browsers default to en-US, mismatch crashes hydration. Applied in `ExamDateButton` and `ExamCountdownCard`.
+- **DOMMatrix is not defined on server:** react-pdf's pdf.js touches DOMMatrix at module-load. PDF viewer is wrapped in `TopicPDFViewerClient.tsx` which uses `dynamic(() => import("./TopicPDFViewer"), { ssr: false })`.
 
 ## Sprint history → `CHANGELOG-agent.md`
 
@@ -261,13 +277,6 @@ summary, migrations list, and key-files index stay here.
 - **Streaming for long extractions** — `client.messages.stream() + finalMessage()` with `max_tokens: 32768`. The non-streaming `max_tokens: 8192` was truncating Hebrew+LaTeX outputs and returning empty tool input `{}`. Always log `stop_reason` and `output_tokens` when debugging tool-use truncation.
 - **Native PDF reading** — both course/episode extraction and exam-question extraction now feed PDFs to Claude as native document content blocks instead of unpdf-extracted text. Preserves math notation, diagrams, and set-builder syntax that text extraction garbled.
 - **6-stage defensive JSON parser** — `direct → strip fences → bracket-slice → smart quotes → escape control chars → repair missing commas`. Tool use is the preferred path now, but the parser is still used as a fallback in legacy non-tool-use call sites.
-
-### UI / hydration / RSC discipline (don't backslide)
-
-- **`router.refresh()` timing**: never call it right after `/complete` returns — server pages will see `completed_at` and redirect before the celebration plays. Refresh on the navigation button onClick instead. Applied across `SessionDebrief`, `ExamDebrief`, `ReviewSummary`, `BossFightEngine` victory screen.
-- **Date formatting hydration**: use `"en-US"` explicitly in `toLocaleDateString()` — Node defaults to en-GB, browsers default to en-US, mismatch crashes hydration. Applied in `ExamDateButton` and `ExamCountdownCard`.
-- **DOMMatrix is not defined on server**: react-pdf's pdf.js touches DOMMatrix at module-load. PDF viewer is wrapped in `TopicPDFViewerClient.tsx` which uses `dynamic(() => import("./TopicPDFViewer"), { ssr: false })`.
-- **`ComboHUD` positioning**: `position: fixed` children inside transformed `AnimatePresence` wrappers get a new containing block. Render `ComboHUD` at the engine top level, outside any motion wrapper.
 
 ---
 
@@ -331,29 +340,23 @@ summary, migrations list, and key-files index stay here.
 - `src/app/api/topics/[topicId]/cheat-sheet/route.ts` — GET (cached) + POST (generate fresh) cheat sheet routes. Ownership chain via topic → episode → course → user.
 - `src/lib/course-subject-icon.ts` — pure helper resolving a course's subject icon slug from `(title, themeName)`. First-match-wins keyword scan, fallback `"Sword"`. Dashboard maps the slug → Lucide component so the helper stays React-free.
 
-### Active work + queue (end of 2026-05-30)
+### Active work + open queue
 
-The user is actively studying their real Automata / Computational Models course on this app (primary use case, not a demo). Stated focus: "functionality of this application first to make it intuitive, fun, smart and without any bugs and security problems."
+The user is actively studying their real Automata / Computational Models course on this app (primary use case, not a demo). Stated focus: "functionality first — intuitive, fun, smart, without bugs or security problems." Dated sprint history → `CHANGELOG-agent.md`.
 
-**The entire Tier-1 menu shipped 2026-05-24:** ✅ first-run onboarding, ✅ episode-processing feedback, ✅ failed-episode error surfacing, ✅ grader/scroll/debrief failure UX (classified errors + answer-draft persistence), ✅ question regeneration (soft-replace via Claude), ✅ Smart Next Best Action widget, plus a bonus ✅ 6-tier level progression with Stitch v2 polish (gradient Sage border + dual-color breathing + Master scanlines scroll), and a closing ✅ 12-fix code-review correctness sweep (soft-replace integrity in 5 reader paths + answer routes / image-only open answers / classified error envelope across 4 routes / word-boundary status regex / narrow try/catch on regenerate / timezone-aware streak-save NBA / ExamCountdown compact-mode hook / isTierUp demotion guard / Novice baseline glow). Total commits on `main` for 2026-05-24: ~26.
-
-**Tier-2 menu cleared 2026-05-30:** ✅ Confidence rating + "Why was I wrong?" clarifier (Quiz pilot — Review/Boss/Exam Phase 2), ✅ adaptive difficulty on regeneration (mastery-anchored), ✅ client-side PDF upload size cap (20MB warn / 32MB block), ✅ streak freeze tokens (forgiveness mechanic), ✅ Today's stats strip (under hero), ✅ per-topic cheat sheet generator + ✅ universal RTL table fix (MarkdownContent refactor benefits every Markdown surface). One bug fix: ✅ Stumbles LaTeX rendering. Branch `pedagogy-clarifier-confidence-quiz` shipped to `main` on 2026-05-30 evening — 7 feature commits + 1 docs commit. Followed same evening by a **`/code-review ultra` cluster of 5 single-fix commits** (adaptive-difficulty dead-code column, boss freeze toast missing `newStreak`, clarifier honest-image/UPDATE-check/resume-budget-guard, bulk regen IDOR, Stumbles expanded-view MarkdownContent) and a final ✅ **subject-icon sigils on course tiles** feature. All on `main`. Last commit of the day: `4443679` (subject sigils) at 2026-05-30 23:38 +03:00.
-
-**Tier-3 — bigger lifts:**
-- **Phase 2 of confidence + clarifier** — expand to Review / Boss / Exam engines. Add `UNIQUE(answer_kind, answer_id)` on `answer_clarifications` + upsert pattern in the open branch. SM-2 quality changes + lucky-guess clarifier both shipped on the Quiz path 2026-06-01; Review still needs (1) the `confidence` column + UI, (2) the same SM-2 modulation in its `/complete`, (3) the polymorphic clarifier endpoint to lift its `answerKind !== "quiz"` gate so both wrong-answer and lucky-guess flows light up.
+**Open queue (bigger lifts):**
+- **Phase 2 of confidence + clarifier** — expand to Review / Boss / Exam. SM-2 quality changes + lucky-guess clarifier shipped on the Quiz path; Review still needs (1) a `confidence` column + UI, (2) the same SM-2 modulation in its `/complete`, (3) the polymorphic clarifier endpoint to lift its `answerKind !== "quiz"` gate. (Migration 024 already added `UNIQUE(answer_kind, answer_id)` for the upsert.)
 - **Question 👎 feedback button** — orthogonal to Regenerate (Regenerate = action; thumb-down = label). New `answer_feedback` table.
 - **Profile page Tier-B+ adoption** — page predates the Tier-B+ vocabulary. ~8 tasks.
 - **Daily review push/email** — habit loop. Needs email infra + cron job.
-- **Edit/reorder episodes** — last QoL item from the original course-area queue.
+- **Edit/reorder episodes** — `/api/episodes/[id]` only supports DELETE; no `PATCH` for title, no reorder endpoint, no UI affordance.
 - **Mobile responsive audit** — walk through key surfaces on small screens.
-- **Boss-fight per-episode illustration** — deferred (cost concern).
+- **Orphan PDFs in storage** — course/episode delete cascades DB rows but leaves files in the `course-files` Storage bucket. Harmless quota leak; eventually worth a sweeper.
+- **Boss-fight per-episode illustration** — deferred (cost). POC done; path if revisited: migration `episodes.boss_image_url`, server route calling Gemini SDK directly (not MCP), Storage `boss-images/` prefix, skull fallback when null.
 
 Deliberately deferred: voice/TTS, cross-course topic linking, friend leaderboard (Max is solo-studying).
 
-**Workflow notes from 2026-05-24 (don't backslide):**
-- Confirm scope before refactoring large files (`ExamEngine.tsx`, `CourseMap.tsx`, `BossFightEngine.tsx`, `ReviewEngine.tsx`). User prefers tight, focused commits over megacommits.
-- **Feature branch + rollback tag is the standard pattern for any multi-file design pass.** Used today for `grader-failure-ux`, `question-regeneration`, `smart-next-action`, `level-tier-progression`, `stitch-v2-sage-polish`, and `code-review-cluster-1` (12-fix sweep). Each branch was pushed → fast-forward merged to main → branch deleted. Rollback tag `pre-stitch-adaptation` (at `a512e6d`) is still on origin in case the bolder palette ever regresses.
-- **Run `/code-review` after a feature sprint, not during.** The bundled extra-high-effort review (5 finder angles × 8 candidates → 1-vote verify → sweep, max 15 findings) caught real bugs that the in-flight implementation reviews missed because they were focused on each feature's happy path. The cluster-1 sweep returned 12 actionable findings on top of the day's 14 feature commits. Worth scheduling as a periodic checkpoint before risky multi-file design passes.
-- **Magic MCP (21st.dev) returned generic SaaS Badge variants for "rank tier badge" / "level up reveal" — not useful for RPG vocabulary.** Don't waste tokens retrying those queries. The Builder tool *might* generate something different but we never tested (Max's token budget hit first). The existing pixel-arcade utilities in `globals.css` are more specialized than anything 21st.dev surfaces.
-- **Google Stitch (`projects/6876213292851896179` titled "StudyQuest — RPG Dashboard Hero")** has the "Arcane Scholar" design system already configured and produced a useful Rank Progression mockup whose color palette we adopted (Expert orange, Sage pink-bridge gradient, dual-color breathing, scanlines scroll). When polling for a generated screen, `list_screens` returns empty for a while even after generation succeeds — be patient and re-poll, don't conclude generation failed too early.
-- **Storybook is installed with `@storybook/addon-mcp`** and has stories for LevelBadge, QuestBoard, QuestCard, StreakCounter, XPBar, TierLevelFrame. Max didn't love it as the inspection surface — for visual previews prefer `/dashboard?tierPreview=1` (dev grid on the live dashboard chrome).
+**Durable workflow rules (don't backslide):**
+- Confirm scope before refactoring large files (`ExamEngine.tsx`, `CourseMap.tsx`, `BossFightEngine.tsx`, `ReviewEngine.tsx`). Tight, focused commits over megacommits.
+- **Feature branch + rollback tag is the standard for any multi-file design pass:** branch → push → fast-forward merge to main → delete branch.
+- **Run `/code-review` after a feature sprint, not during** — the bundled review catches real bugs the in-flight happy-path reviews miss.
