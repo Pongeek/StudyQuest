@@ -10,7 +10,15 @@
 // model. Signal chips (Overconfident stumbles / Lucky guesses) + the verdict
 // land in #33; the blind-spot topic drill-down in #34.
 
-import { Eye } from "lucide-react";
+import {
+  Eye,
+  AlertTriangle,
+  Dices,
+  ShieldCheck,
+  TrendingUp,
+  Scale,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import CountUp from "@/components/profile/CountUp";
 import ProgressFill from "@/components/profile/ProgressFill";
@@ -19,6 +27,7 @@ import {
   MIN_PER_TIER,
   type CalibrationView,
   type ConfidenceTier,
+  type VerdictKey,
 } from "@/lib/calibration";
 
 /** Per-tier copy + the red/amber/emerald confidence tones used in the quiz. */
@@ -34,6 +43,109 @@ const TIER_META: Record<
     fill: "bg-emerald-500",
   },
 };
+
+/**
+ * The two named signal chips, each toned to the confidence tier it lives in so
+ * it visually echoes its bar above: an Overconfident stumble is a *confident*
+ * miss (emerald), a Lucky guess is a *guessed* hit (red). Glossary terms verbatim.
+ */
+const SIGNAL_META = {
+  overconfident: {
+    icon: AlertTriangle,
+    label: "Overconfident stumbles",
+    border: "border-emerald-500/30",
+    bg: "bg-emerald-500/5",
+    text: "text-emerald-400",
+  },
+  lucky: {
+    icon: Dices,
+    label: "Lucky guesses",
+    border: "border-red-500/30",
+    bg: "bg-red-500/5",
+    text: "text-red-400",
+  },
+} as const;
+
+/** Chrome copy + tone per verdict key — the helper only hands us the key. */
+const VERDICT_META: Record<
+  VerdictKey,
+  { icon: LucideIcon; copy: string; text: string; border: string; bg: string }
+> = {
+  "well-calibrated": {
+    icon: ShieldCheck,
+    copy: "Your gut is trustworthy — your confidence tracks reality.",
+    text: "text-emerald-300",
+    border: "border-emerald-500/30",
+    bg: "bg-emerald-500/5",
+  },
+  overconfident: {
+    icon: AlertTriangle,
+    copy: "You feel sure on answers you get wrong — mind the blind spots.",
+    text: "text-amber-300",
+    border: "border-amber-500/30",
+    bg: "bg-amber-500/5",
+  },
+  underconfident: {
+    icon: TrendingUp,
+    copy: "You know more than you think — trust your instinct more.",
+    text: "text-indigo-300",
+    border: "border-indigo-500/30",
+    bg: "bg-indigo-500/5",
+  },
+  mixed: {
+    icon: Scale,
+    copy: "Your read is uneven — sometimes too sure, sometimes too modest.",
+    text: "text-purple-300",
+    border: "border-purple-500/30",
+    bg: "bg-purple-500/5",
+  },
+};
+
+function SignalChip({
+  meta,
+  count,
+}: {
+  meta: (typeof SIGNAL_META)[keyof typeof SIGNAL_META];
+  count: number;
+}) {
+  const Icon = meta.icon;
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2.5 rounded-xl border px-3 py-2.5",
+        meta.border,
+        meta.bg
+      )}
+    >
+      <Icon className={cn("w-4 h-4 shrink-0", meta.text)} aria-hidden />
+      <span className={cn("font-bold tabular-nums text-lg", meta.text)}>
+        <CountUp value={count} animKey={`truesight-signal-${meta.label}`} />
+      </span>
+      <span className="text-xs font-medium text-slate-400 leading-tight">
+        {meta.label}
+      </span>
+    </div>
+  );
+}
+
+function VerdictLine({ verdict }: { verdict: VerdictKey }) {
+  const meta = VERDICT_META[verdict];
+  const Icon = meta.icon;
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2.5 rounded-xl border px-3.5 py-3",
+        meta.border,
+        meta.bg
+      )}
+    >
+      <Icon className={cn("w-4 h-4 shrink-0", meta.text)} aria-hidden />
+      <p className={cn("text-sm font-semibold leading-snug", meta.text)}>
+        {meta.copy}
+      </p>
+    </div>
+  );
+}
 
 function TierBar({
   tier,
@@ -149,6 +261,21 @@ export default function TruesightSection({ view }: { view: CalibrationView }) {
           {view.tiers.map((tier) => (
             <TierBar key={tier.confidence} tier={tier} />
           ))}
+
+          {/* Named signal callouts — the two cases that cost or flatter you. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+            <SignalChip
+              meta={SIGNAL_META.overconfident}
+              count={view.overconfidentStumbles.count}
+            />
+            <SignalChip
+              meta={SIGNAL_META.lucky}
+              count={view.luckyGuesses.count}
+            />
+          </div>
+
+          {/* Plain takeaway. Only present once the helper leaves cold-start. */}
+          {view.verdict && <VerdictLine verdict={view.verdict} />}
         </div>
       )}
     </div>

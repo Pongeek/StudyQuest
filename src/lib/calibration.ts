@@ -32,6 +32,20 @@ export const MIN_RATED = 20;
 /** Rated answers needed in a single tier before its bar shows a percentage. */
 export const MIN_PER_TIER = 5;
 
+/**
+ * Verdict thresholds (chrome-level heuristics, tunable).
+ *
+ * `OVERCONFIDENT_THRESHOLD` — fraction of *confident* answers that were wrong
+ * before we call the learner overconfident (their confidence isn't trustworthy).
+ * `UNDERCONFIDENT_THRESHOLD` — fraction of *guessed* answers that were right
+ * before we call them underconfident (they know more than they admit; lucky
+ * guesses are really soft knowledge). The asymmetry is deliberate: a few wrong
+ * "confident" answers is a real blind spot, but guesses landing right is only
+ * notable past a coin-flip. Both tiers must clear `MIN_PER_TIER` to count.
+ */
+export const OVERCONFIDENT_THRESHOLD = 0.3;
+export const UNDERCONFIDENT_THRESHOLD = 0.5;
+
 /** A single answer's calibration inputs. `confidence === null` means unrated. */
 export interface CalibrationAnswer {
   confidence: Confidence;
@@ -52,12 +66,31 @@ export interface TierResult {
   lowData: boolean;
 }
 
+/**
+ * The plain verdict, as a key (chrome maps it → copy). `null` during cold-start.
+ * - `well-calibrated` — neither signal fires; confidence tracks reality.
+ * - `overconfident` — confident answers miss too often (a trustworthy-feeling blind spot).
+ * - `underconfident` — guesses land right too often (knows more than they admit).
+ * - `mixed` — both signals fire at once.
+ */
+export type VerdictKey =
+  | "well-calibrated"
+  | "overconfident"
+  | "underconfident"
+  | "mixed";
+
 export interface CalibrationView {
   /** Count of rated (non-NULL confidence) answers. */
   totalRated: number;
   state: "cold-start" | "ready";
   /** Always three entries, in [guessed, unsure, confident] order. */
   tiers: TierResult[];
+  /** Overconfident stumbles — confident but wrong (the costly blind spots). */
+  overconfidentStumbles: { count: number };
+  /** Lucky guesses — guessed but right (soft knowledge, not mastery). */
+  luckyGuesses: { count: number };
+  /** Plain verdict key; `null` during cold-start (chrome hides the line). */
+  verdict: VerdictKey | null;
 }
 
 /** Tier display/iteration order — guessed → unsure → confident. */
@@ -91,10 +124,45 @@ export function computeCalibration(
   });
 
   const totalRated = tiers.reduce((s, t) => s + t.total, 0);
+  const state = totalRated >= MIN_RATED ? "ready" : "cold-start";
+
+  // Named signals: confident-but-wrong and guessed-but-right.
+  const overconfidentStumbles = {
+    count: totals.confident.total - totals.confident.correct,
+  };
+  const luckyGuesses = { count: totals.guessed.correct };
 
   return {
     totalRated,
-    state: totalRated >= MIN_RATED ? "ready" : "cold-start",
+    state,
     tiers,
+    overconfidentStumbles,
+    luckyGuesses,
+    verdict: state === "cold-start" ? null : computeVerdict(totals),
   };
+}
+
+/**
+ * Map the per-tier totals to a verdict key. A signal only fires when its tier
+ * has cleared `MIN_PER_TIER` rated answers — we never judge calibration off a
+ * handful of answers, mirroring the bars' `lowData` rule.
+ */
+function computeVerdict(
+  totals: Record<ConfidenceTier, { total: number; correct: number }>
+): VerdictKey {
+  const { confident, guessed } = totals;
+
+  const overconfident =
+    confident.total >= MIN_PER_TIER &&
+    (confident.total - confident.correct) / confident.total >=
+      OVERCONFIDENT_THRESHOLD;
+
+  const underconfident =
+    guessed.total >= MIN_PER_TIER &&
+    guessed.correct / guessed.total >= UNDERCONFIDENT_THRESHOLD;
+
+  if (overconfident && underconfident) return "mixed";
+  if (overconfident) return "overconfident";
+  if (underconfident) return "underconfident";
+  return "well-calibrated";
 }

@@ -4,6 +4,8 @@ import {
   CORRECT_THRESHOLD,
   MIN_RATED,
   MIN_PER_TIER,
+  OVERCONFIDENT_THRESHOLD,
+  UNDERCONFIDENT_THRESHOLD,
   type CalibrationAnswer,
   type ConfidenceTier,
 } from "./calibration";
@@ -133,5 +135,99 @@ describe("computeCalibration", () => {
     ]);
     expect(view.totalRated).toBe(MIN_RATED);
     expect(view.state).toBe("ready");
+  });
+});
+
+describe("computeCalibration — signal counts", () => {
+  it("counts Overconfident stumbles (confident + wrong)", () => {
+    const view = computeCalibration([
+      ans("confident", 0), // stumble
+      ans("confident", 0.2), // stumble
+      ans("confident", 1), // confident + right — not a stumble
+      ans("unsure", 0), // unsure + wrong — not a stumble
+      ans("guessed", 0), // guessed + wrong — not a stumble
+    ]);
+    expect(view.overconfidentStumbles.count).toBe(2);
+  });
+
+  it("counts Lucky guesses (guessed + right)", () => {
+    const view = computeCalibration([
+      ans("guessed", 1), // lucky guess
+      ans("guessed", 0.5), // exactly at the line → right → lucky guess
+      ans("guessed", 0), // guessed + wrong — not lucky
+      ans("confident", 1), // confident + right — not a guess
+      ans("unsure", 1), // unsure + right — not a guess
+    ]);
+    expect(view.luckyGuesses.count).toBe(2);
+  });
+
+  it("reports zero signal counts for empty input", () => {
+    const view = computeCalibration([]);
+    expect(view.overconfidentStumbles.count).toBe(0);
+    expect(view.luckyGuesses.count).toBe(0);
+  });
+});
+
+describe("computeCalibration — verdict", () => {
+  it("returns a null verdict during cold-start", () => {
+    expect(computeCalibration([]).verdict).toBeNull();
+    expect(
+      computeCalibration(repeat(MIN_RATED - 1, ans("confident", 1))).verdict
+    ).toBeNull();
+  });
+
+  it("is well-calibrated when confident is mostly right and guesses mostly wrong", () => {
+    // confident: 10/10 right (wrong-rate 0); guessed: 0/10 right.
+    const view = computeCalibration([
+      ...repeat(10, ans("confident", 1)),
+      ...repeat(10, ans("guessed", 0)),
+    ]);
+    expect(view.state).toBe("ready");
+    expect(view.verdict).toBe("well-calibrated");
+  });
+
+  it("is overconfident when the confident tier misses past the threshold", () => {
+    // confident: 4/10 wrong → wrong-rate 0.4 >= OVERCONFIDENT_THRESHOLD; guesses wrong.
+    expect(OVERCONFIDENT_THRESHOLD).toBeLessThanOrEqual(0.4);
+    const view = computeCalibration([
+      ...repeat(6, ans("confident", 1)),
+      ...repeat(4, ans("confident", 0)),
+      ...repeat(10, ans("guessed", 0)),
+    ]);
+    expect(view.verdict).toBe("overconfident");
+  });
+
+  it("is underconfident when guesses land right past the threshold", () => {
+    // confident: all right; guessed: 6/10 right → correct-rate 0.6 >= UNDERCONFIDENT_THRESHOLD.
+    expect(UNDERCONFIDENT_THRESHOLD).toBeLessThanOrEqual(0.6);
+    const view = computeCalibration([
+      ...repeat(10, ans("confident", 1)),
+      ...repeat(6, ans("guessed", 1)),
+      ...repeat(4, ans("guessed", 0)),
+    ]);
+    expect(view.verdict).toBe("underconfident");
+  });
+
+  it("is mixed when both confident misses and lucky guesses cross their thresholds", () => {
+    const view = computeCalibration([
+      ...repeat(6, ans("confident", 1)),
+      ...repeat(4, ans("confident", 0)), // overconfident signal
+      ...repeat(6, ans("guessed", 1)),
+      ...repeat(4, ans("guessed", 0)), // underconfident signal
+    ]);
+    expect(view.verdict).toBe("mixed");
+  });
+
+  it("ignores a tier below the per-tier floor when deciding the verdict", () => {
+    // 20 rated all in 'unsure'; confident & guessed are lowData → no signal → well-calibrated.
+    const view = computeCalibration([
+      ...repeat(10, ans("unsure", 1)),
+      ...repeat(10, ans("unsure", 0)),
+    ]);
+    expect(view.state).toBe("ready");
+    expect(view.tiers.find((t) => t.confidence === "confident")!.lowData).toBe(
+      true
+    );
+    expect(view.verdict).toBe("well-calibrated");
   });
 });
