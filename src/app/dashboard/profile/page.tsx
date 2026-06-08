@@ -222,11 +222,11 @@ export default async function ProfilePage() {
       .not("completed_at", "is", null),
     // Truesight (Calibration): every rated quiz answer for this user. quiz_answers
     // has no user_id, so scope through the inner quiz_sessions join; topic_id/title
-    // ride along for the Phase 2-ready input shape (unused by the v1 helper).
+    // + course_id ride along so the blind-spot drill-down can link to each topic.
     supabase
       .from("quiz_answers")
       .select(
-        "ai_score, confidence, quiz_sessions!inner(user_id, topic_id, topics(title))"
+        "ai_score, confidence, quiz_sessions!inner(user_id, topic_id, topics(title, episodes(course_id)))"
       )
       .eq("quiz_sessions.user_id", dbUser.id),
   ]);
@@ -382,7 +382,10 @@ export default async function ProfilePage() {
     confidence: Confidence;
     quiz_sessions: {
       topic_id: string | null;
-      topics: { title: string | null } | null;
+      topics: {
+        title: string | null;
+        episodes: { course_id: string | null } | null;
+      } | null;
     } | null;
   };
   const calibrationView = computeCalibration(
@@ -391,6 +394,7 @@ export default async function ProfilePage() {
       score: Number(r.ai_score) || 0,
       topicId: r.quiz_sessions?.topic_id ?? "",
       topicTitle: r.quiz_sessions?.topics?.title ?? "Unknown topic",
+      courseId: r.quiz_sessions?.topics?.episodes?.course_id ?? "",
     }))
   );
 

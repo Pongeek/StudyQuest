@@ -53,6 +53,17 @@ export interface CalibrationAnswer {
   score: number;
   topicId: string;
   topicTitle: string;
+  /** Course the topic belongs to — lets the blind-spot drill-down link out. */
+  courseId: string;
+}
+
+/** One topic's blind-spot tally — confident-but-wrong answers, with link parts. */
+export interface StumbleTopic {
+  topicId: string;
+  topicTitle: string;
+  courseId: string;
+  /** Overconfident stumbles on this topic (confident + wrong). */
+  count: number;
 }
 
 /** Per-tier accuracy result, one per ConfidenceTier. */
@@ -85,8 +96,12 @@ export interface CalibrationView {
   state: "cold-start" | "ready";
   /** Always three entries, in [guessed, unsure, confident] order. */
   tiers: TierResult[];
-  /** Overconfident stumbles — confident but wrong (the costly blind spots). */
-  overconfidentStumbles: { count: number };
+  /**
+   * Overconfident stumbles — confident but wrong (the costly blind spots).
+   * `byTopic` is ranked descending by count, then a deterministic tie-break
+   * (topic title, then id) so ordering is stable across input orderings.
+   */
+  overconfidentStumbles: { count: number; byTopic: StumbleTopic[] };
   /** Lucky guesses — guessed but right (soft knowledge, not mastery). */
   luckyGuesses: { count: number };
   /** Plain verdict key; `null` during cold-start (chrome hides the line). */
@@ -129,6 +144,7 @@ export function computeCalibration(
   // Named signals: confident-but-wrong and guessed-but-right.
   const overconfidentStumbles = {
     count: totals.confident.total - totals.confident.correct,
+    byTopic: rankStumblesByTopic(answers),
   };
   const luckyGuesses = { count: totals.guessed.correct };
 
@@ -140,6 +156,37 @@ export function computeCalibration(
     luckyGuesses,
     verdict: state === "cold-start" ? null : computeVerdict(totals),
   };
+}
+
+/**
+ * Group the confident-but-wrong answers by topic and rank them descending by
+ * stumble count, breaking ties deterministically by topic title then id — so
+ * the drill-down order is stable no matter what order the rows arrive in.
+ */
+function rankStumblesByTopic(answers: CalibrationAnswer[]): StumbleTopic[] {
+  const byId = new Map<string, StumbleTopic>();
+
+  for (const a of answers) {
+    if (a.confidence !== "confident" || a.score >= CORRECT_THRESHOLD) continue;
+    const existing = byId.get(a.topicId);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      byId.set(a.topicId, {
+        topicId: a.topicId,
+        topicTitle: a.topicTitle,
+        courseId: a.courseId,
+        count: 1,
+      });
+    }
+  }
+
+  return [...byId.values()].sort(
+    (x, y) =>
+      y.count - x.count ||
+      x.topicTitle.localeCompare(y.topicTitle) ||
+      x.topicId.localeCompare(y.topicId)
+  );
 }
 
 /**

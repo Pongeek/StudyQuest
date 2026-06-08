@@ -16,9 +16,10 @@ function ans(
   confidence: Confidence,
   score: number,
   topicId = "t1",
-  topicTitle = "Topic 1"
+  topicTitle = "Topic 1",
+  courseId = "c1"
 ): CalibrationAnswer {
-  return { confidence, score, topicId, topicTitle };
+  return { confidence, score, topicId, topicTitle, courseId };
 }
 
 /** N copies of the same answer — handy for crossing the gating thresholds. */
@@ -165,6 +166,70 @@ describe("computeCalibration — signal counts", () => {
     const view = computeCalibration([]);
     expect(view.overconfidentStumbles.count).toBe(0);
     expect(view.luckyGuesses.count).toBe(0);
+  });
+});
+
+describe("computeCalibration — overconfident stumbles byTopic", () => {
+  it("groups stumbles by topic, carrying course id and title for linking", () => {
+    const { byTopic } = computeCalibration([
+      ans("confident", 0, "tA", "Alpha", "cA"), // stumble
+      ans("confident", 0.2, "tA", "Alpha", "cA"), // stumble
+      ans("confident", 1, "tA", "Alpha", "cA"), // confident + right — excluded
+    ]).overconfidentStumbles;
+
+    expect(byTopic).toEqual([
+      { topicId: "tA", topicTitle: "Alpha", courseId: "cA", count: 2 },
+    ]);
+  });
+
+  it("excludes non-stumbles (right answers, and unsure/guessed wrongs) from byTopic", () => {
+    const { byTopic } = computeCalibration([
+      ans("confident", 1, "tA", "Alpha"), // confident + right
+      ans("unsure", 0, "tA", "Alpha"), // unsure + wrong
+      ans("guessed", 0, "tA", "Alpha"), // guessed + wrong
+    ]).overconfidentStumbles;
+
+    expect(byTopic).toEqual([]);
+  });
+
+  it("ranks topics descending by stumble count", () => {
+    const { byTopic } = computeCalibration([
+      ...repeat(1, ans("confident", 0, "tA", "Alpha")),
+      ...repeat(3, ans("confident", 0, "tB", "Beta")),
+      ...repeat(2, ans("confident", 0, "tC", "Gamma")),
+    ]).overconfidentStumbles;
+
+    expect(byTopic.map((t) => t.topicId)).toEqual(["tB", "tC", "tA"]);
+    expect(byTopic.map((t) => t.count)).toEqual([3, 2, 1]);
+  });
+
+  it("breaks count ties deterministically and stably regardless of input order", () => {
+    // Beta and Alpha both have 2 stumbles; Gamma has 3. Feed them shuffled.
+    const answers = [
+      ans("confident", 0, "tB", "Beta"),
+      ans("confident", 0, "tC", "Gamma"),
+      ans("confident", 0, "tA", "Alpha"),
+      ans("confident", 0, "tB", "Beta"),
+      ans("confident", 0, "tA", "Alpha"),
+      ans("confident", 0, "tC", "Gamma"),
+      ans("confident", 0, "tC", "Gamma"),
+    ];
+    const first = computeCalibration(answers).overconfidentStumbles.byTopic;
+    const reversed = computeCalibration([...answers].reverse())
+      .overconfidentStumbles.byTopic;
+
+    // Gamma(3) first; the Alpha/Beta tie resolves the same way both runs.
+    expect(first.map((t) => t.topicTitle)).toEqual(["Gamma", "Alpha", "Beta"]);
+    expect(reversed).toEqual(first);
+  });
+
+  it("returns an empty byTopic when there are no stumbles", () => {
+    const view = computeCalibration([
+      ...repeat(10, ans("confident", 1)),
+      ...repeat(10, ans("guessed", 0)),
+    ]);
+    expect(view.overconfidentStumbles.count).toBe(0);
+    expect(view.overconfidentStumbles.byTopic).toEqual([]);
   });
 });
 
