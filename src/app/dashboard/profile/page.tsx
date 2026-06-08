@@ -54,6 +54,7 @@ import {
 import { computeCalibration } from "@/lib/calibration";
 import { type Confidence } from "@/lib/spaced-repetition";
 import TruesightSection from "@/components/profile/TruesightSection";
+import TruesightPreviewGrid from "@/components/profile/TruesightPreviewGrid";
 import { sumCappedStudyMinutes } from "@/lib/study-time";
 import { getDueReviewTopics, toDueTopicTitles } from "@/lib/review-queue";
 import { resolveFeaturedTrophy } from "@/lib/featured-trophy";
@@ -74,9 +75,18 @@ const CATEGORY_ICON_BY_NAME: Record<CategoryMeta["iconName"], typeof Crown> = {
   GraduationCap,
 };
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ truesightPreview?: string }>;
+}) {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
+
+  // Dev-only preview hook — `/dashboard/profile?truesightPreview=1` mounts a grid
+  // of every Truesight state above the Overview tab. Gated on the query param so
+  // it never leaks into the normal UX. Mirrors `?tierPreview=1` on the dashboard.
+  const showTruesightPreview = (await searchParams)?.truesightPreview === "1";
 
   const supabase = createServiceClient();
 
@@ -455,6 +465,7 @@ export default async function ProfilePage() {
             topicsMastered={masterTopicCount || 0}
             timeStudiedMin={timeStudiedMin}
           />
+          {showTruesightPreview && <TruesightPreviewGrid />}
           <TruesightSection view={calibrationView} />
           <section>
             <header className="flex items-center gap-3 mb-4 px-1">
