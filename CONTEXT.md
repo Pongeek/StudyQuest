@@ -29,6 +29,12 @@ word, the conflict gets resolved and this file updated.
   weaker mastery signal than a confident-correct answer.
 - **Overconfident stumble** — a wrong answer the learner marked `confident`. The
   strongest "review this again soon" signal.
+- **Calibration** — how well a learner's self-reported Confidence matches their
+  measured correctness. Well-calibrated means confident answers are right and
+  guesses usually aren't; poorly-calibrated means the two diverge (e.g. many
+  Overconfident stumbles). A read on *self-knowledge*, distinct from Quality
+  (skill) and Rank (accumulated strength). Surfaced to the learner as the
+  **Truesight** profile section.
 
 ## Identity & titles
 

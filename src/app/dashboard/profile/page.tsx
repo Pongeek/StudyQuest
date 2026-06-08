@@ -51,6 +51,9 @@ import {
   computeClosestTrophies,
   type CountableTotals,
 } from "@/lib/trophy-progress";
+import { computeCalibration } from "@/lib/calibration";
+import { type Confidence } from "@/lib/spaced-repetition";
+import TruesightSection from "@/components/profile/TruesightSection";
 import { sumCappedStudyMinutes } from "@/lib/study-time";
 import { getDueReviewTopics, toDueTopicTitles } from "@/lib/review-queue";
 import { resolveFeaturedTrophy } from "@/lib/featured-trophy";
@@ -116,6 +119,7 @@ export default async function ProfilePage() {
     { data: quizLife },
     { data: bossLife },
     { data: reviewLife },
+    { data: calibrationAnswers },
   ] = await Promise.all([
     supabase
       .from("user_achievements")
@@ -216,6 +220,15 @@ export default async function ProfilePage() {
       .select(LIFETIME_COLS)
       .eq("user_id", dbUser.id)
       .not("completed_at", "is", null),
+    // Truesight (Calibration): every rated quiz answer for this user. quiz_answers
+    // has no user_id, so scope through the inner quiz_sessions join; topic_id/title
+    // ride along for the Phase 2-ready input shape (unused by the v1 helper).
+    supabase
+      .from("quiz_answers")
+      .select(
+        "ai_score, confidence, quiz_sessions!inner(user_id, topic_id, topics(title))"
+      )
+      .eq("quiz_sessions.user_id", dbUser.id),
   ]);
 
   const earnedIds = new Set(
@@ -361,6 +374,26 @@ export default async function ProfilePage() {
     courses_uploaded: coursesUploaded || 0,
   };
 
+  // Truesight (Calibration) — map rated quiz answers to the helper's generic
+  // shape. All aggregation lives in computeCalibration; this stays a thin map.
+  // quiz_sessions / topics are to-one embeds (objects at runtime), narrowed here.
+  type CalibrationRow = {
+    ai_score: number | string | null;
+    confidence: Confidence;
+    quiz_sessions: {
+      topic_id: string | null;
+      topics: { title: string | null } | null;
+    } | null;
+  };
+  const calibrationView = computeCalibration(
+    ((calibrationAnswers ?? []) as unknown as CalibrationRow[]).map((r) => ({
+      confidence: r.confidence ?? null,
+      score: Number(r.ai_score) || 0,
+      topicId: r.quiz_sessions?.topic_id ?? "",
+      topicTitle: r.quiz_sessions?.topics?.title ?? "Unknown topic",
+    }))
+  );
+
   const achById = new Map<string, any>(
     (allAchievements || []).map((a: any) => [a.id as string, a])
   );
@@ -418,6 +451,7 @@ export default async function ProfilePage() {
             topicsMastered={masterTopicCount || 0}
             timeStudiedMin={timeStudiedMin}
           />
+          <TruesightSection view={calibrationView} />
           <section>
             <header className="flex items-center gap-3 mb-4 px-1">
               <div className="w-9 h-9 pixel-border bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
