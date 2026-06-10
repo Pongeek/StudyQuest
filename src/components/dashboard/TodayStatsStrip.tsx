@@ -106,7 +106,13 @@ export default async function TodayStatsStrip({ dbUserId }: TodayStatsStripProps
           : "text-slate-500";
 
   return (
-    <section aria-labelledby="today-stats-heading" className="rpg-card rounded-2xl p-4 relative overflow-hidden">
+    <section
+      aria-labelledby="today-stats-heading"
+      style={{ ["--alive-rgb" as string]: "99 102 241" }}
+      className="rpg-card card-alive rounded-2xl p-4 relative overflow-hidden"
+    >
+      {/* Dot-matrix texture — alive-pass depth */}
+      <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none rounded-2xl" />
       {/* Indigo top accent line — ties to the hero card above */}
       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
       {/* Pixel nail corners */}

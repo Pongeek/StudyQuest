@@ -42,13 +42,19 @@ export default function GrimoireWidget({ demonCount }: GrimoireWidgetProps) {
       initial={reduceMotion ? false : { opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      style={{
+        ["--alive-rgb" as string]: hasDemons ? "168 85 247" : "100 116 139",
+      }}
       className={cn(
-        "relative bg-slate-900/95 px-5 py-5 sm:px-6 sm:py-5",
+        "relative card-alive overflow-hidden px-5 py-5 sm:px-6 sm:py-5",
         "pixel-border",
         borderTone,
         !hasDemons && "opacity-80"
       )}
     >
+      {/* Dot-matrix texture — alive-pass depth */}
+      <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none" />
+
       {/* Pixel nail corners */}
       <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5", nailColor)} />
       <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5", nailColor)} />

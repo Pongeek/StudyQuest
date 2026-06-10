@@ -375,7 +375,7 @@ export default function CourseMap({
               ["--alive-rgb" as string]: isEpisodeComplete ? "34 197 94" : "99 102 241",
             }}
             className={cn(
-              "relative episode-card-alive overflow-hidden transition-all duration-300",
+              "relative card-alive overflow-hidden transition-all duration-300",
               "pixel-border",
               epBorderTone
             )}

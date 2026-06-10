@@ -38,12 +38,16 @@ export default function ReviewQueueCard({
       aria-labelledby="review-queue-heading"
       className={cn(
         "rounded-2xl px-5 py-5 sm:px-6 sm:py-6 relative overflow-hidden animate-slide-up",
-        isUrgent
-          ? "rpg-card border border-orange-500/25 bg-orange-500/5"
-          : "rpg-card border border-cyan-500/20 bg-cyan-500/5"
+        "rpg-card card-alive",
+        isUrgent ? "border border-orange-500/25" : "border border-cyan-500/20"
       )}
-      style={{ animationDelay: "0.05s" }}
+      style={{
+        animationDelay: "0.05s",
+        ["--alive-rgb" as string]: isUrgent ? "249 115 22" : "34 211 238",
+      }}
     >
+      {/* Dot-matrix texture — alive-pass depth */}
+      <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none rounded-2xl" />
       <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
         {/* Icon tile */}
         <div

@@ -2121,16 +2121,50 @@
   animation-duration: 5s;
 }
 
-/* Episode card "alive" fill — a calm status-tinted gradient that replaces the
-   flat bg-slate-900/95 so the card reads less wireframe-y. Background only
-   (NO box-shadow) so the .pixel-border stepped edge is preserved. --alive-rgb
-   is set inline by CourseMap: indigo (99 102 241) while in progress, emerald
-   (34 197 94) at 100% mastery — so the fill flips with the rest of the chrome.
-   Pairs with an aria-hidden .hud-hero-texture overlay for the dot-matrix. */
-.episode-card-alive {
+/* Card "alive" fill — a calm status-tinted gradient that replaces flat card
+   backgrounds (bg-slate-900/95, rpg-card's white-tint) so surfaces read less
+   wireframe-y. Background only (NO box-shadow) so the .pixel-border stepped
+   edge is preserved. --alive-rgb is set inline by the component: CourseMap
+   episode cards flip indigo → emerald with mastery; dashboard widgets carry
+   their semantic accent (amber mission, purple grimoire, tier-colored NBA…).
+   Pairs with an aria-hidden .hud-hero-texture overlay for the dot-matrix.
+   The .rpg-card.card-alive:hover re-assertion stops rpg-card's flat hover
+   background from wiping the gradient when the two classes combine. */
+/* NOTE: channel vars MUST use the modern slash syntax — `rgb(var(--x) / a)`.
+   The mixed form `rgba(var(--x), a)` is invalid at computed-value time and
+   silently kills the whole declaration (background → none). The base stays
+   semi-transparent (0.80) on purpose: the deep-space starfield showing
+   faintly through the cards is part of the approved look. */
+.card-alive,
+.rpg-card.card-alive:hover {
   background:
-    radial-gradient(120% 70% at 50% 0%, rgba(var(--alive-rgb), 0.10), transparent 62%),
-    linear-gradient(160deg, rgba(var(--alive-rgb), 0.05), rgba(15, 23, 42, 0.97) 66%);
+    radial-gradient(120% 70% at 50% 0%, rgb(var(--alive-rgb) / 0.10), transparent 62%),
+    linear-gradient(160deg, rgb(var(--alive-rgb) / 0.06), rgb(15 23 42 / 0.80) 66%);
+}
+
+/* The one breathing widget — "Urgency Breathes" (dashboard alive pass).
+   Slow shadow + border-tone pulse driven by --w-rgb (the displayed action's
+   tier color). Applied ONLY to the Next Best Action card so motion stays a
+   signal: the single most-pressing thing on the page softly invites, nothing
+   else moves. Gentle by design — 3s period, shadow alpha ≤ 0.5. */
+@keyframes widget-breathe {
+  0%, 100% {
+    box-shadow: 0 0 16px -8px rgb(var(--w-rgb) / 0.25);
+    border-color: rgb(var(--w-rgb) / 0.22);
+  }
+  50% {
+    box-shadow: 0 0 26px -6px rgb(var(--w-rgb) / 0.5);
+    border-color: rgb(var(--w-rgb) / 0.45);
+  }
+}
+.widget-breathe {
+  animation: widget-breathe 3s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .widget-breathe {
+    animation: none;
+    box-shadow: 0 0 20px -7px rgb(var(--w-rgb) / 0.35);
+  }
 }
 
 /* Boss tile inner throne — a radial wash baked INTO the tile background (behind
@@ -2140,15 +2174,15 @@
    .boss-arena-glow pulse, so this layer is static and contrast-safe. */
 .boss-throne-bg {
   background:
-    radial-gradient(75% 95% at 50% 40%, rgba(var(--throne-rgb), var(--throne-a, 0.22)), transparent 72%),
-    rgba(15, 23, 42, 0.96);
+    radial-gradient(75% 95% at 50% 40%, rgb(var(--throne-rgb) / var(--throne-a, 0.22)), transparent 72%),
+    rgb(15 23 42 / 0.78);
 }
 
 /* Skull / Trophy sigil halo for the awakened + victory boss. Uses filter
    drop-shadow (NOT box-shadow) so the badge's .pixel-border survives; reads
    --throne-rgb inherited from the tile so red/amber track the state. */
 .boss-sigil-glow {
-  filter: drop-shadow(0 0 8px rgba(var(--throne-rgb), 0.7));
+  filter: drop-shadow(0 0 8px rgb(var(--throne-rgb) / 0.7));
 }
 
 /* Chapter breadcrumb chrome — pinned under the dashboard nav while a long

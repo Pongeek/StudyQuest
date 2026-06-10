@@ -74,8 +74,12 @@ export default function ExamCountdownCard({
   return (
     <section
       aria-labelledby={`exam-${plan.courseId}-heading`}
-      className="rpg-card rounded-2xl p-5 sm:p-6 relative overflow-hidden animate-slide-up flex flex-col h-full"
+      style={{ ["--alive-rgb" as string]: urgencyAliveRgb(plan.urgency) }}
+      className="rpg-card card-alive rounded-2xl p-5 sm:p-6 relative overflow-hidden animate-slide-up flex flex-col h-full"
     >
+      {/* Dot-matrix texture — alive-pass depth */}
+      <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none rounded-2xl" />
+
       {/* Top accent line — urgency-colored */}
       <div className={cn("absolute top-0 inset-x-0 h-0.5", urgencyAccent)} />
 
@@ -319,6 +323,24 @@ function urgencyAccentClass(urgency: StudyPlan["urgency"]): string {
       return "bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent";
     case "past":
       return "bg-gradient-to-r from-transparent via-slate-600/30 to-transparent";
+  }
+}
+
+function urgencyAliveRgb(urgency: StudyPlan["urgency"]): string {
+  // "R G B" triplet for the card-alive fill — tracks the same urgency
+  // semantic as the chip / nails / accent helpers above.
+  switch (urgency) {
+    case "exam-day":
+    case "final-push":
+      return "239 68 68";
+    case "crunch":
+      return "249 115 22";
+    case "steady":
+      return "245 158 11";
+    case "calm":
+      return "16 185 129";
+    case "past":
+      return "100 116 139";
   }
 }
 

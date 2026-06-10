@@ -61,9 +61,12 @@ const TIER_PALETTE: Record<
     iconText: string;
     chipLabel: string;
     cta: string;
+    /** "R G B" triplet for --alive-rgb / --w-rgb (card fill + breathe). */
+    rgb: string;
   }
 > = {
   S: {
+    rgb: "239 68 68",
     nail: "bg-red-400",
     accent: "from-transparent via-red-400/40 to-transparent",
     chipBg: "bg-red-500/10",
@@ -75,6 +78,7 @@ const TIER_PALETTE: Record<
       "bg-red-500 text-slate-950 shadow-[0_4px_0_0_#7f1d1d] hover:shadow-[0_2px_0_0_#7f1d1d] hover:translate-y-0.5 active:shadow-[0_0_0_0_#7f1d1d] active:translate-y-1",
   },
   A: {
+    rgb: "245 158 11",
     nail: "bg-amber-400",
     accent: "from-transparent via-amber-400/40 to-transparent",
     chipBg: "bg-amber-500/10",
@@ -86,6 +90,7 @@ const TIER_PALETTE: Record<
       "bg-amber-500 text-slate-950 shadow-[0_4px_0_0_#78350f] hover:shadow-[0_2px_0_0_#78350f] hover:translate-y-0.5 active:shadow-[0_0_0_0_#78350f] active:translate-y-1",
   },
   B: {
+    rgb: "99 102 241",
     nail: "bg-indigo-400",
     accent: "from-transparent via-indigo-400/40 to-transparent",
     chipBg: "bg-indigo-500/10",
@@ -163,8 +168,15 @@ export default function NextBestActionCard({ actions }: NextBestActionCardProps)
   return (
     <section
       aria-labelledby="next-best-action-heading"
-      className="relative rpg-card rounded-2xl px-5 py-5 sm:px-6 sm:py-6 overflow-hidden flex flex-col h-full"
+      style={{
+        ["--alive-rgb" as string]: palette.rgb,
+        ["--w-rgb" as string]: palette.rgb,
+      }}
+      className="relative rpg-card card-alive widget-breathe rounded-2xl px-5 py-5 sm:px-6 sm:py-6 overflow-hidden flex flex-col h-full"
     >
+      {/* Dot-matrix texture — alive-pass depth, matches the Course Map cards */}
+      <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none rounded-2xl" />
+
       {/* Status accent line — tier-colored */}
       <div className={cn("absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r", palette.accent)} />
 
