@@ -2121,6 +2121,36 @@
   animation-duration: 5s;
 }
 
+/* Episode card "alive" fill — a calm status-tinted gradient that replaces the
+   flat bg-slate-900/95 so the card reads less wireframe-y. Background only
+   (NO box-shadow) so the .pixel-border stepped edge is preserved. --alive-rgb
+   is set inline by CourseMap: indigo (99 102 241) while in progress, emerald
+   (34 197 94) at 100% mastery — so the fill flips with the rest of the chrome.
+   Pairs with an aria-hidden .hud-hero-texture overlay for the dot-matrix. */
+.episode-card-alive {
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(var(--alive-rgb), 0.10), transparent 62%),
+    linear-gradient(160deg, rgba(var(--alive-rgb), 0.05), rgba(15, 23, 42, 0.97) 66%);
+}
+
+/* Boss tile inner throne — a radial wash baked INTO the tile background (behind
+   content, so text contrast stays AA). --throne-rgb: red (239 68 68) = awakened
+   danger, amber (251 191 36) = victory; --throne-a controls intensity (faint for
+   the dormant/sealed tile). The animated "life" comes from the sibling
+   .boss-arena-glow pulse, so this layer is static and contrast-safe. */
+.boss-throne-bg {
+  background:
+    radial-gradient(75% 95% at 50% 40%, rgba(var(--throne-rgb), var(--throne-a, 0.22)), transparent 72%),
+    rgba(15, 23, 42, 0.96);
+}
+
+/* Skull / Trophy sigil halo for the awakened + victory boss. Uses filter
+   drop-shadow (NOT box-shadow) so the badge's .pixel-border survives; reads
+   --throne-rgb inherited from the tile so red/amber track the state. */
+.boss-sigil-glow {
+  filter: drop-shadow(0 0 8px rgba(var(--throne-rgb), 0.7));
+}
+
 /* Chapter breadcrumb chrome — pinned under the dashboard nav while a long
    episode is scrolled past its header. Tier B+ pixel chrome, tight height
    so it doesn't dominate the viewport. Positioning is handled by the

@@ -371,8 +371,11 @@ export default function CourseMap({
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: epIdx * 0.08, duration: 0.4 }}
+            style={{
+              ["--alive-rgb" as string]: isEpisodeComplete ? "34 197 94" : "99 102 241",
+            }}
             className={cn(
-              "relative bg-slate-900/95 overflow-hidden transition-all duration-300",
+              "relative episode-card-alive overflow-hidden transition-all duration-300",
               "pixel-border",
               epBorderTone
             )}
@@ -382,6 +385,11 @@ export default function CourseMap({
             <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5 z-[2]", epNailColor)} />
             <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[2]", epNailColor)} />
             <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[2]", epNailColor)} />
+
+            {/* Faint dot-matrix texture — lifts the card off the flat-navy look.
+                pointer-events-none so it never intercepts clicks; ~0.065 alpha
+                so it reads as subtle grain, not a grid. */}
+            <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none" />
 
             {/* Episode Header — left region collapses, right has delete +
                 chevron. Split into two siblings because HTML disallows
@@ -582,12 +590,20 @@ export default function CourseMap({
                             />
                           )}
                           {episode.bossFight.isUnlocked ? (
-                            <div className={cn(
-                              "relative px-4 py-5 flex items-center gap-3.5 transition-all duration-150 pixel-border bg-slate-900/95 overflow-hidden",
-                              episode.bossFight.isDefeated
-                                ? "text-amber-500/80"
-                                : "text-red-500/80"
-                            )}>
+                            <div
+                              style={{
+                                ["--throne-rgb" as string]: episode.bossFight.isDefeated
+                                  ? "251 191 36"
+                                  : "239 68 68",
+                                ["--throne-a" as string]: "0.22",
+                              }}
+                              className={cn(
+                                "relative px-4 py-5 flex items-center gap-3.5 transition-all duration-150 pixel-border boss-throne-bg overflow-hidden",
+                                episode.bossFight.isDefeated
+                                  ? "text-amber-500/80"
+                                  : "text-red-500/80"
+                              )}
+                            >
                               {/* CRT scanline overlay — sells the arcade-arena
                                   feel without competing with the content. */}
                               <div
@@ -608,15 +624,15 @@ export default function CourseMap({
                               })()}
 
                               <div className={cn(
-                                "w-10 h-10 pixel-border flex items-center justify-center flex-shrink-0 relative text-white",
+                                "w-12 h-12 pixel-border boss-sigil-glow flex items-center justify-center flex-shrink-0 relative z-[1] text-white",
                                 episode.bossFight.isDefeated
                                   ? "bg-amber-500"
                                   : "bg-red-600"
                               )}>
                                 {episode.bossFight.isDefeated ? (
-                                  <Trophy className="w-5 h-5" />
+                                  <Trophy className="w-6 h-6" />
                                 ) : (
-                                  <Skull className="w-5 h-5" />
+                                  <Skull className="w-6 h-6" />
                                 )}
                               </div>
 
@@ -649,7 +665,13 @@ export default function CourseMap({
                               )}
                             </div>
                           ) : (
-                            <div className="relative flex items-center gap-3.5 px-4 py-5 pixel-border bg-slate-900/20 text-slate-700/60 opacity-60 overflow-hidden">
+                            <div
+                              style={{
+                                ["--throne-rgb" as string]: "239 68 68",
+                                ["--throne-a" as string]: "0.06",
+                              }}
+                              className="relative flex items-center gap-3.5 px-4 py-5 pixel-border boss-throne-bg text-slate-700/60 opacity-70 overflow-hidden"
+                            >
                               {/* Dim scanlines — locked tiles still belong to
                                   the arcade family, just muted. */}
                               <div
