@@ -57,3 +57,4 @@ storybook-static
 # Dev tool artifacts (browser captures, generated assets, scratch screenshots)
 .playwright-mcp/
 generated_imgs/
+.superpowers/
