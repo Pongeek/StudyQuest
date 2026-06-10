@@ -2,7 +2,7 @@
 
 // ─── ProfileTabs ──────────────────────────────────────────────────────────────
 // Client island that tames the profile's long scroll into three sections:
-// Overview · Trophy Case · Journey. The hero/identity card is rendered ABOVE
+// Overview · Journey · Trophy Case. The hero/identity card is rendered ABOVE
 // this island (in the server page), so the learner's character is always
 // visible regardless of the active tab.
 //
@@ -15,10 +15,11 @@ import { Tabs } from "@base-ui/react/tabs";
 import { LayoutDashboard, Trophy, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Journey leads — it's the default landing tab, so it also sits leftmost.
+// Overview leads — it's the default landing tab, so it also sits leftmost.
+// (Overview = the learner's numbers at a glance; Journey = the quest narrative.)
 const TAB_DEFS = [
-  { value: "journey", label: "JOURNEY", Icon: Map },
   { value: "overview", label: "OVERVIEW", Icon: LayoutDashboard },
+  { value: "journey", label: "JOURNEY", Icon: Map },
   { value: "trophies", label: "TROPHY CASE", Icon: Trophy },
 ] as const;
 
@@ -30,7 +31,7 @@ interface Props {
 
 export default function ProfileTabs({ overview, trophyCase, journey }: Props) {
   return (
-    <Tabs.Root defaultValue="journey" className="space-y-6">
+    <Tabs.Root defaultValue="overview" className="space-y-6">
       <Tabs.List
         aria-label="Profile sections"
         className="relative grid grid-cols-3 gap-1 border-b border-white/[0.06]"

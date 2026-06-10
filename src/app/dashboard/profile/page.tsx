@@ -457,8 +457,23 @@ export default async function ProfilePage({
       <ProfileTabs
         overview={
           <div className="space-y-6">
-          <ReviewQueueCard dueCount={dueTopics.length} dueTopics={dueTopics} />
-          <ClosestTrophiesLadder items={closestTrophies} />
+          {/* ─── STUDY ACTIVITY HEATMAP — analytics lead the data tab ─── */}
+          <section>
+            <header className="flex items-center gap-3 mb-4 px-1">
+              <div className="w-9 h-9 pixel-border bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                <Zap className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-pixel text-[9px] tracking-wider text-indigo-400/90">
+                  ACTIVITY LOG
+                </div>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
+                  Study Activity
+                </h2>
+              </div>
+            </header>
+            <QuestPulse data={heatmapData} currentStreak={currentStreak} />
+          </section>
           <LifetimeStatsGrid
             questionsAnswered={questionsAnswered}
             accuracyPct={accuracyPct}
@@ -467,36 +482,6 @@ export default async function ProfilePage({
           />
           {showTruesightPreview && <TruesightPreviewGrid />}
           <TruesightSection view={calibrationView} />
-          <section>
-            <header className="flex items-center gap-3 mb-4 px-1">
-              <div className="w-9 h-9 pixel-border bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="font-pixel text-[9px] tracking-wider text-amber-400/90">
-                  RECENTLY EARNED
-                </div>
-                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
-                  Latest Honors
-                </h2>
-              </div>
-            </header>
-            {earnedAchievementsList.length > 0 ? (
-              <div className="grid sm:grid-cols-2 gap-3">
-                {earnedAchievementsList.slice(0, 3).map((ach: any) => (
-                  <TrophyCard key={ach.id} ach={ach} featuredId={featuredId} />
-                ))}
-              </div>
-            ) : (
-              <div className="rpg-card rounded-xl p-8 text-center">
-                <Trophy className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-slate-400">No relics yet</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Complete a quiz to claim your first trophy.
-                </p>
-              </div>
-            )}
-          </section>
           </div>
         }
         trophyCase={
@@ -620,102 +605,8 @@ export default async function ProfilePage({
         journey={
           <div className="space-y-6">
 
-      {/* ─── STUDY ACTIVITY HEATMAP ─── */}
-      <section>
-        <header className="flex items-center gap-3 mb-4 px-1">
-          <div className="w-9 h-9 pixel-border bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
-            <Zap className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="font-pixel text-[9px] tracking-wider text-indigo-400/90">
-              ACTIVITY LOG
-            </div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
-              Study Activity
-            </h2>
-          </div>
-        </header>
-        <QuestPulse data={heatmapData} currentStreak={currentStreak} />
-      </section>
-
-      {/* ─── MASTERED TOPICS ─── */}
-      {topMasteries && topMasteries.length > 0 && (
-        <section>
-          <header className="flex items-center justify-between gap-3 mb-4 px-1">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 pixel-border bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
-                <Star className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="font-pixel text-[9px] tracking-wider text-emerald-400/90">
-                  SKILL CONSTELLATIONS
-                </div>
-                {/* "Topic Mastery" — NOT "Mastered Topics". This lists every
-                    topic at Apprentice tier (mastery_level >= 2) and up, grouped
-                    by tier. The Overview "Topics Mastered" stat counts only the
-                    Master tier (>= 5, matching the master_topics achievement), so
-                    calling this whole list "Mastered" would contradict it (a user
-                    could see "0 mastered" on Overview beside a populated list). */}
-                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
-                  Topic Mastery
-                </h2>
-              </div>
-            </div>
-            <div className="text-xs text-slate-500 hidden sm:block">
-              {topMasteries.length} topic{topMasteries.length === 1 ? "" : "s"} bound
-            </div>
-          </header>
-          <div>
-            {masteryTiers.map((tier) => {
-              const topics = (topMasteries || []).filter(
-                (m: any) => m.mastery_level === tier.level
-              );
-              if (topics.length === 0) return null;
-              const TierIcon =
-                tier.level >= 5 ? Crown :
-                tier.level >= 4 ? Gem :
-                tier.level >= 3 ? Shield : Star;
-              return (
-                <div key={tier.level} className="tier-row" style={{ borderColor: tier.ring }}>
-                  <div>
-                    <div className="flex items-center gap-2 mb-0.5" style={{ color: tier.color }}>
-                      <TierIcon className="w-4 h-4" />
-                      <span className="font-bold text-base tracking-tight">{tier.label}</span>
-                    </div>
-                    <div className="tier-stars" aria-label={`${tier.level} of 5 stars`}>
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <svg
-                          key={i}
-                          viewBox="0 0 20 20"
-                          className="tier-star"
-                          fill={i <= tier.level ? tier.color : "rgba(255,255,255,0.07)"}
-                          style={i <= tier.level ? { filter: `drop-shadow(0 0 2px ${tier.color}66)` } : undefined}
-                        >
-                          <polygon points="10,1 12.6,7 19,7.6 14,12 15.5,19 10,15.5 4.5,19 6,12 1,7.6 7.4,7" />
-                        </svg>
-                      ))}
-                    </div>
-                    <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-slate-500 mt-1.5 tabular-nums">
-                      {topics.length} topic{topics.length === 1 ? "" : "s"}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {topics.map((m: any) => (
-                      <span key={m.id} className="topic-node">
-                        <span
-                          className="topic-node-dot"
-                          style={{ background: tier.color, color: tier.color }}
-                        />
-                        <span className="truncate max-w-[260px]">{m.topics?.title}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {/* ─── DAILY REVIEW — the next quest leads the adventure tab ─── */}
+      <ReviewQueueCard dueCount={dueTopics.length} dueTopics={dueTopics} />
 
       {/* ─── RECENT ACTIVITY ─── */}
       <section>
@@ -798,6 +689,120 @@ export default async function ProfilePage({
             <p className="text-sm font-semibold text-slate-400">The log is empty</p>
             <p className="text-xs text-slate-500 mt-1">
               Take a quiz on any topic to begin your chronicle.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* ─── MASTERED TOPICS ─── */}
+      {topMasteries && topMasteries.length > 0 && (
+        <section>
+          <header className="flex items-center justify-between gap-3 mb-4 px-1">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 pixel-border bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+                <Star className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-pixel text-[9px] tracking-wider text-emerald-400/90">
+                  SKILL CONSTELLATIONS
+                </div>
+                {/* "Topic Mastery" — NOT "Mastered Topics". This lists every
+                    topic at Apprentice tier (mastery_level >= 2) and up, grouped
+                    by tier. The Overview "Topics Mastered" stat counts only the
+                    Master tier (>= 5, matching the master_topics achievement), so
+                    calling this whole list "Mastered" would contradict it (a user
+                    could see "0 mastered" on Overview beside a populated list). */}
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
+                  Topic Mastery
+                </h2>
+              </div>
+            </div>
+            <div className="text-xs text-slate-500 hidden sm:block">
+              {topMasteries.length} topic{topMasteries.length === 1 ? "" : "s"} bound
+            </div>
+          </header>
+          <div>
+            {masteryTiers.map((tier) => {
+              const topics = (topMasteries || []).filter(
+                (m: any) => m.mastery_level === tier.level
+              );
+              if (topics.length === 0) return null;
+              const TierIcon =
+                tier.level >= 5 ? Crown :
+                tier.level >= 4 ? Gem :
+                tier.level >= 3 ? Shield : Star;
+              return (
+                <div key={tier.level} className="tier-row" style={{ borderColor: tier.ring }}>
+                  <div>
+                    <div className="flex items-center gap-2 mb-0.5" style={{ color: tier.color }}>
+                      <TierIcon className="w-4 h-4" />
+                      <span className="font-bold text-base tracking-tight">{tier.label}</span>
+                    </div>
+                    <div className="tier-stars" aria-label={`${tier.level} of 5 stars`}>
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <svg
+                          key={i}
+                          viewBox="0 0 20 20"
+                          className="tier-star"
+                          fill={i <= tier.level ? tier.color : "rgba(255,255,255,0.07)"}
+                          style={i <= tier.level ? { filter: `drop-shadow(0 0 2px ${tier.color}66)` } : undefined}
+                        >
+                          <polygon points="10,1 12.6,7 19,7.6 14,12 15.5,19 10,15.5 4.5,19 6,12 1,7.6 7.4,7" />
+                        </svg>
+                      ))}
+                    </div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-slate-500 mt-1.5 tabular-nums">
+                      {topics.length} topic{topics.length === 1 ? "" : "s"}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {topics.map((m: any) => (
+                      <span key={m.id} className="topic-node">
+                        <span
+                          className="topic-node-dot"
+                          style={{ background: tier.color, color: tier.color }}
+                        />
+                        <span className="truncate max-w-[260px]">{m.topics?.title}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ─── CLOSEST TROPHIES — almost-earned, sits beside Latest Honors ─── */}
+      <ClosestTrophiesLadder items={closestTrophies} />
+
+      {/* ─── RECENTLY EARNED ─── */}
+      <section>
+        <header className="flex items-center gap-3 mb-4 px-1">
+          <div className="w-9 h-9 pixel-border bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="font-pixel text-[9px] tracking-wider text-amber-400/90">
+              RECENTLY EARNED
+            </div>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
+              Latest Honors
+            </h2>
+          </div>
+        </header>
+        {earnedAchievementsList.length > 0 ? (
+          <div className="grid sm:grid-cols-2 gap-3">
+            {earnedAchievementsList.slice(0, 3).map((ach: any) => (
+              <TrophyCard key={ach.id} ach={ach} featuredId={featuredId} />
+            ))}
+          </div>
+        ) : (
+          <div className="rpg-card rounded-xl p-8 text-center">
+            <Trophy className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-slate-400">No relics yet</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Complete a quiz to claim your first trophy.
             </p>
           </div>
         )}
