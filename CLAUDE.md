@@ -113,6 +113,7 @@ The theme lives in `src/app/globals.css`. Use it — don't invent values.
 Before writing custom CSS or new motion, check `globals.css` for an existing utility. Notable classes:
 
 - **Cards:** `.rpg-card`, `.rpg-card-gold`, `.rpg-card-interactive`, `.glass-card`, `.tilt-card`, `.shimmer-border`, `.sparkle-hover`
+- **Alive pass (Jun 2026):** `.card-alive` (status-tinted gradient fill driven by `--alive-rgb` "R G B" triplet; pairs with an aria-hidden `.hud-hero-texture` overlay span — used by CourseMap episode cards + the whole dashboard widget stack), `.widget-breathe` (3s glow/border pulse via `--w-rgb` — applied to ONE widget per page, the Next Best Action card; motion = meaning), `.boss-throne-bg` + `.boss-sigil-glow` (boss tile inner wash + skull halo via `--throne-rgb`/`--throne-a`), `.boss-arena-glow` (`--pending` red / `--defeated` amber blurred halo behind the boss tile)
 - **Glow:** `.glow-indigo`, `.glow-amber`, `.glow-green`, `.glow-purple`, `.glow-red`, `.text-glow-*`, `.animate-glow-pulse`, `.animate-glow-breathe`
 - **Gameplay feedback:** `.animate-bounce-in`, `.animate-shake` (wrong answer), `.animate-confetti-pop`, `.animate-score-burst`, `.quest-complete`, `.animate-fire-glow` (streak), `.animate-level-pulse`
 - **Progress:** `.xp-shimmer` (smooth secondary bar — course cards, BossFight, landing mockups), `.pixel-xp-bar` + `.pixel-xp-bar-fill` (segmented hero bar — dashboard/profile/landing heroes), `.animate-xp-fill`, `.progress-bar-striped`, `.mastery-ring` (set `--progress: 0–100`)
@@ -262,6 +263,7 @@ The migration files live in `supabase/migrations/`. Always update this list when
 - **Arcade headlines:** `Press_Start_2P` font is loaded in root layout — use sparingly for arcade-flavored moments (level-up overlay, boss titles, landing hero accent), never for body copy.
 - **Date formatting hydration:** use `"en-US"` explicitly in `toLocaleDateString()` — Node defaults to en-GB, browsers default to en-US, mismatch crashes hydration. Applied in `ExamDateButton` and `ExamCountdownCard`.
 - **DOMMatrix is not defined on server:** react-pdf's pdf.js touches DOMMatrix at module-load. PDF viewer is wrapped in `TopicPDFViewerClient.tsx` which uses `dynamic(() => import("./TopicPDFViewer"), { ssr: false })`.
+- **`rgba(var(--x), a)` is INVALID CSS and fails silently.** Channel-triplet custom properties (`--x: 245 158 11`) MUST use the modern slash syntax: `rgb(var(--x) / 0.5)`. The mixed comma form is invalid **at computed-value time** — the whole declaration computes to none/transparent with no console error and no DevTools strikethrough, so the page can *look* plausible while the rule silently isn't applying (this shipped a "gradient" that was actually transparency, 2026-06-10). When adding var-driven colors, verify with `getComputedStyle(el).backgroundImage` in the browser, not by eyeballing a screenshot.
 
 ## Sprint history → `CHANGELOG-agent.md`
 
@@ -351,6 +353,7 @@ The user is actively studying their real Automata / Computational Models course 
 - **Daily review push/email** — habit loop. Needs email infra + cron job.
 - **Edit/reorder episodes** — `/api/episodes/[id]` only supports DELETE; no `PATCH` for title, no reorder endpoint, no UI affordance.
 - **Mobile responsive audit** — walk through key surfaces on small screens.
+- **Alive pass for the lower dashboard rows** — Quest Board / Your Realm / Achievements didn't get the 2026-06-11 `.card-alive` depth treatment (deliberately scoped to the widget stack above them). Extend if the contrast between bands reads inconsistent.
 - **Orphan PDFs in storage** — course/episode delete cascades DB rows but leaves files in the `course-files` Storage bucket. Harmless quota leak; eventually worth a sweeper.
 - **Boss-fight per-episode illustration** — deferred (cost). POC done; path if revisited: migration `episodes.boss_image_url`, server route calling Gemini SDK directly (not MCP), Storage `boss-images/` prefix, skull fallback when null.
 

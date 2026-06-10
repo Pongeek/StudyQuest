@@ -456,3 +456,31 @@ Both `openClarifier` and `continueClarifier` call this builder unchanged. The di
 
 **Spec:** `docs/superpowers/specs/2026-06-01-lucky-guess-clarifier-design.md`. Plan: `docs/superpowers/plans/2026-06-01-lucky-guess-clarifier.md`.
 
+### Visual polish session — Course Map alive + boss states, profile reshuffle, dashboard "Urgency Breathes" (2026-06-10/11)
+
+A looks-only session (Max: "work on the looks, no new functions"). Three shipments, zero logic changes. Brainstormed via the visual-companion mockup server (`.superpowers/brainstorm/`, gitignored); each direction was picked from 2–3 rendered options before implementation.
+
+**1. Course Map — "calm cards + dramatic boss" (commits `b392699` spec + `888e102` impl, merged + pushed)**
+- Episode cards swap flat `bg-slate-900/95` for a status-tinted gradient + `hud-hero-texture` dot-matrix overlay. `--alive-rgb` flips indigo → emerald with the existing completion state so ALL chrome (border / nails / number badge / fill) transitions together.
+- Boss tile restyled per existing state (no new states): dormant = faint sealed red wash (`--throne-a: 0.06`); awakened = red throne (`boss-throne-bg` + bigger `boss-sigil-glow` skull, `w-12` + `z-[1]`); victory = amber throne. **Red = live encounter, amber = victory** — the mockup originally showed amber-when-ready; corrected to honor the app's locked danger/win semantics before implementation (Max signed off).
+- Preview trick worth reusing: a temporary `?preview=mastered` URL-param override in the course page forced episode 1 to render fully-mastered + boss-defeated so Max could see the emerald/victory states in the LIVE component without DB writes. Removed via `git restore` before commit. (A DB-fabrication attempt for the same purpose was blocked by the permission classifier — the view-only page-level override is the right pattern.)
+- Spec: `docs/superpowers/specs/2026-06-10-course-map-alive-boss-design.md`.
+
+**2. Profile reshuffle — Overview-first (uncommitted at entry-write time, approved)**
+- New tab semantics: **OVERVIEW = analytics** (Study Activity heatmap moved in from Journey, then Lifetime Stats, Truesight), **JOURNEY = the adventure** (Daily Review CTA leads, then Recent Quests, Topic Mastery, Closest Trophies, Latest Honors — trophy cluster ends the tab in amber treasure). Trophy Case unchanged.
+- `ProfileTabs.tsx`: `defaultValue="overview"` + Overview moved leftmost (file convention: default tab sits leftmost). `page.tsx`: five sections relocated verbatim — no logic touched.
+
+**3. Dashboard "Urgency Breathes" (uncommitted at entry-write time, approved)**
+- From the 3-way mockup (Quiet Depth / Urgency Breathes / Everything Hums) Max picked B: depth everywhere, motion only where it means something.
+- `.episode-card-alive` renamed → **`.card-alive`** (it was already generic via `--alive-rgb`). Applied + texture spans across the widget stack: TodayStatsStrip (indigo), ExamCountdownCard (new `urgencyAliveRgb()` helper beside its urgency-class helpers), NextBestActionCard (new `rgb` field on `TIER_PALETTE`), ReviewQueueCard (cyan / urgent orange), TodaysMission (amber/indigo), GrimoireWidget (purple/slate). A `.rpg-card.card-alive:hover` re-assertion stops rpg-card's flat hover bg from wiping the gradient.
+- **Exactly one widget breathes**: new `.widget-breathe` (3s shadow + border pulse via `--w-rgb`) on the NBA card only, tinted by the displayed action's tier — "the most urgent thing breathes" falls out of NBA's existing S/A/B ranking with zero new computation. Reduced-motion guard freezes it to a static mid-glow.
+- **Hero card untouched on purpose** — recon showed it already had the living-HUD pieces (tier-glow frame, rank-chip shimmer, and a pre-existing 2.8s XP sweep on `.pixel-xp-bar-fill::before`).
+- Spec: `docs/superpowers/specs/2026-06-11-dashboard-alive-design.md`.
+
+**4. THE BUG: `rgba(var(--x), a)` is invalid CSS and fails silently.** Discovered while verifying the dashboard pass via computed-style checks (`getComputedStyle(...).backgroundImage === "none"` despite the rule existing in CSSOM and the var resolving). Space-separated channel triplets with a comma alpha are not in the CSS Color grammar → **invalid at computed-value time → the entire shorthand declaration computes to none/transparent, no console error, no DevTools strikethrough at authoring time**. Consequence: the Course Map gradients approved that morning had never rendered — the cards were transparent and the "depth" was the starfield showing through (the boss-throne red was the blurred arena halo bleeding through a transparent tile). Fix: modern slash syntax `rgb(var(--x) / a)` across `card-alive`, `boss-throne-bg`, `boss-sigil-glow`, and the `widget-breathe` keyframes; base fills deliberately kept semi-transparent (`rgb(15 23 42 / 0.80)` cards / `0.78` throne) to preserve the airy starfield look Max had approved. Verified post-fix: real gradients on all five widgets + live mid-interpolation shadow values on the breathe.
+
+**Process notes:**
+- The visual-companion flow (mockup 2–3 directions → click to pick → implement → judge in browser) worked twice in one session; Max mixes directions naturally ("B's boss with A's calmer cards").
+- Verify CSS *computed*, not just rendered-looks-nice: a screenshot approved the broken transparency. `getComputedStyle` + CSSOM rule-walk via Playwright `browser_evaluate` is the cheap, decisive check for "is this declaration actually applying".
+- Backend permission-classifier outage mid-session: shell (git/tsc) blocked for a stretch; file edits + Playwright kept working, so implementation continued and git work was queued as tasks. Pattern: log the queue, keep building, batch commits when the shell returns.
+
