@@ -205,7 +205,7 @@ export default function LandingQuizDemo() {
           transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3"
         >
-          LIVE DEMO
+          CHAPTER 02 &middot; THE TRIAL
         </motion.p>
         <motion.h2
           initial={{ opacity: 0, y: 18 }}

@@ -26,12 +26,13 @@ import {
 
 const NODES: Array<{ at: number; label: string }> = [
   { at: 0.00, label: "Hero" },
-  { at: 0.13, label: "Arsenal" },
-  { at: 0.26, label: "Demo" },
-  { at: 0.40, label: "Mockups" },
-  { at: 0.58, label: "Story" },
-  { at: 0.82, label: "Compare" },
-  { at: 0.94, label: "Begin" },
+  { at: 0.12, label: "Forge" },
+  { at: 0.34, label: "Trial" },
+  { at: 0.52, label: "Boss" },
+  { at: 0.72, label: "Arsenal" },
+  { at: 0.82, label: "Mockups" },
+  { at: 0.90, label: "Compare" },
+  { at: 0.96, label: "Begin" },
 ];
 
 const ACTIVE_WINDOW = 0.06; // ±% around each node where it's considered "active"

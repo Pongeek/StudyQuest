@@ -9,7 +9,7 @@ import LandingTierStrip from "@/components/landing/LandingTierStrip";
 import LandingFeatures from "@/components/landing/LandingFeatures";
 import LandingQuizDemo from "@/components/landing/LandingQuizDemo";
 import LandingProductMockups from "@/components/landing/LandingProductMockups";
-import LandingStory from "@/components/landing/LandingStory";
+import { ScrollQuestForge, ScrollQuestBoss } from "@/components/landing/LandingScrollQuest";
 import LandingComparison from "@/components/landing/LandingComparison";
 import LandingCTA from "@/components/landing/LandingCTA";
 import LandingQuestPath from "@/components/landing/LandingQuestPath";
@@ -74,10 +74,16 @@ export default async function LandingPage() {
 
         <LandingHero />
         <LandingTierStrip />
-        <LandingFeatures />
+
+        {/* ── Cinematic scroll quest — chapters 01 → 02 → 03.
+              01 + 03 are scroll-scrubbed sticky stages (LandingScrollQuest);
+              02 is the interactive quiz demo, the "you try it" beat. */}
+        <ScrollQuestForge />
         <LandingQuizDemo />
+        <ScrollQuestBoss />
+
+        <LandingFeatures />
         <LandingProductMockups />
-        <LandingStory />
         <LandingComparison />
         <LandingCTA />
 
