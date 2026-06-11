@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRef } from "react";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
-import { ArrowRight, Sword } from "lucide-react";
+import { ArrowRight, ChevronDown, Sword } from "lucide-react";
 import LandingHeroVisual from "@/components/landing/LandingHeroVisual";
 
 const FEATURE_PILLS: Array<{ label: string; icon: string; tone: string }> = [
@@ -14,13 +14,14 @@ const FEATURE_PILLS: Array<{ label: string; icon: string; tone: string }> = [
 ];
 
 // Word-by-word reveal for the H1 tagline. Last two words ("an Adventure")
-// get the indigo accent to match the original styling.
-const TAGLINE_WORDS: Array<{ text: string; tone?: string }> = [
+// get the indigo accent; "Adventure" also earns the amber XP underline
+// (`underline`) — a pixel bar that fills in after the word reveals.
+const TAGLINE_WORDS: Array<{ text: string; tone?: string; underline?: boolean }> = [
   { text: "Turn" },
   { text: "Studying" },
   { text: "into" },
   { text: "an", tone: "text-indigo-400" },
-  { text: "Adventure", tone: "text-indigo-400" },
+  { text: "Adventure", tone: "text-indigo-400", underline: true },
 ];
 
 const taglineContainer = {
@@ -86,7 +87,10 @@ export default function LandingHero() {
   const fgY = useTransform(scrollYProgress, [0, 1], [0, -160]);
 
   return (
-    <section ref={sectionRef} className="container mx-auto px-6 pt-20 pb-24 max-w-6xl relative">
+    <section
+      ref={sectionRef}
+      className="container mx-auto px-6 pt-12 pb-20 md:pb-24 max-w-6xl relative min-h-[calc(100svh-6rem)] flex flex-col justify-center"
+    >
       {/* ── Parallax depth: background "stars" layer (slower) ── */}
       {!reduceMotion && (
         <motion.div
@@ -128,10 +132,15 @@ export default function LandingHero() {
             variants={taglineContainer}
             initial="hidden"
             animate="show"
-            className="text-5xl md:text-6xl font-extrabold mb-6 leading-[1.1] tracking-tight flex flex-wrap gap-x-[0.27em]"
+            className="text-5xl md:text-6xl xl:text-7xl font-extrabold mb-6 leading-[1.06] tracking-tight flex flex-wrap gap-x-[0.27em]"
           >
             {TAGLINE_WORDS.map((word, i) => (
-              <span key={i} className="inline-block overflow-hidden">
+              <span
+                key={i}
+                className={`relative inline-block overflow-hidden ${
+                  word.underline ? "hero-xp-underline" : ""
+                }`}
+              >
                 <motion.span
                   variants={taglineWord}
                   className={`inline-block ${word.tone ?? ""}`}
@@ -179,12 +188,13 @@ export default function LandingHero() {
             </Link>
           </motion.div>
 
-          {/* Feature pills — pixel-bordered pixel-font chips */}
+          {/* Feature pills — pixel-bordered pixel-font chips. Equal-width
+              2×2 / 1×4 grid so the row never orphan-wraps. */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.5 }}
-            className="flex items-center gap-2.5 mt-10 flex-wrap"
+            className="grid grid-cols-2 gap-2.5 mt-10 w-full max-w-md"
           >
             {FEATURE_PILLS.map(({ label, icon, tone }, i) => (
               <motion.div
@@ -192,10 +202,10 @@ export default function LandingHero() {
                 initial={{ opacity: 0, y: 10, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ delay: 0.7 + i * 0.1, type: "spring" }}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 pixel-border bg-slate-900/60 ${tone}`}
+                className={`flex items-center justify-center gap-1.5 px-2 py-1.5 pixel-border bg-slate-900/60 ${tone}`}
               >
                 <span className="text-[13px] leading-none" aria-hidden>{icon}</span>
-                <span className="font-pixel text-[9px] tracking-wider">{label}</span>
+                <span className="font-pixel text-[9px] tracking-wider whitespace-nowrap">{label}</span>
               </motion.div>
             ))}
           </motion.div>
@@ -211,6 +221,19 @@ export default function LandingHero() {
           <LandingHeroVisual />
         </motion.div>
       </div>
+
+      {/* ── Scroll cue — arcade "press ↓" hint anchoring the fold's bottom.
+            Desktop only (mobile content already fills the fold). */}
+      <motion.div
+        aria-hidden
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.6, duration: 0.6 }}
+        className="hidden md:flex flex-col items-center gap-1.5 absolute bottom-2 left-1/2 -translate-x-1/2 text-slate-600"
+      >
+        <span className="font-pixel text-[8px] tracking-[0.2em]">SCROLL</span>
+        <ChevronDown className="w-4 h-4 motion-safe:animate-bounce [animation-duration:2.2s]" />
+      </motion.div>
 
       {/* ── Parallax depth: foreground "rune motes" layer (faster) ──
           Sits in front of content with low-alpha colors + pointer-events-none

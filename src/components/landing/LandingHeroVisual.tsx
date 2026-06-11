@@ -65,9 +65,22 @@ export default function LandingHeroVisual() {
   const isHotStreak = streakDays >= 7;
 
   return (
-    <div className="flex flex-col items-center justify-center gap-7 select-none w-full">
+    <div className="flex flex-col items-center justify-center gap-7 select-none w-full relative">
+      {/* Pedestal light — soft indigo aura behind the card with a warm amber
+          underglow, so the HUD reads as the hero's lit centerpiece instead of
+          a floating panel. Sits behind everything, never blocks clicks. */}
+      <div
+        aria-hidden
+        className="absolute -inset-x-10 -top-10 bottom-2 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 55% at 50% 42%, rgba(99, 102, 241, 0.20), transparent 68%), radial-gradient(ellipse 45% 25% at 50% 88%, rgba(245, 158, 11, 0.10), transparent 70%)",
+          filter: "blur(2px)",
+        }}
+      />
+
       {/* Character HUD card — pixel-elegant, matches dashboard/profile hero */}
-      <div className="rpg-card rounded-2xl w-full max-w-[30rem] overflow-hidden relative border border-white/[0.07]">
+      <div className="rpg-card widget-elev rounded-2xl w-full max-w-[32rem] overflow-hidden relative">
         {/* Dot-matrix texture */}
         <div className="absolute inset-0 hud-hero-texture rounded-2xl" />
 
@@ -178,8 +191,16 @@ export default function LandingHeroVisual() {
         </div>
       </div>
 
+      {/* Ground shadow — elliptical pool under the card so it sits on the
+          pedestal light instead of floating in space. */}
+      <div
+        aria-hidden
+        className="relative -mt-4 h-4 w-3/5 rounded-[100%] pointer-events-none"
+        style={{ background: "radial-gradient(ellipse at center, rgba(0,0,0,0.55), transparent 70%)" }}
+      />
+
       {/* Ambient caption */}
-      <p className="text-sm text-slate-500 text-center max-w-[280px] leading-relaxed">
+      <p className="text-sm text-slate-500 text-center max-w-[280px] leading-relaxed relative">
         Every answer earns XP. Every level unlocks new chrome.
       </p>
     </div>

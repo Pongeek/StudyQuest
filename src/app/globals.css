@@ -2194,6 +2194,34 @@
     radial-gradient(ellipse 45% 32% at 88% -6%, rgba(168, 85, 247, 0.09), transparent 60%);
 }
 
+/* Hero headline XP underline — a chunky amber pixel bar that fills in under
+   the final headline word after the word reveal, tying the brand mechanic
+   (XP fill) into the hero type. Applied to the word's reveal wrapper (which
+   is position:relative + overflow-hidden) so the bar stays inside the clip. */
+.hero-xp-underline::after {
+  content: "";
+  position: absolute;
+  left: 0.04em;
+  right: 0.04em;
+  bottom: 0.02em;
+  height: 0.08em;
+  background: repeating-linear-gradient(90deg, #f59e0b 0 6px, #fbbf24 6px 12px);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: hero-xp-fill 0.9s cubic-bezier(0.4, 0, 0.2, 1) 1.15s forwards;
+}
+@keyframes hero-xp-fill {
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-xp-underline::after {
+    animation: none;
+    transform: scaleX(1);
+  }
+}
+
 /* Boss tile inner throne — a radial wash baked INTO the tile background (behind
    content, so text contrast stays AA). --throne-rgb: red (239 68 68) = awakened
    danger, amber (251 191 36) = victory; --throne-a controls intensity (faint for

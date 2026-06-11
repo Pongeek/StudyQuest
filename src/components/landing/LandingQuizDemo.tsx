@@ -186,7 +186,17 @@ export default function LandingQuizDemo() {
   const questionPoolSize = useMemo(() => QUESTIONS.length, []);
 
   return (
-    <section ref={sectionRef} className="container mx-auto px-6 py-20 max-w-2xl">
+    <section ref={sectionRef} className="container mx-auto px-6 py-20 max-w-2xl relative">
+      {/* Arena glow — a contained indigo light pool behind the demo card so
+          the section reads as a lit stage instead of a card in a void. */}
+      <div
+        aria-hidden
+        className="absolute -inset-x-24 top-16 bottom-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 75% 60% at 50% 55%, rgba(99, 102, 241, 0.13), transparent 70%)",
+        }}
+      />
       {/* Section header — eyebrow → H2 → caption cascade on scroll-in */}
       <div className="text-center mb-10">
         <motion.p
@@ -221,7 +231,8 @@ export default function LandingQuizDemo() {
         initial={{ opacity: 0, y: 24, scale: 0.98 }}
         animate={isInView ? { opacity: 1, y: 0, scale: 1 } : {}}
         transition={{ duration: 0.55, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className="relative rpg-card rounded-2xl p-6 sm:p-8 space-y-5 overflow-hidden"
+        style={{ ["--alive-rgb" as string]: "99 102 241" }}
+        className="relative rpg-card card-alive widget-elev rounded-2xl p-6 sm:p-8 space-y-5 overflow-hidden"
       >
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-400/40 to-transparent" />
         <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />

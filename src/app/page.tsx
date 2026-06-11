@@ -32,6 +32,9 @@ export default async function LandingPage() {
             Layer order matches dashboard/layout.tsx for a unified look. */}
       <div className="fixed inset-0 pixel-grid opacity-70 pointer-events-none" />
       <div className="fixed inset-0 pixel-scanlines opacity-60 pointer-events-none" />
+      {/* Ambient light pool — same layer as the dashboard so the public page
+          and the authed app share one light source. */}
+      <div className="fixed inset-0 dash-ambient pointer-events-none" />
       <div className="fixed inset-0 pixel-vignette pointer-events-none" />
       <AuroraBackground />
 
@@ -45,7 +48,9 @@ export default async function LandingPage() {
             </span>
           </Link>
           <div className="flex gap-3 items-center">
-            <Link href="/sign-in">
+            {/* Hidden on very small screens — the hero carries its own
+                SIGN IN button, and both nav buttons don't fit at 390px. */}
+            <Link href="/sign-in" className="hidden sm:block">
               <Button
                 variant="ghost"
                 className="font-pixel text-[10px] tracking-tight text-slate-400 hover:text-white hover:bg-white/5 rounded-none"

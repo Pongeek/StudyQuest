@@ -426,7 +426,7 @@ function StepText({ step, index, onActiveChange }: StepTextProps) {
   return (
     <div
       ref={ref}
-      className="min-h-[70vh] flex flex-col justify-center space-y-4 py-12"
+      className="min-h-[60vh] flex flex-col justify-center space-y-4 py-12"
     >
       <motion.span
         initial={{ opacity: 0, y: 15 }}

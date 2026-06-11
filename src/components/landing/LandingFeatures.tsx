@@ -26,6 +26,7 @@ const features = [
     icon: Brain,
     iconColor: "text-indigo-400",
     nail: "bg-indigo-400",
+    aliveRgb: "99 102 241",
     eyebrow: "EPISODE 1",
     eyebrowTone: "text-indigo-400/90",
     title: "AI Course Analysis",
@@ -35,6 +36,7 @@ const features = [
     icon: Sword,
     iconColor: "text-indigo-400",
     nail: "bg-indigo-400",
+    aliveRgb: "99 102 241",
     eyebrow: "EPISODE 2",
     eyebrowTone: "text-indigo-400/90",
     title: "Smart Combat",
@@ -44,6 +46,7 @@ const features = [
     icon: Trophy,
     iconColor: "text-amber-400",
     nail: "bg-amber-400",
+    aliveRgb: "245 158 11",
     eyebrow: "EPISODE 3",
     eyebrowTone: "text-amber-400/90",
     title: "Level Up System",
@@ -54,6 +57,7 @@ const features = [
     icon: Repeat,
     iconColor: "text-cyan-400",
     nail: "bg-cyan-400",
+    aliveRgb: "34 211 238",
     eyebrow: "EPISODE 4",
     eyebrowTone: "text-cyan-400/90",
     title: "Spaced Repetition",
@@ -63,6 +67,7 @@ const features = [
     icon: BookOpenCheck,
     iconColor: "text-purple-400",
     nail: "bg-purple-400",
+    aliveRgb: "168 85 247",
     eyebrow: "EPISODE 5",
     eyebrowTone: "text-purple-400/90",
     title: "Mistake Grimoire",
@@ -72,6 +77,7 @@ const features = [
     icon: GraduationCap,
     iconColor: "text-emerald-400",
     nail: "bg-emerald-400",
+    aliveRgb: "16 185 129",
     eyebrow: "EPISODE 6",
     eyebrowTone: "text-emerald-400/90",
     title: "Feynman Mode",
@@ -88,29 +94,36 @@ export default function LandingFeatures() {
 
   return (
     <section className="container mx-auto px-6 py-20" ref={ref}>
+      {/* Left-aligned header + hairline rule — breaks the centered-stack
+          grammar the other sections use, same vocabulary as the dashboard
+          section headers. */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={isInView ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.5 }}
-        className="text-center mb-16"
+        className="flex items-end gap-6 mb-14 max-w-5xl mx-auto"
       >
-        <p className="font-pixel text-[9px] tracking-wider text-amber-400/90 mb-3">
-          YOUR STUDY ARSENAL
-        </p>
-        <h2 className="text-3xl md:text-4xl font-bold mb-4">Equip your kit</h2>
-        <p className="text-slate-400 max-w-lg mx-auto">
-          Every tool you need to conquer your courses.
-        </p>
+        <div className="min-w-0">
+          <p className="font-pixel text-[9px] tracking-wider text-amber-400/90 mb-3">
+            &#9632; YOUR STUDY ARSENAL
+          </p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-3 tracking-tight">Equip your kit</h2>
+          <p className="text-slate-400">
+            Every tool you need to conquer your courses.
+          </p>
+        </div>
+        <div aria-hidden className="h-px flex-1 bg-gradient-to-r from-white/[0.09] to-transparent mb-4" />
       </motion.div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-        {features.map(({ icon: Icon, iconColor, nail, eyebrow, eyebrowTone, title, desc }, i) => (
+        {features.map(({ icon: Icon, iconColor, nail, aliveRgb, eyebrow, eyebrowTone, title, desc }, i) => (
           <motion.div
             key={title}
             initial={{ opacity: 0, y: 30 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.5, delay: i * 0.1 }}
-            className="rpg-card rounded-2xl p-7 group sparkle-hover tilt-card relative overflow-hidden transition-shadow duration-300 ease-out hover:shadow-[0_18px_50px_-12px_rgba(99,102,241,0.35)]"
+            style={{ ["--alive-rgb" as string]: aliveRgb }}
+            className="rpg-card card-alive widget-elev rounded-2xl p-7 group sparkle-hover tilt-card relative overflow-hidden transition-shadow duration-300 ease-out hover:shadow-[0_18px_50px_-12px_rgba(99,102,241,0.35)]"
           >
             {/* Pixel nail corners — feature-color, ties to family */}
             <span aria-hidden className={`absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[1] ${nail}`} />
