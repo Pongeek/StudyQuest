@@ -22,7 +22,6 @@
 // to lose.) The only imperative writes besides --p are two text counters,
 // updated in the same rAF.
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
 import {
   FileText,
   Cpu,
@@ -37,72 +36,14 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// ═════════════════════════════ scrub plumbing ═══════════════════════════════
-
-/** CSS expression: 0→1 ramp as var(--p) moves a→b (clamped). */
-const r = (a: number, b: number) =>
-  `clamp(0, (var(--p) - ${a}) / ${b - a}, 1)`;
-
-/** CSS expression: 0→1→0 window (rise a→b, fall c→d). Parenthesized. */
-const win = (a: number, b: number, c: number, d: number) =>
-  `(${r(a, b)} * (1 - ${r(c, d)}))`;
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
-const subscribeReducedMotion = (cb: () => void) => {
-  const mq = window.matchMedia(REDUCED_MOTION_QUERY);
-  mq.addEventListener("change", cb);
-  return () => mq.removeEventListener("change", cb);
-};
-const getReducedMotion = () => window.matchMedia(REDUCED_MOTION_QUERY).matches;
-
-function useReducedMotionPref() {
-  // SSR renders the scrub version; client swaps to static if the user prefers
-  // reduced motion (server snapshot is false).
-  return useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false);
-}
-
-/**
- * Tracks scroll progress (0→1) through wrapRef and writes it as `--p` on
- * stageRef. `onFrame` (module-level fn — must be referentially stable) gets
- * the same value for text-counter updates.
- */
-function useScrub(onFrame?: (p: number, stage: HTMLDivElement) => void) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const wrap = wrapRef.current;
-    const stage = stageRef.current;
-    if (!wrap || !stage) return;
-
-    let raf = 0;
-    const update = () => {
-      raf = 0;
-      const rect = wrap.getBoundingClientRect();
-      const scrollable = rect.height - window.innerHeight;
-      const p = scrollable > 0 ? clamp01(-rect.top / scrollable) : 0;
-      stage.style.setProperty("--p", p.toFixed(5));
-      onFrame?.(p, stage);
-    };
-    const queue = () => {
-      if (!raf) raf = requestAnimationFrame(update);
-    };
-
-    update();
-    window.addEventListener("scroll", queue, { passive: true });
-    window.addEventListener("resize", queue);
-    return () => {
-      window.removeEventListener("scroll", queue);
-      window.removeEventListener("resize", queue);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [onFrame]);
-
-  return { wrapRef, stageRef };
-}
+import {
+  clamp01,
+  r,
+  win,
+  makeShards,
+  useReducedMotionPref,
+  useStageScrub,
+} from "@/components/landing/scrub";
 
 /** Copy block that fades in (and optionally back out) over scrub windows. */
 function Fade({
@@ -170,26 +111,8 @@ function writePct(p: number, stage: HTMLDivElement) {
 
 // ═══════════════════════ CHAPTER 01 — FORGE ════════════════════════════════
 
-// PDF shard field — deterministic scatter offsets (SSR-safe, no Math.random).
-const SHARD_COLS = 6;
-const SHARD_ROWS = 9;
-const SHARDS = Array.from({ length: SHARD_COLS * SHARD_ROWS }, (_, i) => {
-  const col = i % SHARD_COLS;
-  const row = Math.floor(i / SHARD_COLS);
-  const r1 = ((i * 73 + 11) % 17) / 17 - 0.5;
-  const r2 = ((i * 31 + 5) % 13) / 13 - 0.5;
-  const r3 = ((i * 47 + 3) % 11) / 11 - 0.5;
-  const tone =
-    i % 9 === 0 ? "bg-amber-400/80" : i % 4 === 0 ? "bg-indigo-400/80" : "bg-slate-600/80";
-  return {
-    left: (col / SHARD_COLS) * 100,
-    top: (row / SHARD_ROWS) * 100,
-    dx: Math.round(r1 * 320),
-    dy: Math.round(r2 * 260 - 80),
-    rot: Math.round(r3 * 220),
-    tone,
-  };
-});
+// PDF shard field — deterministic scatter offsets (SSR-safe, see scrub.ts).
+const SHARDS = makeShards(6, 9);
 
 // Course map nodes — Max's actual Automata course flavor. xPct/yPct position
 // over the SVG path; `at` is the scrub point where the node ignites.
@@ -203,7 +126,7 @@ const MAP_NODES = [
 
 export function ScrollQuestForge() {
   const reduceMotion = useReducedMotionPref();
-  const { wrapRef, stageRef } = useScrub(writePct);
+  const { wrapRef, stageRef } = useStageScrub(writePct);
 
   if (reduceMotion) return <ForgeStatic />;
 
@@ -304,8 +227,8 @@ export function ScrollQuestForge() {
                       style={{
                         left: `${s.left}%`,
                         top: `${s.top}%`,
-                        width: `${100 / SHARD_COLS}%`,
-                        height: `${100 / SHARD_ROWS}%`,
+                        width: `${s.w}%`,
+                        height: `${s.h}%`,
                         transform: `translate(calc(var(--d) * ${s.dx}px), calc(var(--d) * ${s.dy}px)) rotate(calc(var(--d) * ${s.rot}deg)) scale(calc(1 - var(--d) * 0.6))`,
                         opacity: `calc(clamp(0, var(--d) * 14, 1) * (0.95 - var(--d)))`,
                       }}
@@ -474,7 +397,7 @@ const CONFETTI = Array.from({ length: 18 }, (_, i) => {
 
 export function ScrollQuestBoss() {
   const reduceMotion = useReducedMotionPref();
-  const { wrapRef, stageRef } = useScrub(bossFrame);
+  const { wrapRef, stageRef } = useStageScrub(bossFrame);
 
   // Boss flinch: a leftward kick window at every hit point.
   const shakeX = HITS.map(

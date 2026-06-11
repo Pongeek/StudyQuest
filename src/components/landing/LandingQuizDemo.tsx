@@ -1,10 +1,30 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence, useInView } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, XCircle, Zap, RotateCcw, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSound } from "@/lib/useSound";
+import {
+  clamp01,
+  r,
+  win,
+  makeShards,
+  useReducedMotionPref,
+  useScrubOn,
+} from "@/components/landing/scrub";
+
+// ─── Assembly entrance ───────────────────────────────────────────────────────
+// The card materializes from pixel shards as the section rises into view —
+// the narrative inverse of Chapter 01's PDF disintegration. Driven by the
+// shared --p scrub var (see scrub.ts); --d = 1 - p flips the shard field
+// from "scattered" to "assembled" as you scroll. Fully reversible.
+
+const TRIAL_SHARDS = makeShards(6, 8);
+
+/** Entry progress: 0 with the section top at the viewport bottom, 1 once it
+ *  has risen to ~38% of the viewport. */
+const trialEntry = (rect: DOMRect, vh: number) => clamp01((vh - rect.top) / (vh * 0.62));
 
 // ─── Question pool ────────────────────────────────────────────────────────────
 // A handful of study-themed MCQs. The landing demo picks one at random on
@@ -126,14 +146,18 @@ function pickRandomQuestion(prev?: DemoQuestion): DemoQuestion {
 
 export default function LandingQuizDemo() {
   const sectionRef = useRef<HTMLElement>(null);
-  // Centered-band threshold so animation fires when section is genuinely in view
-  const isInView = useInView(sectionRef, { once: true, margin: "-30% 0px -30% 0px" });
+  // Reduced-motion users get the section pre-assembled (--p pinned to 1).
+  const reduceMotion = useReducedMotionPref();
+  useScrubOn(sectionRef, trialEntry, reduceMotion);
 
   // Pick a stable question for the first render to avoid hydration mismatch:
-  // server renders QUESTIONS[0], client swaps to random on mount.
+  // server renders QUESTIONS[0], client swaps to random right after mount
+  // (deferred to a timeout callback so the effect body itself doesn't set
+  // state — react-hooks/set-state-in-effect).
   const [question, setQuestion] = useState<DemoQuestion>(QUESTIONS[0]);
   useEffect(() => {
-    setQuestion(pickRandomQuestion());
+    const id = setTimeout(() => setQuestion(pickRandomQuestion()), 0);
+    return () => clearTimeout(id);
   }, []);
 
   const [selected, setSelected] = useState<string | null>(null);
@@ -186,54 +210,74 @@ export default function LandingQuizDemo() {
   const questionPoolSize = useMemo(() => QUESTIONS.length, []);
 
   return (
-    <section ref={sectionRef} className="container mx-auto px-6 py-20 max-w-2xl relative">
+    <section
+      ref={sectionRef}
+      style={{ ["--p" as string]: 0 }}
+      className="container mx-auto px-6 py-20 max-w-2xl relative"
+    >
       {/* Arena glow — a contained indigo light pool behind the demo card so
-          the section reads as a lit stage instead of a card in a void. */}
+          the section reads as a lit stage. Brightens as the card assembles. */}
       <div
         aria-hidden
         className="absolute -inset-x-24 top-16 bottom-0 pointer-events-none"
         style={{
           background:
             "radial-gradient(ellipse 75% 60% at 50% 55%, rgba(99, 102, 241, 0.13), transparent 70%)",
+          opacity: `calc(0.35 + var(--p) * 0.65)`,
         }}
       />
-      {/* Section header — eyebrow → H2 → caption cascade on scroll-in */}
+      {/* Section header — eyebrow → H2 → caption cascade, scrubbed by --p */}
       <div className="text-center mb-10">
-        <motion.p
-          initial={{ opacity: 0, y: 14 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        <p
+          style={{
+            opacity: `calc(${r(0.12, 0.35)})`,
+            transform: `translateY(calc((1 - ${r(0.12, 0.35)}) * 14px))`,
+          }}
           className="font-pixel text-[9px] tracking-wider text-indigo-400 mb-3"
         >
           CHAPTER 02 &middot; THE TRIAL
-        </motion.p>
-        <motion.h2
-          initial={{ opacity: 0, y: 18 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+        </p>
+        <h2
+          style={{
+            opacity: `calc(${r(0.18, 0.42)})`,
+            transform: `translateY(calc((1 - ${r(0.18, 0.42)}) * 18px))`,
+          }}
           className="text-3xl md:text-4xl font-bold mb-4 text-white"
         >
           A Taste of Combat
-        </motion.h2>
-        <motion.p
-          initial={{ opacity: 0, y: 14 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.45, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        </h2>
+        <p
+          style={{
+            opacity: `calc(${r(0.24, 0.48)})`,
+            transform: `translateY(calc((1 - ${r(0.24, 0.48)}) * 14px))`,
+          }}
           className="text-slate-400 text-sm leading-relaxed max-w-md mx-auto"
         >
           Here&apos;s what answering a question feels like — sound and all. Click an
           option, submit, and roll a new one.
-        </motion.p>
+        </p>
       </div>
 
-      {/* Quiz card — pixel-bordered with indigo nails */}
-      <motion.div
-        initial={{ opacity: 0, y: 24, scale: 0.98 }}
-        animate={isInView ? { opacity: 1, y: 0, scale: 1 } : {}}
-        transition={{ duration: 0.55, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        style={{ ["--alive-rgb" as string]: "99 102 241" }}
-        className="relative rpg-card card-alive widget-elev rounded-2xl p-6 sm:p-8 space-y-5 overflow-hidden"
-      >
+      {/* Card + shard assembly field. The overlay sits OUTSIDE the card so
+          shards can fly beyond its bounds without being clipped. */}
+      <div className="relative">
+        {/* Ignition flash — one indigo pulse as the assembly lands */}
+        <div
+          aria-hidden
+          style={{ opacity: `calc(${win(0.8, 0.92, 0.92, 1)} * 0.5)` }}
+          className="absolute -inset-3 bg-indigo-400/40 blur-2xl pointer-events-none"
+        />
+
+        {/* Quiz card — pixel-bordered with indigo nails; materializes late in
+            the assembly so the shards appear to build it */}
+        <div
+          style={{
+            ["--alive-rgb" as string]: "99 102 241",
+            opacity: `calc(${r(0.55, 0.82)})`,
+            transform: `translateY(calc((1 - ${r(0.5, 0.82)}) * 24px)) scale(calc(0.96 + ${r(0.5, 0.82)} * 0.04))`,
+          }}
+          className="relative rpg-card card-alive widget-elev rounded-2xl p-6 sm:p-8 space-y-5 overflow-hidden"
+        >
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-400/40 to-transparent" />
         <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
         <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-indigo-400 z-[1]" />
@@ -440,19 +484,41 @@ export default function LandingQuizDemo() {
             </motion.div>
           )}
         </div>
-      </motion.div>
+        </div>
+
+        {/* Shard field — converges into the card as --p → 1 (--d = 1 - p
+            flips the canonical disintegration into an assembly) */}
+        <div
+          aria-hidden
+          style={{ ["--d" as string]: `calc(1 - var(--p))` }}
+          className="absolute inset-0 pointer-events-none"
+        >
+          {TRIAL_SHARDS.map((s, i) => (
+            <span
+              key={i}
+              className={cn("absolute", s.tone)}
+              style={{
+                left: `${s.left}%`,
+                top: `${s.top}%`,
+                width: `${s.w}%`,
+                height: `${s.h}%`,
+                transform: `translate(calc(var(--d) * ${s.dx}px), calc(var(--d) * ${s.dy}px)) rotate(calc(var(--d) * ${s.rot}deg)) scale(calc(1 - var(--d) * 0.6))`,
+                opacity: `calc(clamp(0, var(--d) * 14, 1) * (0.95 - var(--d)))`,
+              }}
+            />
+          ))}
+        </div>
+      </div>
 
       {/* Upsell nudge */}
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={isInView ? { opacity: 1 } : {}}
-        transition={{ duration: 0.5, delay: 0.55 }}
+      <p
+        style={{ opacity: `calc(${r(0.6, 0.85)})` }}
         className="text-center text-xs text-slate-600 mt-6"
       >
         {questionPoolSize} demo questions in the pool. In the real app,
         open-answer questions are graded by AI with personalised feedback —
         and you can attach hand-drawn diagrams.
-      </motion.p>
+      </p>
     </section>
   );
 }

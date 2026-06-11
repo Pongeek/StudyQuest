@@ -1,7 +1,62 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import TierLevelFrame from "@/components/gamification/TierLevelFrame";
+import { useReducedMotionPref } from "@/components/landing/scrub";
+
+/**
+ * Cursor-reactive 3D tilt + glare for the HUD card. Imperative CSS-var
+ * writes (refs + rAF, no React state) so mousemove never re-renders.
+ * Desktop only (pointer: fine) and disabled for reduced-motion users.
+ */
+function useCardTilt() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+
+    let raf = 0;
+    let mx = 0;
+    let my = 0;
+
+    const apply = () => {
+      raf = 0;
+      el.style.setProperty("--ry", `${(mx * 9).toFixed(2)}deg`);
+      el.style.setProperty("--rx", `${(-my * 7).toFixed(2)}deg`);
+      el.style.setProperty("--gx", `${((mx + 0.5) * 100).toFixed(1)}%`);
+      el.style.setProperty("--gy", `${((my + 0.5) * 100).toFixed(1)}%`);
+      el.style.setProperty("--ga", "1");
+    };
+    const onMove = (e: MouseEvent) => {
+      const rect = el.getBoundingClientRect();
+      mx = clampHalf((e.clientX - rect.left) / rect.width - 0.5);
+      my = clampHalf((e.clientY - rect.top) / rect.height - 0.5);
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+    const onLeave = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      el.style.setProperty("--ry", "0deg");
+      el.style.setProperty("--rx", "0deg");
+      el.style.setProperty("--ga", "0");
+    };
+
+    el.addEventListener("mousemove", onMove);
+    el.addEventListener("mouseleave", onLeave);
+    return () => {
+      el.removeEventListener("mousemove", onMove);
+      el.removeEventListener("mouseleave", onLeave);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  return ref;
+}
+
+const clampHalf = (v: number) => Math.min(0.5, Math.max(-0.5, v));
 
 type Phase = {
   level: number;
@@ -27,17 +82,10 @@ const PHASES: Phase[] = [
 const CYCLE_MS = 4200;
 
 export default function LandingHeroVisual() {
+  const tiltRef = useCardTilt();
   const [phaseIdx, setPhaseIdx] = useState(0);
   const [animating, setAnimating] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReducedMotion(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+  const reducedMotion = useReducedMotionPref();
 
   // Static display when reduced motion
   const displayPhase = reducedMotion ? PHASES[2] : PHASES[phaseIdx];
@@ -79,10 +127,32 @@ export default function LandingHeroVisual() {
         }}
       />
 
-      {/* Character HUD card — pixel-elegant, matches dashboard/profile hero */}
-      <div className="rpg-card widget-elev rounded-2xl w-full max-w-[32rem] overflow-hidden relative">
+      {/* Character HUD card — pixel-elegant, matches dashboard/profile hero.
+          Tilts toward the cursor (useCardTilt) with a tracking glare sheen. */}
+      <div
+        ref={tiltRef}
+        style={{
+          transform:
+            "perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))",
+          transition: "transform 0.15s ease-out",
+          willChange: "transform",
+        }}
+        className="rpg-card widget-elev rounded-2xl w-full max-w-[32rem] overflow-hidden relative"
+      >
         {/* Dot-matrix texture */}
         <div className="absolute inset-0 hud-hero-texture rounded-2xl" />
+
+        {/* Cursor glare sheen — follows the pointer, vanishes on leave */}
+        <div
+          aria-hidden
+          className="absolute inset-0 rounded-2xl pointer-events-none z-[2]"
+          style={{
+            background:
+              "radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,0.09), transparent 55%)",
+            opacity: "var(--ga, 0)",
+            transition: "opacity 0.3s ease-out",
+          }}
+        />
 
         {/* Top: level frame + identity */}
         <div className="relative px-7 pt-7 pb-6 flex items-start gap-5">

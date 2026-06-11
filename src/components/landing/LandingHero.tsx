@@ -5,6 +5,13 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { ArrowRight, ChevronDown, Sword } from "lucide-react";
 import LandingHeroVisual from "@/components/landing/LandingHeroVisual";
+import { clamp01, r, useScrubOn } from "@/components/landing/scrub";
+
+// Exit progress for the cinematic handoff into Chapter 01: 0 while the hero
+// fills the viewport, 1 once it has scrolled ~70% of a viewport upward. The
+// content drifts up faster than natural scroll and dims — a camera pan down
+// into the world. (CSS-var scrub, not framer — see the CLAUDE.md gotcha.)
+const heroExit = (rect: DOMRect, vh: number) => clamp01(-rect.top / (vh * 0.7));
 
 const FEATURE_PILLS: Array<{ label: string; icon: string; tone: string }> = [
   { label: "XP SYSTEM",       icon: "⚡", tone: "text-amber-400" },
@@ -74,6 +81,9 @@ export default function LandingHero() {
   const sectionRef = useRef<HTMLElement>(null);
   const reduceMotion = useReducedMotion();
 
+  // Exit handoff — writes --p (0→1) on the section as the user descends.
+  useScrubOn(sectionRef, heroExit, reduceMotion ?? false);
+
   // Scroll progress through the hero (0 at top of hero, 1 when bottom hits top).
   // Drives the parallax layer offsets.
   const { scrollYProgress } = useScroll({
@@ -89,6 +99,7 @@ export default function LandingHero() {
   return (
     <section
       ref={sectionRef}
+      style={{ ["--p" as string]: 0 }}
       className="container mx-auto px-6 pt-12 pb-20 md:pb-24 max-w-6xl relative min-h-[calc(100svh-6rem)] flex flex-col justify-center"
     >
       {/* ── Parallax depth: background "stars" layer (slower) ── */}
@@ -113,7 +124,13 @@ export default function LandingHero() {
         </motion.div>
       )}
 
-      <div className="relative z-10 grid md:grid-cols-2 gap-12 md:gap-16 items-center">
+      <div
+        style={{
+          opacity: `calc(1 - ${r(0.05, 0.85)} * 0.9)`,
+          transform: `translateY(calc(${r(0, 1)} * -70px)) scale(calc(1 - ${r(0, 1)} * 0.04))`,
+        }}
+        className="relative z-10 grid md:grid-cols-2 gap-12 md:gap-16 items-center"
+      >
         {/* ── Left: text column ── */}
         <div className="flex flex-col items-start">
           {/* Eyebrow — rank-chip vocabulary, matches dashboard/profile heroes */}
@@ -223,17 +240,26 @@ export default function LandingHero() {
       </div>
 
       {/* ── Scroll cue — arcade "press ↓" hint anchoring the fold's bottom.
-            Desktop only (mobile content already fills the fold). */}
-      <motion.div
+            Desktop only (mobile content already fills the fold). The outer
+            div fades it fast on descent (framer owns the inner entrance
+            opacity, so the scrub fade lives on a parent). */}
+      <div
         aria-hidden
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.6, duration: 0.6 }}
-        className="hidden md:flex flex-col items-center gap-1.5 absolute bottom-2 left-1/2 -translate-x-1/2 text-slate-600"
+        style={{ opacity: `calc(1 - ${r(0, 0.2)})` }}
+        className="hidden md:block absolute bottom-2 left-1/2 -translate-x-1/2"
       >
-        <span className="font-pixel text-[8px] tracking-[0.2em]">SCROLL</span>
-        <ChevronDown className="w-4 h-4 motion-safe:animate-bounce [animation-duration:2.2s]" />
-      </motion.div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.6, duration: 0.6 }}
+          className="flex flex-col items-center gap-1.5 text-slate-600"
+        >
+          <span className="font-pixel text-[8px] tracking-[0.2em] motion-safe:animate-pulse [animation-duration:2.2s]">
+            CHAPTER 01 AWAITS
+          </span>
+          <ChevronDown className="w-4 h-4 motion-safe:animate-bounce [animation-duration:2.2s]" />
+        </motion.div>
+      </div>
 
       {/* ── Parallax depth: foreground "rune motes" layer (faster) ──
           Sits in front of content with low-alpha colors + pointer-events-none
