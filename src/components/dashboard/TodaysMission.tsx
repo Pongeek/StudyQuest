@@ -41,8 +41,10 @@ export default function TodaysMission({
 
   // Tier-based color tokens. Featured = amber (streak in danger);
   // standard = indigo (no streak yet).
-  const borderTone = hasStreak ? "text-amber-500/80" : "text-indigo-500/80";
-  const nailColor = hasStreak ? "bg-amber-400" : "bg-indigo-400";
+  const nailColor = hasStreak ? "bg-amber-400/80" : "bg-indigo-400/80";
+  const accentLine = hasStreak
+    ? "bg-gradient-to-r from-transparent via-amber-400/50 to-transparent"
+    : "bg-gradient-to-r from-transparent via-indigo-400/50 to-transparent";
   const microLabelColor = hasStreak ? "text-amber-400/90" : "text-indigo-400/90";
   const iconTileBg = hasStreak
     ? "bg-amber-500/10 text-amber-500"
@@ -60,20 +62,19 @@ export default function TodaysMission({
       style={{
         ["--alive-rgb" as string]: hasStreak ? "245 158 11" : "99 102 241",
       }}
-      className={cn(
-        "relative card-alive overflow-hidden px-5 py-5 sm:px-6 sm:py-6",
-        "pixel-border",
-        borderTone
-      )}
+      className="relative rpg-card card-alive widget-elev rounded-2xl overflow-hidden px-5 py-5 sm:px-6 sm:py-6"
     >
       {/* Dot-matrix texture — alive-pass depth */}
-      <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none" />
+      <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none rounded-2xl" />
+
+      {/* Top accent line — semantic color signal, replaces the full border */}
+      <div aria-hidden className={cn("absolute top-0 inset-x-0 h-0.5", accentLine)} />
 
       {/* Pixel nail corners — match Quest Board card vocabulary */}
-      <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5", nailColor)} />
-      <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5", nailColor)} />
-      <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5", nailColor)} />
-      <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5", nailColor)} />
+      <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[1]", nailColor)} />
+      <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5 z-[1]", nailColor)} />
+      <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[1]", nailColor)} />
+      <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[1]", nailColor)} />
 
       <div className="relative z-[1] flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
         {/* Icon tile — pixel-bordered to match the card */}

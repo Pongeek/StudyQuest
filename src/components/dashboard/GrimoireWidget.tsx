@@ -24,17 +24,21 @@ export default function GrimoireWidget({ demonCount }: GrimoireWidgetProps) {
   const reduceMotion = useReducedMotion();
   const hasDemons = demonCount > 0;
 
-  const borderTone = hasDemons ? "text-purple-500/80" : "text-slate-700/60";
-  const nailColor = hasDemons ? "bg-purple-400" : "bg-slate-700";
+  const nailColor = hasDemons ? "bg-purple-400/80" : "bg-slate-700";
+  const accentLine = hasDemons
+    ? "bg-gradient-to-r from-transparent via-purple-400/50 to-transparent"
+    : "bg-gradient-to-r from-transparent via-slate-600/30 to-transparent";
   const microLabelColor = hasDemons
     ? "text-purple-400/90"
     : "text-slate-500/80";
   const iconTileBg = hasDemons
     ? "bg-purple-500/15 text-purple-300"
     : "bg-slate-800/60 text-slate-500";
+  // Quiet CTA — the grimoire is a side quest, not the page's next action.
+  // Tinted fill + hairline border instead of a solid chunky button.
   const ctaPalette = hasDemons
-    ? "bg-purple-500 text-white shadow-[0_4px_0_0_#581c87] hover:shadow-[0_2px_0_0_#581c87] active:shadow-[0_0_0_0_#581c87]"
-    : "bg-slate-800 text-slate-400 shadow-[0_4px_0_0_#0f172a] hover:shadow-[0_2px_0_0_#0f172a] active:shadow-[0_0_0_0_#0f172a]";
+    ? "border border-purple-400/40 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 hover:border-purple-400/60"
+    : "border border-white/[0.08] bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]";
 
   return (
     <motion.section
@@ -46,20 +50,21 @@ export default function GrimoireWidget({ demonCount }: GrimoireWidgetProps) {
         ["--alive-rgb" as string]: hasDemons ? "168 85 247" : "100 116 139",
       }}
       className={cn(
-        "relative card-alive overflow-hidden px-5 py-5 sm:px-6 sm:py-5",
-        "pixel-border",
-        borderTone,
+        "relative rpg-card card-alive widget-elev rounded-2xl overflow-hidden px-5 py-5 sm:px-6 sm:py-5",
         !hasDemons && "opacity-80"
       )}
     >
       {/* Dot-matrix texture — alive-pass depth */}
-      <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none" />
+      <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none rounded-2xl" />
+
+      {/* Top accent line — semantic color signal, replaces the full border */}
+      <div aria-hidden className={cn("absolute top-0 inset-x-0 h-0.5", accentLine)} />
 
       {/* Pixel nail corners */}
-      <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5", nailColor)} />
-      <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5", nailColor)} />
-      <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5", nailColor)} />
-      <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5", nailColor)} />
+      <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[1]", nailColor)} />
+      <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5 z-[1]", nailColor)} />
+      <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[1]", nailColor)} />
+      <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[1]", nailColor)} />
 
       <div className="relative z-[1] flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
         {/* Icon tile — pixel-bordered to match the card */}
@@ -111,18 +116,15 @@ export default function GrimoireWidget({ demonCount }: GrimoireWidgetProps) {
           </p>
         </div>
 
-        {/* CTA */}
+        {/* CTA — quiet tinted button (side-quest volume) */}
         <Link
           href="/dashboard/grimoire"
-          className={cn(
-            "shrink-0 w-full sm:w-auto pixel-focus outline-none",
-            "transition-transform duration-100 hover:translate-y-0.5 active:translate-y-1"
-          )}
+          className="shrink-0 w-full sm:w-auto pixel-focus outline-none"
         >
           <div
             className={cn(
-              "w-full sm:w-auto px-5 py-3 flex items-center justify-center gap-2",
-              "font-pixel text-[10px] tracking-wider",
+              "w-full sm:w-auto px-5 py-2.5 rounded-lg flex items-center justify-center gap-2",
+              "font-pixel text-[10px] tracking-wider transition-colors duration-150",
               ctaPalette
             )}
           >

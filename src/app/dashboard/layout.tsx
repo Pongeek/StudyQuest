@@ -27,6 +27,9 @@ export default async function DashboardLayout({
           arcade screen. */}
       <div className="fixed inset-0 pixel-grid opacity-70 pointer-events-none" />
       <div className="fixed inset-0 pixel-scanlines opacity-60 pointer-events-none" />
+      {/* Ambient light pool — gives the page a top light source so panels
+          below can read as lit surfaces (see .widget-elev). */}
+      <div className="fixed inset-0 dash-ambient pointer-events-none" />
       <div className="fixed inset-0 pixel-vignette pointer-events-none" />
       {/* Aurora orbs — four slow-drifting gradient blobs; replaces the old
           static corner blobs + canvas particle layer. */}

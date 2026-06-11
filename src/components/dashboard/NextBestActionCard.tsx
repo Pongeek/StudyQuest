@@ -172,7 +172,7 @@ export default function NextBestActionCard({ actions }: NextBestActionCardProps)
         ["--alive-rgb" as string]: palette.rgb,
         ["--w-rgb" as string]: palette.rgb,
       }}
-      className="relative rpg-card card-alive widget-breathe rounded-2xl px-5 py-5 sm:px-6 sm:py-6 overflow-hidden flex flex-col h-full"
+      className="relative rpg-card card-alive widget-elev widget-breathe rounded-2xl px-5 py-5 sm:px-6 sm:py-6 overflow-hidden flex flex-col h-full"
     >
       {/* Dot-matrix texture — alive-pass depth, matches the Course Map cards */}
       <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none rounded-2xl" />

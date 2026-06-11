@@ -53,28 +53,33 @@ export default function QuestCard({
   const { roman, label: difficultyLabel } = difficultyForMastery(masteryLevel);
   const reduceMotion = useReducedMotion();
 
-  const borderColor = isFeatured
-    ? "text-indigo-500"
-    : isPriority
-    ? "text-amber-500/80"
-    : "text-slate-600";
+  // Only the featured card keeps a colored full border — priority/standard
+  // recede to neutral frames and carry their tier color in the nails, chip
+  // and CTA tint instead, so the recommended quest is the one that pops.
+  const borderColor = isFeatured ? "text-indigo-500" : "text-slate-700";
   const nailColor = isFeatured
     ? "bg-amber-400"
     : isPriority
-    ? "bg-amber-500"
-    : "bg-slate-500";
+    ? "bg-amber-400/80"
+    : "bg-slate-600";
   const tierChipColor = isFeatured
     ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/40"
     : isPriority
     ? "bg-amber-500/15 text-amber-300 border-amber-500/40"
     : "bg-slate-700/40 text-slate-300 border-slate-600";
+  const aliveRgb = isFeatured
+    ? "99 102 241"
+    : isPriority
+    ? "245 158 11"
+    : "100 116 139";
 
   return (
     <Link
       href={href}
       dir={isRTL ? "rtl" : "ltr"}
+      style={{ ["--alive-rgb" as string]: aliveRgb }}
       className={cn(
-        "group relative block h-full bg-slate-900/95",
+        "group relative block h-full card-alive",
         "pixel-border",
         borderColor,
         "transition-transform duration-200",
@@ -157,20 +162,19 @@ export default function QuestCard({
           <p className="text-[12px] text-slate-500 line-clamp-1">{courseName}</p>
         </div>
 
-        {/* CTA — chunky pixel-press button. Featured + priority share the
-            amber palette (matches the streak-rescue CTA on Today's Mission);
-            featured is distinguished by the RECOMMENDED stamp + CRT scanlines
-            + indigo border, not by CTA color. Standard tier stays indigo. */}
+        {/* CTA — only the featured quest keeps the chunky solid pixel-press
+            button (it's the page's recommended action). Priority/standard
+            demote to quiet tinted buttons so the board has one obvious move. */}
         <div className="mt-5">
           <div
             className={cn(
               "w-full px-4 py-2.5 flex items-center justify-center gap-1.5",
               "font-pixel text-[10px] tracking-wider",
-              "transition-transform duration-100",
-              "group-hover:translate-y-0.5 group-active:translate-y-1",
-              isFeatured || isPriority
-                ? "bg-amber-500 text-slate-950 shadow-[0_4px_0_0_#78350f] group-hover:shadow-[0_2px_0_0_#78350f] group-active:shadow-[0_0_0_0_#78350f]"
-                : "bg-indigo-500 text-white shadow-[0_4px_0_0_#312e81] group-hover:shadow-[0_2px_0_0_#312e81] group-active:shadow-[0_0_0_0_#312e81]"
+              isFeatured
+                ? "bg-amber-500 text-slate-950 shadow-[0_4px_0_0_#78350f] transition-transform duration-100 group-hover:translate-y-0.5 group-active:translate-y-1 group-hover:shadow-[0_2px_0_0_#78350f] group-active:shadow-[0_0_0_0_#78350f]"
+                : isPriority
+                ? "rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-200 transition-colors duration-150 group-hover:bg-amber-500/20 group-hover:border-amber-400/60"
+                : "rounded-lg border border-indigo-400/40 bg-indigo-500/10 text-indigo-200 transition-colors duration-150 group-hover:bg-indigo-500/20 group-hover:border-indigo-400/60"
             )}
           >
             <Target className="w-3 h-3" aria-hidden />

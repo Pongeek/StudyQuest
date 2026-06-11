@@ -75,7 +75,7 @@ export default function ExamCountdownCard({
     <section
       aria-labelledby={`exam-${plan.courseId}-heading`}
       style={{ ["--alive-rgb" as string]: urgencyAliveRgb(plan.urgency) }}
-      className="rpg-card card-alive rounded-2xl p-5 sm:p-6 relative overflow-hidden animate-slide-up flex flex-col h-full"
+      className="rpg-card card-alive widget-elev rounded-2xl p-5 sm:p-6 relative overflow-hidden animate-slide-up flex flex-col h-full"
     >
       {/* Dot-matrix texture — alive-pass depth */}
       <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none rounded-2xl" />

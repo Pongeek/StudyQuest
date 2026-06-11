@@ -2167,6 +2167,33 @@
   }
 }
 
+/* ===== Hierarchy of Light (2026-06-11) — dashboard visual upgrade ==========
+   One light source, one loud element. Dashboard widgets share a single
+   elevated panel material; semantic color moves from full saturated borders
+   into small signals (top accent line, corner nails, chips, CTA). */
+
+/* Elevated widget material — composes with .rpg-card + .card-alive. Deeper
+   resting shadow + inner top light so panels read as surfaces under a top
+   light source instead of outlined wireframes. Declared after .rpg-card so
+   its border/box-shadow win when both classes are present. */
+.widget-elev {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 2px 6px -2px rgba(0, 0, 0, 0.5),
+    0 16px 40px -20px rgba(0, 0, 0, 0.85);
+}
+
+/* Page ambient — a soft indigo light pool at top center plus a faint violet
+   spill top-right, so the dashboard has an actual light source and the hero
+   sits in lit space. Fixed full-screen layer under content. */
+.dash-ambient {
+  background:
+    radial-gradient(ellipse 85% 50% at 50% -10%, rgba(99, 102, 241, 0.19), transparent 62%),
+    radial-gradient(ellipse 45% 32% at 88% -6%, rgba(168, 85, 247, 0.09), transparent 60%);
+}
+
 /* Boss tile inner throne — a radial wash baked INTO the tile background (behind
    content, so text contrast stays AA). --throne-rgb: red (239 68 68) = awakened
    danger, amber (251 191 36) = victory; --throne-a controls intensity (faint for

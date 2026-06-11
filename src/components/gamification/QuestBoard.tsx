@@ -53,7 +53,7 @@ export default function QuestBoard({ recommendations }: QuestBoardProps) {
       className="biome-quest animate-slide-up"
       style={{ animationDelay: "0.2s" }}
     >
-      <header className="flex items-center justify-between gap-3 mb-4">
+      <header className="flex items-center gap-4 mb-4">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
             <Swords className="w-4 h-4 text-slate-400" />
@@ -70,6 +70,8 @@ export default function QuestBoard({ recommendations }: QuestBoardProps) {
             </p>
           </div>
         </div>
+        {/* Hairline rule — matches the Your Realm / Achievements headers */}
+        <div aria-hidden className="h-px flex-1 bg-gradient-to-r from-white/[0.09] to-transparent" />
         {/* Pixel pending counter — pairs with the new pixel quest cards */}
         <span
           className="hidden sm:inline-flex items-center font-pixel text-[9px] tracking-wider text-indigo-300 bg-indigo-500/10 border border-indigo-500/40 px-2 py-1.5"

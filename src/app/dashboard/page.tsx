@@ -467,44 +467,50 @@ export default async function DashboardPage({
             yet today so a fresh-morning dashboard isn't cluttered with 0s. */}
       <TodayStatsStrip dbUserId={dbUser.id} />
 
-      {/* ── Urgency row: Exam Countdown (cycle) + Next Best Action ──
-            Both surfaces answer "what's pressing right now?" from different
-            angles — countdown is the timeline context, NBA picks the single
-            best move. Each is a cycling widget: ExamCountdown walks through
-            the user's exam-set courses (soonest first); NBA walks down the
-            priority list. Pairing them puts the urgency picture in one row
-            and `items-stretch` keeps the two cards the same height.
-            With no exam set, NBA renders alone full-width. */}
-      {studyPlans.length > 0 ? (
-        <div className="grid md:grid-cols-2 gap-4 items-stretch">
-          <ExamCountdownCard plans={studyPlans} compact />
-          {nextBestActions.length > 0 && (
+      {/* ── Today cluster ── the four "what should I do right now?" rows
+            (urgency pair, review queue, mission, grimoire) sit tighter
+            together than the page's section rhythm, so they read as ONE
+            today-panel band instead of four stacked alert banners. */}
+      <div className="space-y-4">
+        {/* ── Urgency row: Exam Countdown (cycle) + Next Best Action ──
+              Both surfaces answer "what's pressing right now?" from different
+              angles — countdown is the timeline context, NBA picks the single
+              best move. Each is a cycling widget: ExamCountdown walks through
+              the user's exam-set courses (soonest first); NBA walks down the
+              priority list. Pairing them puts the urgency picture in one row
+              and `items-stretch` keeps the two cards the same height.
+              With no exam set, NBA renders alone full-width. */}
+        {studyPlans.length > 0 ? (
+          <div className="grid md:grid-cols-2 gap-4 items-stretch">
+            <ExamCountdownCard plans={studyPlans} compact />
+            {nextBestActions.length > 0 && (
+              <NextBestActionCard actions={nextBestActions} />
+            )}
+          </div>
+        ) : (
+          nextBestActions.length > 0 && (
             <NextBestActionCard actions={nextBestActions} />
-          )}
-        </div>
-      ) : (
-        nextBestActions.length > 0 && (
-          <NextBestActionCard actions={nextBestActions} />
-        )
-      )}
+          )
+        )}
 
-      {/* ── Review Queue (spaced repetition) — above Today's Mission ── */}
-      {reviewQueue.length > 0 && (
-        <ReviewQueueCard
-          dueCount={reviewQueue.length}
-          dueTopics={reviewQueue}
+        {/* ── Review Queue (spaced repetition) — above Today's Mission ── */}
+        {reviewQueue.length > 0 && (
+          <ReviewQueueCard
+            dueCount={reviewQueue.length}
+            dueTopics={reviewQueue}
+          />
+        )}
+
+        {/* ── Today's Mission (streak rescue) — time-sensitive, shown first ── */}
+        <TodaysMission
+          streak={streak}
+          studiedToday={studiedToday}
+          nextQuestHref={nextQuestHref}
         />
-      )}
 
-      {/* ── Today's Mission (streak rescue) — time-sensitive, shown first ── */}
-      <TodaysMission
-        streak={streak}
-        studiedToday={studiedToday}
-        nextQuestHref={nextQuestHref}
-      />
-
-      {/* ── Mistake Grimoire widget ── */}
-      <GrimoireWidget demonCount={grimoireCount} />
+        {/* ── Mistake Grimoire widget ── */}
+        <GrimoireWidget demonCount={grimoireCount} />
+      </div>
 
       {/* ── Quest Board (Recommended) ── */}
       <QuestBoard recommendations={recommendations} />
@@ -515,7 +521,7 @@ export default async function DashboardPage({
         className="biome-realm animate-slide-up"
         style={{ animationDelay: "0.3s" }}
       >
-        <header className="flex items-center justify-between gap-3 mb-4">
+        <header className="flex items-center gap-4 mb-4">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
               <MapIcon className="w-4 h-4 text-slate-400" />
@@ -532,6 +538,8 @@ export default async function DashboardPage({
               </p>
             </div>
           </div>
+          {/* Hairline rule — gives the section header structure without a box */}
+          <div aria-hidden className="h-px flex-1 bg-gradient-to-r from-white/[0.09] to-transparent" />
         </header>
 
         {/* Empty-state branch was here — now unreachable because the page
@@ -557,6 +565,7 @@ export default async function DashboardPage({
                       dot: "bg-green-400",
                       accent:
                         "bg-gradient-to-r from-transparent via-green-400/40 to-transparent",
+                      aliveRgb: "34 197 94",
                     }
                   : course.status === "processing"
                   ? {
@@ -566,6 +575,7 @@ export default async function DashboardPage({
                       dot: "bg-amber-400 animate-pulse",
                       accent:
                         "bg-gradient-to-r from-transparent via-amber-400/40 to-transparent",
+                      aliveRgb: "245 158 11",
                     }
                   : {
                       badge: "ERROR",
@@ -574,6 +584,7 @@ export default async function DashboardPage({
                       dot: "bg-red-400",
                       accent:
                         "bg-gradient-to-r from-transparent via-red-400/40 to-transparent",
+                      aliveRgb: "239 68 68",
                     };
 
               const SigilIcon = SUBJECT_ICON[
@@ -586,8 +597,9 @@ export default async function DashboardPage({
               return (
                 <Link key={course.id} href={`/dashboard/courses/${course.id}`}>
                   <div
+                    style={{ ["--alive-rgb" as string]: statusConfig.aliveRgb }}
                     className={cn(
-                      "rpg-card rounded-xl p-5 cursor-pointer group tilt-card sparkle-hover relative overflow-hidden h-full",
+                      "rpg-card card-alive widget-elev rounded-xl p-5 cursor-pointer group tilt-card sparkle-hover relative overflow-hidden h-full",
                       course.status === "ready" &&
                         "hover:ring-1 hover:ring-green-500/20"
                     )}
@@ -707,7 +719,7 @@ export default async function DashboardPage({
         className="biome-achievement animate-slide-up"
         style={{ animationDelay: "0.4s" }}
       >
-        <header className="flex items-center justify-between gap-3 mb-4">
+        <header className="flex items-center gap-4 mb-4">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
               <Crown className="w-4 h-4 text-slate-400" />
@@ -726,6 +738,8 @@ export default async function DashboardPage({
               </p>
             </div>
           </div>
+          {/* Hairline rule — matches the Your Realm / Quest Board headers */}
+          <div aria-hidden className="h-px flex-1 bg-gradient-to-r from-white/[0.09] to-transparent" />
         </header>
 
         {recentAchievements.length > 0 ? (
@@ -733,7 +747,8 @@ export default async function DashboardPage({
             {recentAchievements.map((ua: any) => (
               <div
                 key={ua.id}
-                className="rpg-card rounded-xl px-4 py-3.5 flex items-center gap-3.5 transition-colors group relative overflow-hidden"
+                style={{ ["--alive-rgb" as string]: "245 158 11" }}
+                className="rpg-card card-alive widget-elev rounded-xl px-4 py-3.5 flex items-center gap-3.5 transition-colors group relative overflow-hidden"
               >
                 {/* Amber accent line — trophy stamp feel */}
                 <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />

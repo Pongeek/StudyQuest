@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Brain, ArrowRight, AlertTriangle } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface DueTopic {
@@ -36,11 +35,7 @@ export default function ReviewQueueCard({
   return (
     <section
       aria-labelledby="review-queue-heading"
-      className={cn(
-        "rounded-2xl px-5 py-5 sm:px-6 sm:py-6 relative overflow-hidden animate-slide-up",
-        "rpg-card card-alive",
-        isUrgent ? "border border-orange-500/25" : "border border-cyan-500/20"
-      )}
+      className="rounded-2xl px-5 py-5 sm:px-6 sm:py-6 relative overflow-hidden animate-slide-up rpg-card card-alive widget-elev"
       style={{
         animationDelay: "0.05s",
         ["--alive-rgb" as string]: isUrgent ? "249 115 22" : "34 211 238",
@@ -48,14 +43,30 @@ export default function ReviewQueueCard({
     >
       {/* Dot-matrix texture — alive-pass depth */}
       <span aria-hidden className="absolute inset-0 hud-hero-texture pointer-events-none rounded-2xl" />
+
+      {/* Top accent line — semantic color signal, replaces the full border */}
+      <div
+        aria-hidden
+        className={cn(
+          "absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-transparent to-transparent",
+          isUrgent ? "via-orange-400/50" : "via-cyan-400/50"
+        )}
+      />
+
+      {/* Pixel nail corners — ties the card to the dashboard widget family */}
+      <span aria-hidden className={cn("absolute top-1.5 left-1.5 w-1.5 h-1.5 z-[1]", isUrgent ? "bg-orange-400/80" : "bg-cyan-400/80")} />
+      <span aria-hidden className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5 z-[1]", isUrgent ? "bg-orange-400/80" : "bg-cyan-400/80")} />
+      <span aria-hidden className={cn("absolute bottom-1.5 left-1.5 w-1.5 h-1.5 z-[1]", isUrgent ? "bg-orange-400/80" : "bg-cyan-400/80")} />
+      <span aria-hidden className={cn("absolute bottom-1.5 right-1.5 w-1.5 h-1.5 z-[1]", isUrgent ? "bg-orange-400/80" : "bg-cyan-400/80")} />
+
       <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-        {/* Icon tile */}
+        {/* Icon tile — pixel-bordered, matches the widget-family vocabulary */}
         <div
           className={cn(
-            "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border",
+            "w-12 h-12 pixel-border flex items-center justify-center shrink-0",
             isUrgent
-              ? "bg-orange-500/10 border-orange-500/25"
-              : "bg-cyan-500/10 border-cyan-500/25"
+              ? "bg-orange-500/10 text-orange-400"
+              : "bg-cyan-500/10 text-cyan-400"
           )}
           aria-hidden
         >
@@ -124,21 +135,22 @@ export default function ReviewQueueCard({
           )}
         </div>
 
-        {/* CTA */}
-        <Link href="/dashboard/review" className="shrink-0 w-full sm:w-auto block">
-          <Button
-            size="lg"
+        {/* CTA — quiet when routine; solid orange only when the queue is
+            actually piling up (urgency earns loudness). */}
+        <Link href="/dashboard/review" className="shrink-0 w-full sm:w-auto block pixel-focus outline-none rounded-lg">
+          <span
             className={cn(
-              "w-full sm:w-auto gap-2 font-medium",
+              "w-full sm:w-auto px-5 py-2.5 rounded-lg flex items-center justify-center gap-2",
+              "font-pixel text-[10px] tracking-wider transition-colors duration-150",
               isUrgent
-                ? "bg-orange-500 hover:bg-orange-400 text-white"
-                : "bg-cyan-500 hover:bg-cyan-400 text-slate-950"
+                ? "bg-orange-500 text-slate-950 shadow-[0_4px_0_0_#7c2d12] hover:bg-orange-400"
+                : "border border-cyan-400/40 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 hover:border-cyan-400/60"
             )}
           >
-            <Brain className="w-4 h-4" />
-            Start Review
-            <ArrowRight className="w-4 h-4" />
-          </Button>
+            <Brain className="w-4 h-4" aria-hidden />
+            START REVIEW
+            <ArrowRight className="w-4 h-4" aria-hidden />
+          </span>
         </Link>
       </div>
     </section>
