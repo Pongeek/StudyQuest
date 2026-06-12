@@ -150,15 +150,19 @@ export async function POST(request: NextRequest) {
       ]),
     );
 
+    // Epoch millis, not ISO-string ordering — PostgREST timestamps use
+    // "+00:00" offsets while nowIso uses "Z"; lexicographic compare across
+    // the two spellings is not trustworthy.
+    const nowMs = new Date(nowIso).getTime();
     const withDueness = cards.map((c) => {
       const dueAt = dueAtByCard.get(c.id);
-      const wasDue = !dueAt || dueAt <= nowIso;
-      return { card: c, wasDue, dueAt: dueAt ?? nowIso };
+      const dueMs = dueAt ? new Date(dueAt).getTime() : nowMs;
+      return { card: c, wasDue: dueMs <= nowMs, dueMs };
     });
     // Due first (most overdue first), then upcoming by soonest due.
     withDueness.sort((a, b) => {
       if (a.wasDue !== b.wasDue) return a.wasDue ? -1 : 1;
-      return a.dueAt < b.dueAt ? -1 : a.dueAt > b.dueAt ? 1 : 0;
+      return a.dueMs - b.dueMs;
     });
 
     drillCards = withDueness.slice(0, RUNE_SESSION_CAP).map(({ card, wasDue }) => ({

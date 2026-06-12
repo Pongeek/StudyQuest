@@ -71,6 +71,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Couldn't save the rune" }, { status: 500 });
   }
 
+  // Fatal seed (same rationale as the forge route): a card without an SRS
+  // row produces contradictory due counts across surfaces — roll back.
   const nowIso = new Date().toISOString();
   const { error: srsError } = await supabase.from("rune_card_srs").insert({
     user_id: dbUser.id,
@@ -79,6 +81,8 @@ export async function POST(request: NextRequest) {
   });
   if (srsError) {
     console.error("[api/runes/cards] SRS seed failed:", srsError);
+    await supabase.from("rune_cards").delete().eq("id", inserted.id);
+    return NextResponse.json({ error: "Couldn't schedule the rune — try again" }, { status: 500 });
   }
 
   return NextResponse.json({

@@ -56,13 +56,19 @@ export async function POST(
     return NextResponse.json({ error: "Session already completed" }, { status: 400 });
   }
 
-  const { data: reps } = await supabase
-    .from("rune_reps")
-    .select("rating, was_due")
-    .eq("session_id", sessionId);
+  // Reps and the post-drill due count are independent reads. remainingDue
+  // only matters for due-scope sessions (queue-clear check + "drill the
+  // rest"); cram scopes skip the query.
+  const [{ data: reps }, remainingDue] = await Promise.all([
+    supabase.from("rune_reps").select("rating, was_due").eq("session_id", sessionId),
+    session.scope === "due" ? countDueRunes(supabase, dbUser.id) : Promise.resolve(0),
+  ]);
   const allReps = (reps || []) as Array<{ rating: number; was_due: boolean }>;
 
   const ratedCount = allReps.length;
+  // NOTE: counts FINAL ratings — the Again-requeue loop re-rates lapsed
+  // cards via UPDATE, so completed sessions normally show 0 here; the
+  // summary's "Relearned" stat comes from the engine's own lapse tracking.
   const againCount = allReps.filter((r) => r.rating === 1).length;
   const dueRatedCount = allReps.filter((r) => r.was_due && r.rating >= 3).length;
   let xpEarned = dueRatedCount * RUNE_XP_PER_DUE_CARD;
@@ -72,7 +78,6 @@ export async function POST(
   // queue-cleared due-session today. (Freshly rated cards left the queue —
   // SM-2 pushes due_at at least a day out even on Again.)
   let queueCleared = false;
-  const remainingDue = await countDueRunes(supabase, dbUser.id);
   if (session.scope === "due" && ratedCount > 0 && remainingDue === 0) {
     const todayStartIso = `${new Date().toISOString().split("T")[0]}T00:00:00.000Z`;
     const { data: clearedToday } = await supabase
@@ -115,21 +120,23 @@ export async function POST(
     userUpdate.last_study_date = today;
     userUpdate.streak_freeze_tokens = streakResult.newFreezeTokens;
   }
-  if (Object.keys(userUpdate).length > 0) {
-    await supabase.from("users").update(userUpdate).eq("id", dbUser.id);
-  }
-
-  await supabase
-    .from("rune_sessions")
-    .update({
-      completed_at: new Date().toISOString(),
-      rated_count: ratedCount,
-      due_rated_count: dueRatedCount,
-      again_count: againCount,
-      xp_earned: xpEarned,
-      queue_cleared: queueCleared,
-    })
-    .eq("id", sessionId);
+  // Independent writes — run together.
+  await Promise.all([
+    Object.keys(userUpdate).length > 0
+      ? supabase.from("users").update(userUpdate).eq("id", dbUser.id)
+      : Promise.resolve(),
+    supabase
+      .from("rune_sessions")
+      .update({
+        completed_at: new Date().toISOString(),
+        rated_count: ratedCount,
+        due_rated_count: dueRatedCount,
+        again_count: againCount,
+        xp_earned: xpEarned,
+        queue_cleared: queueCleared,
+      })
+      .eq("id", sessionId),
+  ]);
 
   // ── Achievements ────────────────────────────────────────────────────────────
   // Condition-based evaluator (cross-surface streak badges can fire here);

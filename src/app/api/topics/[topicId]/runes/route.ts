@@ -169,22 +169,9 @@ export async function POST(
     return NextResponse.json({ error: classified }, { status: 502 });
   }
 
-  // Reforge replaces ONLY pristine forged cards. Their SRS rows cascade away;
-  // rune_reps.card_id is SET NULL so rep history / achievement counts survive.
-  const { error: deleteError } = await supabase
-    .from("rune_cards")
-    .delete()
-    .eq("topic_id", topicId)
-    .eq("source", "forged")
-    .is("edited_at", null);
-  if (deleteError) {
-    console.error("[api/topics/runes] reforge cleanup failed:", deleteError);
-    return NextResponse.json(
-      classifiedErrorBody("UNKNOWN", "Couldn't replace the old deck — try again.", true),
-      { status: 500 },
-    );
-  }
-
+  // Insert the NEW cards first — if anything below fails, the old deck (and
+  // its SM-2 history) is still intact. No cross-call transaction exists on
+  // PostgREST, so ordering is the safety mechanism.
   const { data: inserted, error: insertError } = await supabase
     .from("rune_cards")
     .insert(
@@ -203,43 +190,69 @@ export async function POST(
       { status: 500 },
     );
   }
+  const newIds = inserted.map((row: { id: string }) => row.id);
 
   // Eager per-user SM-2 rows: new cards are due immediately (no gating).
+  // The seed is FATAL: a card without an SRS row would be "due" on the topic
+  // panel but invisible to the queue/widget (countDueRunes joins FROM srs) —
+  // roll the inserts back rather than ship contradictory due counts.
   const nowIso = new Date().toISOString();
   const { error: srsError } = await supabase.from("rune_card_srs").insert(
-    inserted.map((row: { id: string }) => ({
+    newIds.map((id: string) => ({
       user_id: resolved.dbUserId,
-      card_id: row.id,
+      card_id: id,
       due_at: nowIso,
     })),
   );
   if (srsError) {
-    // Non-fatal: countDueCards treats missing SRS as due-now.
     console.error("[api/topics/runes] SRS seed failed:", srsError);
+    await supabase.from("rune_cards").delete().in("id", newIds);
+    return NextResponse.json(
+      classifiedErrorBody("UNKNOWN", "Couldn't schedule the new deck — try again.", true),
+      { status: 500 },
+    );
   }
 
-  // Runesmith — first deck ever forged. Idempotent by slug; XP folds via the
-  // atomic RPC (exorcist pattern: awardAchievementIfNew never touches XP).
-  const newAchievements = [];
-  const runesmith = await awardAchievementIfNew({
-    userId: resolved.dbUserId,
-    slug: "runesmith",
-    supabase,
-  });
-  if (runesmith) {
-    if (runesmith.xp_reward > 0) {
-      await supabase.rpc("increment_user_xp", {
-        p_user_id: resolved.dbUserId,
-        amount: runesmith.xp_reward,
-      });
-    }
-    newAchievements.push(runesmith);
+  // Now retire the OLD pristine forged cards (manual + edited survive; the
+  // new batch is excluded). Their SRS rows cascade away; rune_reps.card_id
+  // is SET NULL so rep history / achievement counts survive. A failure here
+  // is lossless (deck temporarily shows old + new) and self-heals on the
+  // next reforge, so log + continue.
+  const { error: deleteError } = await supabase
+    .from("rune_cards")
+    .delete()
+    .eq("topic_id", topicId)
+    .eq("source", "forged")
+    .is("edited_at", null)
+    .not("id", "in", `(${newIds.join(",")})`);
+  if (deleteError) {
+    console.error("[api/topics/runes] reforge cleanup failed:", deleteError);
   }
+
+  // Runesmith award (idempotent slug; XP folds via the atomic RPC — exorcist
+  // pattern) and the canonical deck reload are independent — run together.
+  const [runesmith, cards] = await Promise.all([
+    (async () => {
+      const ach = await awardAchievementIfNew({
+        userId: resolved.dbUserId,
+        slug: "runesmith",
+        supabase,
+      });
+      if (ach && ach.xp_reward > 0) {
+        await supabase.rpc("increment_user_xp", {
+          p_user_id: resolved.dbUserId,
+          amount: ach.xp_reward,
+        });
+      }
+      return ach;
+    })(),
+    loadDeck(supabase, topicId, resolved.dbUserId),
+  ]);
+  const newAchievements = runesmith ? [runesmith] : [];
 
   console.log(
     `[api/topics/runes] forged topic=${topicId} cards=${reply.cards.length} tokens=${reply.outputTokens} stop_reason=${reply.stopReason}`,
   );
 
-  const cards = await loadDeck(supabase, topicId, resolved.dbUserId);
   return NextResponse.json({ cards, newAchievements });
 }

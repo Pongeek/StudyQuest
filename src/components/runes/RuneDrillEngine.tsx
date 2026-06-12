@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DoorOpen } from "lucide-react";
+import { DoorOpen, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { XPBurstProvider, useXPBurst } from "@/components/effects/XPBurst";
@@ -97,9 +97,16 @@ function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProp
   const [queue, setQueue] = useState<string[]>(() => cards.map((c) => c.id));
   const [flipped, setFlipped] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Synchronous re-entry guard: key auto-repeat (holding "3") fires keydown
+  // events faster than React re-renders the state-based `busy` into the
+  // listener's closure — a ref flips immediately, so a held key can't send
+  // concurrent /rate calls that would re-apply SM-2 twice for one rating.
+  const busyRef = useRef(false);
   const [lapsedIds, setLapsedIds] = useState<Set<string>>(new Set());
   const [lastInterval, setLastInterval] = useState<string | null>(null);
   const [summary, setSummary] = useState<RuneCompleteResponse | null>(null);
+  const [completing, setCompleting] = useState(false);
+  const [completeFailed, setCompleteFailed] = useState(false);
 
   const cardById = useMemo(() => new Map(cards.map((c) => [c.id, c])), [cards]);
   const current = queue.length > 0 ? cardById.get(queue[0]) : undefined;
@@ -107,11 +114,14 @@ function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProp
   const progressPct = cards.length > 0 ? (passedCount / cards.length) * 100 : 0;
 
   const complete = useCallback(async () => {
+    setCompleting(true);
+    setCompleteFailed(false);
     try {
       const res = await fetch(`/api/runes/${sessionId}/complete`, { method: "POST" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         toast.error(body?.error || "Couldn't finish the drill — try again.");
+        setCompleteFailed(true);
         return;
       }
       const data: RuneCompleteResponse = await res.json();
@@ -121,12 +131,16 @@ function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProp
       setSummary(data);
     } catch {
       toast.error("Network hiccup — try again.");
+      setCompleteFailed(true);
+    } finally {
+      setCompleting(false);
     }
   }, [sessionId]);
 
   const rate = useCallback(
     async (rating: RuneRating) => {
-      if (!current || busy || !flipped || summary) return;
+      if (!current || busyRef.current || !flipped || summary) return;
+      busyRef.current = true;
       setBusy(true);
       try {
         const res = await fetch(`/api/runes/${sessionId}/rate`, {
@@ -134,6 +148,16 @@ function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProp
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cardId: current.id, rating }),
         });
+        if (res.status === 410) {
+          // Card was reforged away mid-session (another tab). Drop it and
+          // keep the drill alive instead of wedging on an unratable card.
+          toast.info("That rune was reforged away — skipping it.");
+          const nextQueue = queue.slice(1);
+          setQueue(nextQueue);
+          setFlipped(false);
+          if (nextQueue.length === 0) await complete();
+          return;
+        }
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           toast.error(body?.error || "Couldn't save the rating — try again.");
@@ -166,19 +190,23 @@ function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProp
       } catch {
         toast.error("Network hiccup — try again.");
       } finally {
+        busyRef.current = false;
         setBusy(false);
       }
     },
-    [busy, complete, current, fireBurst, flipped, play, queue, sessionId, summary],
+    [complete, current, fireBurst, flipped, play, queue, sessionId, summary],
   );
 
   // Keyboard: Space/Enter flips, 1-4 rates (Again/Hard/Good/Easy).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (summary || busy) return;
+      if (summary || busy || completing || e.repeat) return;
       const target = e.target as HTMLElement | null;
       if (target && /^(input|textarea|select)$/i.test(target.tagName)) return;
       if (!flipped && (e.key === " " || e.key === "Enter")) {
+        // Don't hijack activation of a focused button/link (Leave, etc.) —
+        // the flip card's own onKeyDown covers it when it has focus.
+        if (target?.closest?.("button, a")) return;
         e.preventDefault();
         setFlipped(true);
         return;
@@ -190,7 +218,7 @@ function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProp
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [busy, flipped, rate, summary]);
+  }, [busy, completing, flipped, rate, summary]);
 
   function leave() {
     const ok = window.confirm(
@@ -214,7 +242,34 @@ function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProp
     );
   }
 
-  if (!current) return null;
+  // Queue drained but no summary yet — /complete is in flight or failed.
+  // Without this branch a failed settle would unmount to a blank page with
+  // the session never paid out.
+  if (!current) {
+    return (
+      <div className="max-w-lg mx-auto py-24 text-center space-y-4">
+        {completeFailed ? (
+          <>
+            <p className="text-red-400 font-semibold">
+              Couldn&apos;t settle the drill — your ratings are already saved.
+            </p>
+            <button
+              type="button"
+              onClick={() => void complete()}
+              className="text-sm text-slate-400 underline underline-offset-2 hover:text-white transition-colors"
+            >
+              Try again
+            </button>
+          </>
+        ) : (
+          <>
+            <Loader2 className="w-6 h-6 text-purple-400 animate-spin mx-auto" />
+            <p className="text-slate-400 text-sm">Settling the drill&hellip;</p>
+          </>
+        )}
+      </div>
+    );
+  }
 
   const dir = hasRTL(current.front) || hasRTL(current.back) ? "rtl" : "ltr";
 

@@ -69,14 +69,23 @@ export async function POST(
   const now = new Date();
   const nowIso = now.toISOString();
 
-  // Current SM-2 state. The forge/add routes seed this eagerly; if the seed
-  // failed, fall back to a fresh due-now state and create the row below.
-  const { data: srs } = await supabase
-    .from("rune_card_srs")
-    .select("id, due_at, interval_days, ease_factor, review_count")
-    .eq("user_id", dbUser.id)
-    .eq("card_id", cardId)
-    .single();
+  // Current SM-2 state + existing rep — independent reads, one round trip.
+  // The forge/add routes seed SRS eagerly (fatally); a missing row here can
+  // only mean a concurrent reforge deleted the card — surfaced as 410 below.
+  const [{ data: srs }, { data: existingRep }] = await Promise.all([
+    supabase
+      .from("rune_card_srs")
+      .select("id, due_at, interval_days, ease_factor, review_count")
+      .eq("user_id", dbUser.id)
+      .eq("card_id", cardId)
+      .maybeSingle(),
+    supabase
+      .from("rune_reps")
+      .select("id, was_due")
+      .eq("session_id", sessionId)
+      .eq("card_id", cardId)
+      .maybeSingle(),
+  ]);
 
   const currentState = {
     intervalDays: srs ? Number(srs.interval_days) : 1,
@@ -84,20 +93,14 @@ export async function POST(
     reviewCount: srs?.review_count ?? 0,
   };
 
-  // Existing rep in THIS session? (UNIQUE(session_id, card_id) caps it at one.)
-  const { data: existingRep } = await supabase
-    .from("rune_reps")
-    .select("id, was_due")
-    .eq("session_id", sessionId)
-    .eq("card_id", cardId)
-    .maybeSingle();
-
   // was_due freezes at the FIRST rate of the session — a due card stays
   // XP-eligible through the Again-requeue loop, and a non-due card can't
-  // become eligible by being relearned mid-session.
+  // become eligible by being relearned mid-session. Compare as epoch millis,
+  // not ISO strings — PostgREST emits "+00:00" offsets while our nowIso uses
+  // "Z", and lexicographic ordering across the two spellings is luck.
   const wasDue = existingRep
     ? Boolean(existingRep.was_due)
-    : !srs || srs.due_at <= nowIso;
+    : !srs || new Date(srs.due_at).getTime() <= now.getTime();
 
   const next = computeNextReviewFromQuality(rating as RuneRating, currentState, now);
 
@@ -143,6 +146,14 @@ export async function POST(
           nextDueAt: null,
         });
       }
+      // 23503 = card FK gone: a concurrent Reforge deleted this card after
+      // the session started. 410 tells the engine to skip it, not retry.
+      if ((repError as { code?: string }).code === "23503") {
+        return NextResponse.json(
+          { error: "That rune no longer exists", cardGone: true },
+          { status: 410 },
+        );
+      }
       console.error("[api/runes/rate] rep insert failed:", repError);
       return NextResponse.json({ error: "Couldn't save the rating" }, { status: 500 });
     }
@@ -163,6 +174,12 @@ export async function POST(
     ? await supabase.from("rune_card_srs").update(srsUpdate).eq("id", srs.id)
     : await supabase.from("rune_card_srs").insert(srsUpdate);
   if (srsError) {
+    if ((srsError as { code?: string }).code === "23503") {
+      return NextResponse.json(
+        { error: "That rune no longer exists", cardGone: true },
+        { status: 410 },
+      );
+    }
     console.error("[api/runes/rate] SRS update failed:", srsError);
     return NextResponse.json({ error: "Couldn't reschedule the rune" }, { status: 500 });
   }
