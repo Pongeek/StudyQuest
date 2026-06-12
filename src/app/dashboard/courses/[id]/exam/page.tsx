@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
-import { ArrowLeft, FileText, Clock, BookOpen, Target, Shield, ChevronRight } from "lucide-react";
+import { ArrowLeft, FileText, Clock, BookOpen, Gem, Target, Shield, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ExamUploadForm from "@/components/exam/ExamUploadForm";
 import StartExamButton from "@/components/exam/StartExamButton";
@@ -57,11 +57,48 @@ async function getExamData(courseId: string, userId: string) {
     .order("completed_at", { ascending: false })
     .limit(5);
 
+  // Rune Cram availability — active (non-banished) cards across the course's
+  // decks + how many are due now. Two-step topic-id resolution (house pattern).
+  let runeCount = 0;
+  let dueRuneCount = 0;
+  const { data: episodes } = await supabase
+    .from("episodes")
+    .select("id")
+    .eq("course_id", courseId);
+  const episodeIds = (episodes || []).map((e: { id: string }) => e.id);
+  if (episodeIds.length > 0) {
+    const { data: topics } = await supabase
+      .from("topics")
+      .select("id")
+      .in("episode_id", episodeIds);
+    const topicIds = (topics || []).map((t: { id: string }) => t.id);
+    if (topicIds.length > 0) {
+      const { count: cardCount } = await supabase
+        .from("rune_cards")
+        .select("id", { count: "exact", head: true })
+        .in("topic_id", topicIds)
+        .is("suspended_at", null);
+      runeCount = cardCount ?? 0;
+      if (runeCount > 0) {
+        const { count: dueCount } = await supabase
+          .from("rune_card_srs")
+          .select("id, rune_cards!inner(id)", { count: "exact", head: true })
+          .eq("user_id", dbUser.id)
+          .is("rune_cards.suspended_at", null)
+          .in("rune_cards.topic_id", topicIds)
+          .lte("due_at", new Date().toISOString());
+        dueRuneCount = dueCount ?? 0;
+      }
+    }
+  }
+
   return {
     course,
     examFiles: examFiles || [],
     questionCounts,
     pastSessions: pastSessions || [],
+    runeCount,
+    dueRuneCount,
   };
 }
 
@@ -77,7 +114,7 @@ export default async function ExamPrepPage({
   const data = await getExamData(courseId, userId);
   if (!data) notFound();
 
-  const { course, examFiles, questionCounts, pastSessions } = data;
+  const { course, examFiles, questionCounts, pastSessions, runeCount, dueRuneCount } = data;
   const isRTL = /[֐-׿؀-ۿ]/.test(course.title || "");
 
   return (
@@ -107,6 +144,31 @@ export default async function ExamPrepPage({
         <h2 className="font-bold text-white mb-4">Upload Past Exam</h2>
         <ExamUploadForm courseId={courseId} />
       </div>
+
+      {/* Rune Cram — flip every deck in the course before the exam.
+          Free drill: 0 XP, but every rating still recasts the card's
+          SM-2 schedule. Hidden until at least one deck is forged. */}
+      {runeCount > 0 && (
+        <Link
+          href={`/dashboard/runes?scope=course&courseId=${courseId}`}
+          className="group block rpg-card rounded-2xl p-5 sm:p-6 border border-purple-500/20 hover:border-purple-500/40 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
+              <Gem className="w-5 h-5 text-purple-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-bold text-white">Rune Cram</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Flip through the course&apos;s {runeCount} recall card
+                {runeCount === 1 ? "" : "s"}
+                {dueRuneCount > 0 ? ` — ${dueRuneCount} due now` : ""}.
+              </p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-purple-300 group-hover:translate-x-0.5 transition-all duration-150 flex-shrink-0" />
+          </div>
+        </Link>
+      )}
 
       {/* Past exams list */}
       {examFiles.length > 0 && (
