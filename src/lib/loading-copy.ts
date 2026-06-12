@@ -77,6 +77,7 @@ export type InlineSurface =
   | "regenerateQuestion"
   | "clarifier"
   | "cheatSheet"
+  | "runes"
   | "scroll"
   | "reviewGrade"
   | "reviewFinish"
@@ -90,6 +91,7 @@ export const INLINE_COPY: Record<InlineSurface, string> = {
   regenerateQuestion: "Reforging…",
   clarifier: "Weighing your stumble…",
   cheatSheet: "Forging the page…",
+  runes: "Forging runes…",
   scroll: "Unrolling the scroll…",
   reviewGrade: "Weighing your answer…",
   reviewFinish: "Filing your progress…",

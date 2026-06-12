@@ -11,6 +11,12 @@ import StartQuizButton from "@/components/quiz/StartQuizButton";
 import TopicPDFViewer from "@/components/course/TopicPDFViewerClient";
 import TopicMasteryPanel from "@/components/course/TopicMasteryPanel";
 import CheatSheetPanel from "@/components/course/CheatSheetPanel";
+import RuneDeckPanel from "@/components/runes/RuneDeckPanel";
+import {
+  mapRuneCardRows,
+  RUNE_CARD_COLUMNS,
+  RUNE_SRS_COLUMNS,
+} from "@/lib/rune-deck";
 
 async function getTopicData(topicId: string, courseId: string, userId: string) {
   const supabase = createServiceClient();
@@ -43,6 +49,23 @@ async function getTopicData(topicId: string, courseId: string, userId: string) {
     .select("id")
     .eq("topic_id", topicId);
 
+  // Rune Deck (migration 026) — cards + this user's per-card SM-2 state.
+  const { data: runeCardRows } = await supabase
+    .from("rune_cards")
+    .select(RUNE_CARD_COLUMNS)
+    .eq("topic_id", topicId)
+    .order("created_at", { ascending: true });
+  const runeCardIds = (runeCardRows || []).map((c: { id: string }) => c.id);
+  const { data: runeSrsRows } =
+    runeCardIds.length > 0
+      ? await supabase
+          .from("rune_card_srs")
+          .select(RUNE_SRS_COLUMNS)
+          .eq("user_id", dbUser.id)
+          .in("card_id", runeCardIds)
+      : { data: [] };
+  const runeCards = mapRuneCardRows(runeCardRows || [], runeSrsRows || []);
+
   // Note: Recent-session list is now owned by TopicMasteryPanel, which
   // pulls a wider window (up to 10) plus per-session metadata. The old
   // 3-row fetch here is intentionally gone — keeping it would duplicate
@@ -74,6 +97,7 @@ async function getTopicData(topicId: string, courseId: string, userId: string) {
     dbUserId: dbUser.id,
     courseId,
     sourceFile,
+    runeCards,
   };
 }
 
@@ -89,7 +113,7 @@ export default async function TopicPage({
   const data = await getTopicData(topicId, courseId, userId);
   if (!data) notFound();
 
-  const { topic, mastery, hasQuestions, sourceFile, dbUserId } = data;
+  const { topic, mastery, hasQuestions, sourceFile, dbUserId, runeCards } = data;
   const masteryLevel = mastery?.mastery_level ?? 0;
   const keyConcepts: string[] = Array.isArray(topic.key_concepts) ? topic.key_concepts : [];
   const difficultyDots = Array.from({ length: 5 }, (_, i) => i < topic.difficulty);
@@ -210,6 +234,14 @@ export default async function TopicPage({
         topicId={topic.id}
         initialContent={topic.cheat_sheet ?? null}
         initialGeneratedAt={topic.cheat_sheet_generated_at ?? null}
+        dir={isRTL ? "rtl" : "ltr"}
+      />
+
+      {/* Rune Deck (migration 026) — Anki-style atomic recall cards.
+          Forged on demand, per-card SM-2; drilling lives in /dashboard/runes. */}
+      <RuneDeckPanel
+        topicId={topic.id}
+        initialCards={runeCards}
         dir={isRTL ? "rtl" : "ltr"}
       />
 
