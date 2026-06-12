@@ -1,10 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, Gem, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import {
+  Ban,
+  ChevronDown,
+  Gem,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import MarkdownContent from "@/components/quiz/MarkdownContent";
+import RuneEditorDialog from "@/components/runes/RuneEditorDialog";
 import AchievementUnlockOverlay, {
   type UnlockedAchievement,
 } from "@/components/effects/AchievementUnlockOverlay";
@@ -45,9 +56,19 @@ export default function RuneDeckPanel({
   const [busy, setBusy] = useState(false);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [newAchievements, setNewAchievements] = useState<UnlockedAchievement[]>([]);
+  const [editor, setEditor] = useState<{
+    mode: "edit" | "add";
+    card: RuneCardDto | null;
+  } | null>(null);
+  const [showBanished, setShowBanished] = useState(false);
+  const [mutatingId, setMutatingId] = useState<string | null>(null);
 
   const activeCards = useMemo(
     () => cards.filter((c) => !c.suspendedAt),
+    [cards],
+  );
+  const banishedCards = useMemo(
+    () => cards.filter((c) => c.suspendedAt),
     [cards],
   );
   const dueCount = useMemo(() => countDueCards(cards), [cards]);
@@ -99,6 +120,44 @@ export default function RuneDeckPanel({
       "Reforge this deck? Fresh runes replace the current ones — your edited and hand-made runes survive.",
     );
     if (ok) void forge();
+  }
+
+  async function setSuspended(card: RuneCardDto, suspended: boolean) {
+    if (mutatingId) return;
+    setMutatingId(card.id);
+    try {
+      const res = await fetch(`/api/runes/cards/${card.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ suspended }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body?.error || "Couldn't update the rune — try again.");
+        return;
+      }
+      const data = await res.json();
+      setCards((prev) =>
+        prev.map((c) =>
+          c.id === card.id ? { ...c, suspendedAt: data.card.suspendedAt } : c,
+        ),
+      );
+      toast.success(suspended ? "Rune banished." : "Rune restored.");
+    } catch {
+      toast.error("Network hiccup — try again.");
+    } finally {
+      setMutatingId(null);
+    }
+  }
+
+  function handleSaved(patch: Partial<RuneCardDto> & { id: string }) {
+    setCards((prev) => {
+      const exists = prev.some((c) => c.id === patch.id);
+      if (exists) {
+        return prev.map((c) => (c.id === patch.id ? { ...c, ...patch } : c));
+      }
+      return [...prev, patch as RuneCardDto];
+    });
   }
 
   const overlay =
@@ -196,6 +255,18 @@ export default function RuneDeckPanel({
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             type="button"
+            onClick={() => setEditor({ mode: "add", card: null })}
+            disabled={busy}
+            className={cn(
+              "pixel-chip inline-flex items-center gap-1.5 px-2.5 py-1 font-pixel text-[8px] tracking-wider text-slate-300 border border-white/[0.08] transition-colors",
+              busy ? "opacity-60 cursor-not-allowed" : "hover:bg-white/[0.04]",
+            )}
+          >
+            <Plus className="w-3 h-3" />
+            ADD RUNE
+          </button>
+          <button
+            type="button"
             onClick={reforge}
             disabled={busy}
             className={cn(
@@ -252,17 +323,111 @@ export default function RuneDeckPanel({
                 </span>
               </button>
               {isRevealed && (
-                <div
-                  dir={dir}
-                  className="px-3.5 pb-3 pt-2 border-t border-white/[0.05] text-sm text-slate-300"
-                >
-                  <MarkdownContent>{card.back}</MarkdownContent>
+                <div className="px-3.5 pb-3 pt-2 border-t border-white/[0.05]">
+                  <div dir={dir} className="text-sm text-slate-300">
+                    <MarkdownContent>{card.back}</MarkdownContent>
+                  </div>
+                  <div className="flex items-center gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditor({ mode: "edit", card })}
+                      disabled={mutatingId !== null}
+                      className="pixel-chip inline-flex items-center gap-1.5 px-2.5 py-1 font-pixel text-[8px] tracking-wider text-slate-300 border border-white/[0.08] hover:bg-white/[0.04] transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      EDIT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void setSuspended(card, true)}
+                      disabled={mutatingId !== null}
+                      className="pixel-chip inline-flex items-center gap-1.5 px-2.5 py-1 font-pixel text-[8px] tracking-wider text-slate-400 border border-white/[0.08] hover:bg-white/[0.04] transition-colors"
+                    >
+                      {mutatingId === card.id ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Ban className="w-3 h-3" />
+                      )}
+                      BANISH
+                    </button>
+                    {card.source === "manual" && (
+                      <span className="ml-auto text-[9px] text-purple-300/70 font-medium">
+                        hand-made
+                      </span>
+                    )}
+                    {card.source === "forged" && card.editedAt && (
+                      <span className="ml-auto text-[9px] text-slate-500 font-medium">
+                        edited
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </li>
           );
         })}
       </ul>
+
+      {banishedCards.length > 0 && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowBanished((v) => !v)}
+            aria-expanded={showBanished}
+            className="inline-flex items-center gap-1.5 text-[9px] font-pixel tracking-wider text-slate-500 hover:text-slate-300 transition-colors py-1"
+          >
+            <ChevronDown
+              className={cn(
+                "w-3 h-3 transition-transform",
+                showBanished && "rotate-180",
+              )}
+            />
+            BANISHED ({banishedCards.length})
+          </button>
+          {showBanished && (
+            <ul className="space-y-1.5 mt-2">
+              {banishedCards.map((card) => (
+                <li
+                  key={card.id}
+                  className="flex items-center gap-3 rounded-lg border border-white/[0.05] bg-white/[0.01] px-3 py-2"
+                >
+                  <div
+                    dir={dir}
+                    className="flex-1 min-w-0 text-xs text-slate-500 opacity-70"
+                  >
+                    <MarkdownContent>{card.front}</MarkdownContent>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void setSuspended(card, false)}
+                    disabled={mutatingId !== null}
+                    className="pixel-chip inline-flex items-center gap-1.5 px-2.5 py-1 font-pixel text-[8px] tracking-wider text-purple-300 border border-purple-500/30 hover:bg-purple-500/10 transition-colors flex-shrink-0"
+                  >
+                    {mutatingId === card.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <RotateCcw className="w-3 h-3" />
+                    )}
+                    RESTORE
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <RuneEditorDialog
+        open={editor !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditor(null);
+        }}
+        mode={editor?.mode ?? "add"}
+        topicId={topicId}
+        card={editor?.card ?? null}
+        dir={dir}
+        onSaved={handleSaved}
+      />
     </section>
   );
 }

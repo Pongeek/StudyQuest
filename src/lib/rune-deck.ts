@@ -5,6 +5,10 @@
  * management routes — one DTO so the panel never sees raw row shapes.
  */
 
+/** Manual-add / edit caps — enforced server-side, hinted client-side. */
+export const MAX_FRONT_CHARS = 500;
+export const MAX_BACK_CHARS = 2000;
+
 export interface RuneSrsDto {
   dueAt: string;
   intervalDays: number;
