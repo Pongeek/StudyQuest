@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Ban,
   ChevronDown,
@@ -11,6 +12,7 @@ import {
   RefreshCw,
   RotateCcw,
   Sparkles,
+  Swords,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -72,6 +74,18 @@ export default function RuneDeckPanel({
     [cards],
   );
   const dueCount = useMemo(() => countDueCards(cards), [cards]);
+  const dueIds = useMemo(() => {
+    const now = new Date().getTime();
+    return new Set(
+      cards
+        .filter(
+          (c) =>
+            !c.suspendedAt &&
+            (!c.srs || new Date(c.srs.dueAt).getTime() <= now),
+        )
+        .map((c) => c.id),
+    );
+  }, [cards]);
   const forgedAt = useMemo(() => {
     const forged = cards.filter((c) => c.source === "forged");
     if (forged.length === 0) return null;
@@ -284,11 +298,21 @@ export default function RuneDeckPanel({
         </div>
       </header>
 
+      {activeCards.length > 0 && (
+        <Link
+          href={`/dashboard/runes?scope=topic&topicId=${topicId}`}
+          className="mb-4 flex items-center justify-center gap-2 min-h-[44px] rounded-xl border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/15 font-pixel text-[10px] tracking-wider text-purple-200 transition-colors"
+        >
+          <Swords className="w-3.5 h-3.5" />
+          DRILL THIS DECK
+          {dueCount > 0 && <span className="text-purple-300/80">· {dueCount} DUE</span>}
+        </Link>
+      )}
+
       <ul className="space-y-2">
         {activeCards.map((card) => {
           const isRevealed = revealed.has(card.id);
-          const isDue =
-            !card.srs || new Date(card.srs.dueAt).getTime() <= Date.now();
+          const isDue = dueIds.has(card.id);
           return (
             <li
               key={card.id}
@@ -418,6 +442,7 @@ export default function RuneDeckPanel({
       )}
 
       <RuneEditorDialog
+        key={editor ? `${editor.mode}-${editor.card?.id ?? "new"}` : "closed"}
         open={editor !== null}
         onOpenChange={(open) => {
           if (!open) setEditor(null);

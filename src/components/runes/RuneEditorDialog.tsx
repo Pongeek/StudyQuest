@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Gem, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -42,17 +42,15 @@ export default function RuneEditorDialog({
   dir = "auto",
   onSaved,
 }: RuneEditorDialogProps) {
-  const [front, setFront] = useState("");
-  const [back, setBack] = useState("");
+  // Seeded once per mount — the parent re-keys this component per target
+  // (`key={mode + cardId}`), so a different card or mode remounts fresh.
+  const [front, setFront] = useState(() =>
+    mode === "edit" ? (card?.front ?? "") : "",
+  );
+  const [back, setBack] = useState(() =>
+    mode === "edit" ? (card?.back ?? "") : "",
+  );
   const [busy, setBusy] = useState(false);
-
-  // Re-seed the fields whenever the dialog opens for a (different) target.
-  useEffect(() => {
-    if (open) {
-      setFront(mode === "edit" ? (card?.front ?? "") : "");
-      setBack(mode === "edit" ? (card?.back ?? "") : "");
-    }
-  }, [open, mode, card?.id, card?.front, card?.back]);
 
   const canSave =
     front.trim().length > 0 &&
