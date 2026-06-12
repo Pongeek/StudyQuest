@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getDueReviewTopics } from "@/lib/review-queue";
+import { countDueRunes, getDueRuneCards } from "@/lib/runes-queue";
 import TodaysMission from "@/components/dashboard/TodaysMission";
 import ReviewQueueCard from "@/components/dashboard/ReviewQueueCard";
+import RunesDueCard from "@/components/dashboard/RunesDueCard";
 import GrimoireWidget from "@/components/dashboard/GrimoireWidget";
 import StreakWarningBanner from "@/components/dashboard/StreakWarningBanner";
 import ExamCountdownCard from "@/components/dashboard/ExamCountdownCard";
@@ -104,6 +106,30 @@ async function getReviewQueue(userId: string) {
     topicId: row.topic_id as string,
     topicTitle: (row.topics?.title ?? "Unknown topic") as string,
   }));
+}
+
+/**
+ * Rune queue summary for the RunesDueCard widget + Next Best Action input:
+ * total due count plus up to 3 distinct topic titles among the soonest-due
+ * cards (chips).
+ */
+async function getRunesDue(userId: string) {
+  const supabase = createServiceClient();
+  const [count, { data: dueRows }] = await Promise.all([
+    countDueRunes(supabase, userId),
+    getDueRuneCards(supabase, userId, { limit: 12 }),
+  ]);
+
+  const titles: string[] = [];
+  for (const row of (dueRows as any[]) ?? []) {
+    const card = Array.isArray(row.rune_cards) ? row.rune_cards[0] : row.rune_cards;
+    const topic = Array.isArray(card?.topics) ? card?.topics[0] : card?.topics;
+    const title = (topic?.title as string) ?? "Unknown topic";
+    if (!titles.includes(title)) titles.push(title);
+    if (titles.length >= 3) break;
+  }
+
+  return { count, topics: titles.map((topicTitle) => ({ topicTitle })) };
 }
 
 /**
@@ -374,13 +400,14 @@ export default async function DashboardPage({
   const dbUser = await getOrCreateUser(userId, email, name.trim() || "Adventurer");
   if (!dbUser) redirect("/sign-in");
 
-  const [courses, recentAchievements, recommendations, reviewQueue, grimoireCount, studyPlans] = await Promise.all([
+  const [courses, recentAchievements, recommendations, reviewQueue, grimoireCount, studyPlans, runesDue] = await Promise.all([
     getUserCourses(dbUser.id),
     getRecentAchievements(dbUser.id),
     getRecommendations(dbUser.id),
     getReviewQueue(dbUser.id),
     getGrimoireCount(dbUser.id),
     getStudyPlans(dbUser.id),
+    getRunesDue(dbUser.id),
   ]);
 
   const level = calculateLevel(dbUser.total_xp || 0);
@@ -416,6 +443,7 @@ export default async function DashboardPage({
     reviewQueue,
     grimoireCount,
     recommendations,
+    runesDueCount: runesDue.count,
     streak,
     studiedToday,
     lastStudyDate,
@@ -499,6 +527,11 @@ export default async function DashboardPage({
             dueCount={reviewQueue.length}
             dueTopics={reviewQueue}
           />
+        )}
+
+        {/* ── Rune queue (per-card SM-2) — the fast recall reps ── */}
+        {runesDue.count > 0 && (
+          <RunesDueCard dueCount={runesDue.count} dueTopics={runesDue.topics} />
         )}
 
         {/* ── Today's Mission (streak rescue) — time-sensitive, shown first ── */}

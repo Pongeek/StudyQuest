@@ -10,6 +10,7 @@ import {
   BookOpen,
   Target,
   Skull,
+  Gem,
   ArrowRight,
   ChevronRight,
 } from "lucide-react";
@@ -48,6 +49,7 @@ const ICON_MAP: Record<ActionIcon, React.ComponentType<{ className?: string }>> 
   book: BookOpen,
   target: Target,
   skull: Skull,
+  gem: Gem,
 };
 
 const TIER_PALETTE: Record<

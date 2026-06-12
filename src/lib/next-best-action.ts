@@ -35,6 +35,7 @@ export type ActionKind =
   | "review-storm"
   | "demon-pile"
   | "review-due"
+  | "runes-due"
   | "next-quest";
 
 export type ActionIcon =
@@ -44,7 +45,8 @@ export type ActionIcon =
   | "brain"
   | "book"
   | "target"
-  | "skull";
+  | "skull"
+  | "gem";
 
 /**
  * Time/date conditions that can only be evaluated on the CLIENT.
@@ -102,6 +104,8 @@ export interface NextBestActionInput {
     courseName: string;
     masteryLevel: number;
   }>;
+  /** Due rune cards across all courses (per-card SM-2 queue). */
+  runesDueCount: number;
   /** From `users.current_streak` */
   streak: number;
   /** Did the user complete any study today? */
@@ -134,6 +138,7 @@ export function pickNextBestActions(input: NextBestActionInput): NextBestAction[
     reviewQueue,
     grimoireCount,
     recommendations,
+    runesDueCount,
     streak,
     studiedToday,
     lastStudyDate,
@@ -294,6 +299,24 @@ export function pickNextBestActions(input: NextBestActionInput): NextBestAction[
       href: "/dashboard/review",
       ctaLabel: "BEGIN REVIEW",
       iconName: "brain",
+    });
+  }
+
+  // ── A5: Runes due ────────────────────────────────────────────────────────
+  // Per-card SM-2 queue (separate from the topic-level review queue). Sits
+  // below review actions — review is AI-graded and heavier; runes are the
+  // fast self-graded reps — and above the B-tier curriculum floor.
+  if (runesDueCount > 0) {
+    const minutes = Math.max(1, Math.round((runesDueCount * 10) / 60));
+    actions.push({
+      tier: "A",
+      kind: "runes-due",
+      label: "RUNES DUE",
+      headline: `${runesDueCount} rune${runesDueCount === 1 ? "" : "s"} await`,
+      context: `~${minutes}m of recall flips. Fast reps, honest ratings.`,
+      href: "/dashboard/runes",
+      ctaLabel: "DRILL RUNES",
+      iconName: "gem",
     });
   }
 
