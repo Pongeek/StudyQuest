@@ -13,7 +13,7 @@
  */
 
 /** Session types that can complete and award achievements. */
-export type SessionType = "quiz" | "boss" | "review" | "exam";
+export type SessionType = "quiz" | "boss" | "review" | "exam" | "rune";
 
 /**
  * The facts the evaluator reasons over. Session-moment facts (nullable when the

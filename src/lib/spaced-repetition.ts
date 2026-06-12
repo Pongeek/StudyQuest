@@ -203,3 +203,17 @@ export const REVIEW_SESSION_BONUS_XP = 25;
 export const MAX_TOPICS_PER_SESSION = 5;
 /** Questions sampled per topic in a review session. */
 export const QUESTIONS_PER_TOPIC = 2;
+
+// ── Runes (Anki-style per-card drilling) ─────────────────────────────────────
+// Rune ratings ARE SM-2 qualities — they feed computeNextReviewFromQuality
+// directly: Again=1 (reset), Hard=3, Good=4, Easy=5.
+
+/** Self-grade ratings on a rune card flip. */
+export type RuneRating = 1 | 3 | 4 | 5;
+/** XP per DUE card rated Hard/Good/Easy. Non-due (free-drill) reps earn 0 —
+ *  dueness is time-gated by SM-2, which makes rune XP farm-proof. */
+export const RUNE_XP_PER_DUE_CARD = 2;
+/** Once-per-day bonus for clearing the entire due queue. */
+export const RUNE_QUEUE_CLEAR_BONUS_XP = 15;
+/** Max cards pulled into a single drill session (most-overdue-first). */
+export const RUNE_SESSION_CAP = 30;

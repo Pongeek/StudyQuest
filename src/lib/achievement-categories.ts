@@ -98,10 +98,12 @@ const SLUG_TO_CATEGORY: Record<string, AchievementCategory> = {
   lore_keeper:        "wisdom",
   twilight_reader:    "wisdom", // NEW (016)
 
-  // Magic — slot-machine / lucky / combo
+  // Magic — slot-machine / lucky / combo / runes
   lucky_scholar:      "magic",
   perfect_day:        "magic",
   combo_breaker:      "magic",
+  runesmith:          "magic", // NEW (migration 026)
+  rune_adept:         "magic", // NEW (026)
 
   // Teaching — Feynman teach-back
   the_professor:      "teaching",
