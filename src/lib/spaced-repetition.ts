@@ -215,8 +215,14 @@ export type RuneRating = 1 | 3 | 4 | 5;
 export const RUNE_XP_PER_DUE_CARD = 2;
 /** Once-per-day bonus for clearing the entire due queue. */
 export const RUNE_QUEUE_CLEAR_BONUS_XP = 15;
-/** Max cards pulled into a single drill session (most-overdue-first). */
+/** Max cards in a single DUE-queue drill (most-overdue-first). The daily
+ *  queue is a maintenance dose, not a marathon. */
 export const RUNE_SESSION_CAP = 30;
+/** Max cards per CRAM batch (topic / course scope). Larger than the daily
+ *  cap — a deliberate pre-exam sweep wants volume — but still batched so a
+ *  200-card course is worked through in chunks (see the launcher's seen-set
+ *  continuation), not loaded into one marathon session. */
+export const RUNE_CRAM_BATCH = 50;
 /** Drill pacing estimate (~10s per flip) — one source for every surface
  *  that quotes a time, so the widget and NBA can't disagree. */
 export function estimateRuneDrillMinutes(cardCount: number): number {

@@ -15,6 +15,8 @@ interface RuneSummaryProps {
    *  only stores final ratings. */
   lapseCount: number;
   scope: DrillScope;
+  /** Cram only: cards still un-drilled in scope. >0 offers "Drill the rest". */
+  cramRemaining?: number;
   onRestart?: () => void;
 }
 
@@ -30,6 +32,7 @@ export default function RuneSummary({
   data,
   lapseCount,
   scope,
+  cramRemaining,
   onRestart,
 }: RuneSummaryProps) {
   const router = useRouter();
@@ -54,7 +57,11 @@ export default function RuneSummary({
     setPhase(data.newAchievements.length > 0 ? "achievements" : "done");
   }
 
-  const showRemaining = scope === "due" && data.remainingDue > 0 && onRestart;
+  // Due scope continues off the live queue (remainingDue); cram scopes
+  // continue through the un-drilled stack (cramRemaining from the launcher).
+  const cramLeft = scope !== "due" ? (cramRemaining ?? 0) : 0;
+  const remainingLeft = scope === "due" ? data.remainingDue : cramLeft;
+  const showRemaining = Boolean(remainingLeft > 0 && onRestart);
 
   return (
     <div className="max-w-xl mx-auto space-y-5">
@@ -126,10 +133,10 @@ export default function RuneSummary({
           </div>
         )}
 
-        {scope === "due" && data.remainingDue > 0 && (
+        {remainingLeft > 0 && (
           <p className="text-xs text-slate-500 mb-5">
-            {data.remainingDue} rune{data.remainingDue === 1 ? "" : "s"} still
-            waiting in the queue.
+            {remainingLeft} rune{remainingLeft === 1 ? "" : "s"}{" "}
+            {scope === "due" ? "still waiting in the queue." : "left in this stack."}
           </p>
         )}
 

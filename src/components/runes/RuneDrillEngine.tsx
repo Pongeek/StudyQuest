@@ -35,6 +35,9 @@ interface RuneDrillEngineProps {
   sessionId: string;
   scope: DrillScope;
   cards: DrillCard[];
+  /** Cram only: cards still un-drilled in scope after this batch. Drives the
+   *  summary's "Drill the rest" offer. Undefined for due scope. */
+  cramRemaining?: number;
   /** Launcher-provided: start a fresh session (used by "drill remaining"). */
   onRestart?: () => void;
 }
@@ -77,7 +80,7 @@ const RATING_BUTTONS: Array<{
 
 const KEY_TO_RATING: Record<string, RuneRating> = { "1": 1, "2": 3, "3": 4, "4": 5 };
 
-function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProps) {
+function EngineInner({ sessionId, scope, cards, cramRemaining, onRestart }: RuneDrillEngineProps) {
   const router = useRouter();
   const { play } = useSound();
   const { fireBurst } = useXPBurst();
@@ -226,6 +229,7 @@ function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProp
         data={summary}
         lapseCount={lapsedIds.size}
         scope={scope}
+        cramRemaining={cramRemaining}
         onRestart={onRestart}
       />
     );

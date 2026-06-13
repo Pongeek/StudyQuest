@@ -11,7 +11,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { RUNE_SESSION_CAP } from "@/lib/spaced-repetition";
+import { RUNE_CRAM_BATCH, RUNE_SESSION_CAP } from "@/lib/spaced-repetition";
 import {
   embedOne,
   getCourseTopicIds,
@@ -43,7 +43,12 @@ export async function POST(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { scope?: unknown; topicId?: unknown; courseId?: unknown };
+  let body: {
+    scope?: unknown;
+    topicId?: unknown;
+    courseId?: unknown;
+    excludeIds?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -56,6 +61,14 @@ export async function POST(request: NextRequest) {
   }
   const topicId = typeof body.topicId === "string" ? body.topicId : null;
   const courseId = typeof body.courseId === "string" ? body.courseId : null;
+  // Cram continuation: ids already drilled earlier in this cram chain, so the
+  // next batch covers fresh cards (the client accumulates these across
+  // "Drill the rest"). Due scope ignores it — it re-pulls the live queue.
+  const excludeIds = new Set(
+    Array.isArray(body.excludeIds)
+      ? (body.excludeIds.filter((v) => typeof v === "string") as string[])
+      : [],
+  );
   if (scope === "topic" && !topicId) {
     return NextResponse.json({ error: "topicId required for topic scope" }, { status: 400 });
   }
@@ -69,6 +82,9 @@ export async function POST(request: NextRequest) {
 
   const nowIso = new Date().toISOString();
   let drillCards: DrillCard[] = [];
+  // Total active cards in scope (cram only) — the client subtracts what it
+  // has drilled to show "N runes left in this stack" and gate continuation.
+  let totalInScope = 0;
 
   if (scope === "due") {
     const { data: dueRows } = await getDueRuneCards(supabase, dbUserId, {
@@ -110,7 +126,11 @@ export async function POST(request: NextRequest) {
       .in("topic_id", topicIds)
       .is("suspended_at", null)
       .order("created_at", { ascending: true });
-    const cards = (cardRows || []) as CardRow[];
+    const allCards = (cardRows || []) as CardRow[];
+    // Count BEFORE excluding the already-drilled set, so "remaining" reflects
+    // the whole deck, not what's left after this chain's exclusions.
+    totalInScope = allCards.length;
+    const cards = allCards.filter((c) => !excludeIds.has(c.id));
     if (cards.length === 0) {
       return NextResponse.json({ error: "No runes to drill" }, { status: 404 });
     }
@@ -143,7 +163,7 @@ export async function POST(request: NextRequest) {
     });
 
     drillCards = withDueness
-      .slice(0, RUNE_SESSION_CAP)
+      .slice(0, RUNE_CRAM_BATCH)
       .map(({ card }) => toDrillCard(card));
   }
 
@@ -171,6 +191,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     sessionId: session.id,
     scope,
+    totalInScope,
     cards: drillCards,
   });
 }

@@ -2,9 +2,10 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
-import { ArrowLeft, Loader2, BookOpen, FileText, Target } from "lucide-react";
+import { ArrowLeft, Loader2, BookOpen, FileText, Target, Gem } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { countDueRunes } from "@/lib/runes-queue";
 import CourseProcessingPoller from "@/components/course/CourseProcessingPoller";
 import CourseMap from "@/components/course/CourseMap";
 import ExamDateButton from "@/components/course/ExamDateButton";
@@ -92,14 +93,28 @@ async function getCourse(courseId: string, userId: string) {
     for (const t of ep.topics || []) topicIds.push(t.id);
   }
   let sessionsCount = 0;
+  // Rune deck presence across the whole course (forged + manual, non-banished)
+  // + how many are due now — drives the "Drill Runes" course-level entry.
+  let runeCount = 0;
+  let dueRuneCount = 0;
   if (topicIds.length > 0) {
-    const { count } = await supabase
-      .from("quiz_sessions")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", dbUser.id)
-      .in("topic_id", topicIds)
-      .not("completed_at", "is", null);
-    sessionsCount = count ?? 0;
+    const [{ count: sCount }, { count: rCount }, dueCount] = await Promise.all([
+      supabase
+        .from("quiz_sessions")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", dbUser.id)
+        .in("topic_id", topicIds)
+        .not("completed_at", "is", null),
+      supabase
+        .from("rune_cards")
+        .select("id", { count: "exact", head: true })
+        .in("topic_id", topicIds)
+        .is("suspended_at", null),
+      countDueRunes(supabase, dbUser.id, { topicIds }),
+    ]);
+    sessionsCount = sCount ?? 0;
+    runeCount = rCount ?? 0;
+    dueRuneCount = runeCount > 0 ? dueCount : 0;
   }
 
   return {
@@ -110,6 +125,8 @@ async function getCourse(courseId: string, userId: string) {
     latestExamSession,
     bossFightMap,
     sessionsCount,
+    runeCount,
+    dueRuneCount,
   };
 }
 
@@ -154,7 +171,7 @@ export default async function CoursePage({
     }
   }
 
-  const { course, episodes, dbUserId, examFileCount, latestExamSession, bossFightMap, sessionsCount } = result;
+  const { course, episodes, dbUserId, examFileCount, latestExamSession, bossFightMap, sessionsCount, runeCount, dueRuneCount } = result;
 
   if (course.status === "processing") {
     return (
@@ -409,6 +426,44 @@ export default async function CoursePage({
           </div>
         </div>
       </Link>
+
+      {/* Drill Runes — course-wide flashcard cram across every episode's
+          deck (forged + hand-made), in 50-card batches. Only shown once at
+          least one deck is forged; mirrors the Exam Prep entry in purple. */}
+      {runeCount > 0 && (
+        <Link href={`/dashboard/runes?scope=course&courseId=${id}`} className="block group">
+          <div className="relative bg-slate-900/95 pixel-border text-purple-400/80 p-5 transition-transform duration-100 group-hover:translate-y-0.5 group-active:translate-y-1">
+            <span aria-hidden className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-purple-400 z-[1]" />
+            <span aria-hidden className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-purple-400 z-[1]" />
+            <span aria-hidden className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 bg-purple-400 z-[1]" />
+            <span aria-hidden className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-purple-400 z-[1]" />
+
+            <div className="relative z-[1] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 pixel-border bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0">
+                  <Gem className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-pixel text-[9px] tracking-wider text-purple-400/90 mb-1">
+                    DRILL ALL RUNES
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    {runeCount} recall card{runeCount === 1 ? "" : "s"} across this course
+                    {dueRuneCount > 0 ? ` · ${dueRuneCount} due` : ""}
+                  </p>
+                </div>
+              </div>
+              {dueRuneCount > 0 && (
+                <div className="shrink-0 inline-flex items-center gap-1.5 pixel-border bg-purple-500/10 text-purple-400 px-3 py-1.5">
+                  <span className="font-pixel text-[10px] tracking-wider tabular-nums">
+                    {dueRuneCount} DUE
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* Add Episode — per-episode upload flow. Lets the user grow the
           course incrementally instead of trying to upload the whole
