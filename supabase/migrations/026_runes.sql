@@ -2,7 +2,9 @@
 -- Apply via Supabase Dashboard → SQL Editor.
 --
 -- Four tables: deck content, per-user SM-2 state, drill sessions, per-rep log.
--- No RLS (house style): service-role client + user_id ownership checks in routes.
+-- RLS: enabled with NO policies (lockdown, matching every other app table) —
+-- anon/authed PostgREST access is denied; the service-role client bypasses
+-- RLS and routes enforce user_id ownership chains.
 -- Scheduling is per-CARD and fully separate from user_topic_mastery — rune
 -- drills never touch the topic-level review queue.
 
@@ -86,7 +88,13 @@ CREATE INDEX IF NOT EXISTS idx_rune_reps_session_id ON rune_reps(session_id);
 -- Counts toward the rune_adept achievement (100 due reps)
 CREATE INDEX IF NOT EXISTS idx_rune_reps_user_due ON rune_reps(user_id) WHERE was_due;
 
--- 5. Achievements (awarded imperatively in the forge / complete routes —
+-- 5. RLS lockdown — enabled, no policies (anon blocked; service role bypasses)
+ALTER TABLE rune_cards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rune_card_srs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rune_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rune_reps ENABLE ROW LEVEL SECURITY;
+
+-- 6. Achievements (awarded imperatively in the forge / complete routes —
 --    condition_types are descriptive, not evaluator-counted; scrolls precedent)
 INSERT INTO achievements (slug, name, description, icon, condition_type, condition_value, xp_reward) VALUES
   ('runesmith',  'Runesmith',  'Forge your first Rune Deck',    '⚒️', 'rune_decks_forged', 1,   50),
