@@ -88,10 +88,23 @@ export function mapRuneCardRows(
   });
 }
 
-/** Active (non-banished) cards that are due now. */
-export function countDueCards(cards: RuneCardDto[], now: Date = new Date()): number {
-  return cards.filter(
-    (c) =>
-      !c.suspendedAt && (!c.srs || new Date(c.srs.dueAt).getTime() <= now.getTime()),
-  ).length;
+/**
+ * THE client-side due predicate — keep every surface (panel header, per-card
+ * badges, future widgets) on this one definition. A card with no SRS row
+ * counts as due-now (the seed is fatal server-side, so this is pure defense).
+ */
+export function isCardDue(card: RuneCardDto, nowMs: number): boolean {
+  return (
+    !card.suspendedAt &&
+    (!card.srs || new Date(card.srs.dueAt).getTime() <= nowMs)
+  );
+}
+
+/** Locale-free interval label shared by the deck panel and the drill chip:
+ *  "due" / "3d" / "2w" / "3mo". */
+export function formatIntervalDays(days: number): string {
+  if (days <= 0) return "due";
+  if (days < 14) return `${Math.max(1, Math.round(days))}d`;
+  if (days < 60) return `${Math.round(days / 7)}w`;
+  return `${Math.round(days / 30)}mo`;
 }

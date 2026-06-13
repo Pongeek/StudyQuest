@@ -25,6 +25,7 @@
  */
 
 import type { StudyPlan } from "@/lib/study-plan";
+import { estimateRuneDrillMinutes } from "@/lib/spaced-repetition";
 
 export type ActionTier = "S" | "A" | "B";
 
@@ -307,7 +308,7 @@ export function pickNextBestActions(input: NextBestActionInput): NextBestAction[
   // below review actions — review is AI-graded and heavier; runes are the
   // fast self-graded reps — and above the B-tier curriculum floor.
   if (runesDueCount > 0) {
-    const minutes = Math.max(1, Math.round((runesDueCount * 10) / 60));
+    const minutes = estimateRuneDrillMinutes(runesDueCount);
     actions.push({
       tier: "A",
       kind: "runes-due",

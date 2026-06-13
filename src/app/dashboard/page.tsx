@@ -10,7 +10,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getDueReviewTopics } from "@/lib/review-queue";
-import { countDueRunes, getDueRuneCards } from "@/lib/runes-queue";
+import {
+  countDueRunes,
+  embedOne,
+  getDueRuneCards,
+  DUE_RUNE_CHIP_SELECT,
+} from "@/lib/runes-queue";
 import TodaysMission from "@/components/dashboard/TodaysMission";
 import ReviewQueueCard from "@/components/dashboard/ReviewQueueCard";
 import RunesDueCard from "@/components/dashboard/RunesDueCard";
@@ -115,16 +120,18 @@ async function getReviewQueue(userId: string) {
  */
 async function getRunesDue(userId: string) {
   const supabase = createServiceClient();
+  // Chip projection — no card text on the wire; we only need topic titles.
   const [count, { data: dueRows }] = await Promise.all([
     countDueRunes(supabase, userId),
-    getDueRuneCards(supabase, userId, { limit: 12 }),
+    getDueRuneCards(supabase, userId, { limit: 12, select: DUE_RUNE_CHIP_SELECT }),
   ]);
 
   const titles: string[] = [];
-  for (const row of (dueRows as any[]) ?? []) {
-    const card = Array.isArray(row.rune_cards) ? row.rune_cards[0] : row.rune_cards;
-    const topic = Array.isArray(card?.topics) ? card?.topics[0] : card?.topics;
-    const title = (topic?.title as string) ?? "Unknown topic";
+  for (const row of ((dueRows as unknown[]) ?? [])) {
+    const card = embedOne((row as { rune_cards?: unknown }).rune_cards) as
+      | { topics?: { title?: string | null } | { title?: string | null }[] | null }
+      | undefined;
+    const title = embedOne(card?.topics)?.title ?? "Unknown topic";
     if (!titles.includes(title)) titles.push(title);
     if (titles.length >= 3) break;
   }

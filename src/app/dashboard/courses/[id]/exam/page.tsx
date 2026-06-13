@@ -6,6 +6,7 @@ import { ArrowLeft, FileText, Clock, BookOpen, Gem, Target, Shield, ChevronRight
 import { cn } from "@/lib/utils";
 import ExamUploadForm from "@/components/exam/ExamUploadForm";
 import StartExamButton from "@/components/exam/StartExamButton";
+import { countDueRunes, getCourseTopicIds } from "@/lib/runes-queue";
 
 async function getExamData(courseId: string, userId: string) {
   const supabase = createServiceClient();
@@ -58,38 +59,21 @@ async function getExamData(courseId: string, userId: string) {
     .limit(5);
 
   // Rune Cram availability — active (non-banished) cards across the course's
-  // decks + how many are due now. Two-step topic-id resolution (house pattern).
+  // decks + how many are due now (countDueRunes owns the due definition).
   let runeCount = 0;
   let dueRuneCount = 0;
-  const { data: episodes } = await supabase
-    .from("episodes")
-    .select("id")
-    .eq("course_id", courseId);
-  const episodeIds = (episodes || []).map((e: { id: string }) => e.id);
-  if (episodeIds.length > 0) {
-    const { data: topics } = await supabase
-      .from("topics")
-      .select("id")
-      .in("episode_id", episodeIds);
-    const topicIds = (topics || []).map((t: { id: string }) => t.id);
-    if (topicIds.length > 0) {
-      const { count: cardCount } = await supabase
+  const topicIds = await getCourseTopicIds(supabase, courseId);
+  if (topicIds.length > 0) {
+    const [{ count: cardCount }, dueCount] = await Promise.all([
+      supabase
         .from("rune_cards")
         .select("id", { count: "exact", head: true })
         .in("topic_id", topicIds)
-        .is("suspended_at", null);
-      runeCount = cardCount ?? 0;
-      if (runeCount > 0) {
-        const { count: dueCount } = await supabase
-          .from("rune_card_srs")
-          .select("id, rune_cards!inner(id)", { count: "exact", head: true })
-          .eq("user_id", dbUser.id)
-          .is("rune_cards.suspended_at", null)
-          .in("rune_cards.topic_id", topicIds)
-          .lte("due_at", new Date().toISOString());
-        dueRuneCount = dueCount ?? 0;
-      }
-    }
+        .is("suspended_at", null),
+      countDueRunes(supabase, dbUser.id, { topicIds }),
+    ]);
+    runeCount = cardCount ?? 0;
+    dueRuneCount = runeCount > 0 ? dueCount : 0;
   }
 
   return {

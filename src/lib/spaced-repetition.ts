@@ -217,3 +217,8 @@ export const RUNE_XP_PER_DUE_CARD = 2;
 export const RUNE_QUEUE_CLEAR_BONUS_XP = 15;
 /** Max cards pulled into a single drill session (most-overdue-first). */
 export const RUNE_SESSION_CAP = 30;
+/** Drill pacing estimate (~10s per flip) — one source for every surface
+ *  that quotes a time, so the widget and NBA can't disagree. */
+export function estimateRuneDrillMinutes(cardCount: number): number {
+  return Math.max(1, Math.round((cardCount * 10) / 60));
+}

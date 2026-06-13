@@ -5,6 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { MAX_BACK_CHARS, MAX_FRONT_CHARS } from "@/lib/rune-deck";
+import { getDbUserId, verifyTopicOwned } from "@/lib/ownership";
 
 export async function POST(request: NextRequest) {
   const { userId } = await auth();
@@ -37,27 +38,11 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient();
 
-  const { data: dbUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("clerk_id", userId)
-    .single();
-  if (!dbUser) {
+  const dbUserId = await getDbUserId(supabase, userId);
+  if (!dbUserId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  // Ownership chain: topic → episode → course → user.
-  const { data: topic } = await supabase
-    .from("topics")
-    .select("id, episodes!inner ( courses!inner ( user_id ) )")
-    .eq("id", topicId)
-    .single();
-  type EpRow = { courses?: unknown };
-  const episode = (Array.isArray(topic?.episodes) ? topic?.episodes[0] : topic?.episodes) as EpRow | undefined;
-  const course = (Array.isArray(episode?.courses) ? episode?.courses[0] : episode?.courses) as
-    | { user_id?: string | null }
-    | undefined;
-  if (!topic || !course || course.user_id !== dbUser.id) {
+  if (!(await verifyTopicOwned(supabase, topicId, dbUserId))) {
     return NextResponse.json({ error: "Topic not found" }, { status: 404 });
   }
 
@@ -75,7 +60,7 @@ export async function POST(request: NextRequest) {
   // row produces contradictory due counts across surfaces — roll back.
   const nowIso = new Date().toISOString();
   const { error: srsError } = await supabase.from("rune_card_srs").insert({
-    user_id: dbUser.id,
+    user_id: dbUserId,
     card_id: inserted.id,
     due_at: nowIso,
   });

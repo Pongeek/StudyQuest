@@ -12,11 +12,7 @@ import TopicPDFViewer from "@/components/course/TopicPDFViewerClient";
 import TopicMasteryPanel from "@/components/course/TopicMasteryPanel";
 import CheatSheetPanel from "@/components/course/CheatSheetPanel";
 import RuneDeckPanel from "@/components/runes/RuneDeckPanel";
-import {
-  mapRuneCardRows,
-  RUNE_CARD_COLUMNS,
-  RUNE_SRS_COLUMNS,
-} from "@/lib/rune-deck";
+import { loadRuneDeck } from "@/lib/runes-queue";
 
 async function getTopicData(topicId: string, courseId: string, userId: string) {
   const supabase = createServiceClient();
@@ -37,34 +33,18 @@ async function getTopicData(topicId: string, courseId: string, userId: string) {
 
   if (!topic || (topic.episodes as any).course_id !== courseId) return null;
 
-  const { data: mastery } = await supabase
-    .from("user_topic_mastery")
-    .select("*")
-    .eq("user_id", dbUser.id)
-    .eq("topic_id", topicId)
-    .single();
-
-  const { data: questions } = await supabase
-    .from("questions")
-    .select("id")
-    .eq("topic_id", topicId);
-
-  // Rune Deck (migration 026) — cards + this user's per-card SM-2 state.
-  const { data: runeCardRows } = await supabase
-    .from("rune_cards")
-    .select(RUNE_CARD_COLUMNS)
-    .eq("topic_id", topicId)
-    .order("created_at", { ascending: true });
-  const runeCardIds = (runeCardRows || []).map((c: { id: string }) => c.id);
-  const { data: runeSrsRows } =
-    runeCardIds.length > 0
-      ? await supabase
-          .from("rune_card_srs")
-          .select(RUNE_SRS_COLUMNS)
-          .eq("user_id", dbUser.id)
-          .in("card_id", runeCardIds)
-      : { data: [] };
-  const runeCards = mapRuneCardRows(runeCardRows || [], runeSrsRows || []);
+  // Mastery, question presence, and the rune deck (migration 026) are
+  // independent — one parallel round instead of three serial ones.
+  const [{ data: mastery }, { data: questions }, runeCards] = await Promise.all([
+    supabase
+      .from("user_topic_mastery")
+      .select("*")
+      .eq("user_id", dbUser.id)
+      .eq("topic_id", topicId)
+      .single(),
+    supabase.from("questions").select("id").eq("topic_id", topicId),
+    loadRuneDeck(supabase, topicId, dbUser.id),
+  ]);
 
   // Note: Recent-session list is now owned by TopicMasteryPanel, which
   // pulls a wider window (up to 10) plus per-session metadata. The old

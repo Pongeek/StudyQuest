@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DoorOpen, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, isRTLText } from "@/lib/utils";
+import { formatIntervalDays } from "@/lib/rune-deck";
 import { XPBurstProvider, useXPBurst } from "@/components/effects/XPBurst";
 import { useSound } from "@/lib/useSound";
 import { showFreezeToasts, type StreakResponseFields } from "@/lib/freeze-toast";
@@ -16,11 +17,11 @@ import RuneSummary from "./RuneSummary";
 
 export type DrillScope = "due" | "topic" | "course";
 
+/** The /complete response fields the client actually renders — the server
+ *  returns a few more counters (againCount, dueRatedCount) for analytics. */
 export interface RuneCompleteResponse extends StreakResponseFields {
   xpEarned: number;
   ratedCount: number;
-  againCount: number;
-  dueRatedCount: number;
   queueCleared: boolean;
   remainingDue: number;
   newAchievements: UnlockedAchievement[];
@@ -75,17 +76,6 @@ const RATING_BUTTONS: Array<{
 ];
 
 const KEY_TO_RATING: Record<string, RuneRating> = { "1": 1, "2": 3, "3": 4, "4": 5 };
-
-/** Locale-free interval label for the post-rating chip. */
-function intervalChip(days: number): string {
-  if (days < 14) return `${Math.max(1, Math.round(days))}d`;
-  if (days < 60) return `${Math.round(days / 7)}w`;
-  return `${Math.round(days / 30)}mo`;
-}
-
-function hasRTL(text: string): boolean {
-  return /[֐-׿؀-ۿ]/.test(text);
-}
 
 function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProps) {
   const router = useRouter();
@@ -179,7 +169,7 @@ function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProp
           } else {
             play("correct");
           }
-          setLastInterval(intervalChip(data.intervalDays));
+          setLastInterval(formatIntervalDays(data.intervalDays));
           const nextQueue = queue.slice(1);
           setQueue(nextQueue);
           setFlipped(false);
@@ -234,7 +224,6 @@ function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProp
     return (
       <RuneSummary
         data={summary}
-        totalCards={cards.length}
         lapseCount={lapsedIds.size}
         scope={scope}
         onRestart={onRestart}
@@ -271,7 +260,7 @@ function EngineInner({ sessionId, scope, cards, onRestart }: RuneDrillEngineProp
     );
   }
 
-  const dir = hasRTL(current.front) || hasRTL(current.back) ? "rtl" : "ltr";
+  const dir = isRTLText(current.front) || isRTLText(current.back) ? "rtl" : "ltr";
 
   return (
     <div className="max-w-xl mx-auto space-y-4">

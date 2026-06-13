@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Gem, ArrowRight, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { estimateRuneDrillMinutes } from "@/lib/spaced-repetition";
 
 interface DueRuneTopic {
   topicTitle: string;
@@ -31,7 +32,7 @@ export default function RunesDueCard({
   const shownTopics = dueTopics.slice(0, 3);
 
   // ~10 seconds per card — flips are fast; that's the whole point.
-  const minutes = estMinutes ?? Math.max(1, Math.round((dueCount * 10) / 60));
+  const minutes = estMinutes ?? estimateRuneDrillMinutes(dueCount);
 
   return (
     <section

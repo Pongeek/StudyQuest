@@ -23,7 +23,11 @@ import AchievementUnlockOverlay, {
 } from "@/components/effects/AchievementUnlockOverlay";
 import { readClassifiedErrorFromResponse } from "@/lib/ai-error";
 import { INLINE_COPY } from "@/lib/loading-copy";
-import { countDueCards, type RuneCardDto } from "@/lib/rune-deck";
+import {
+  formatIntervalDays,
+  isCardDue,
+  type RuneCardDto,
+} from "@/lib/rune-deck";
 
 interface RuneDeckPanelProps {
   topicId: string;
@@ -31,16 +35,6 @@ interface RuneDeckPanelProps {
   initialCards: RuneCardDto[];
   /** Text direction for the rendered card content (matches the topic page). */
   dir?: "ltr" | "rtl" | "auto";
-}
-
-/** Locale-free interval chip: "today", "3d", "2w". */
-function intervalLabel(dueAt: string, now = new Date()): string {
-  const days = Math.ceil(
-    (new Date(dueAt).getTime() - now.getTime()) / 86_400_000,
-  );
-  if (days <= 0) return "due";
-  if (days < 14) return `${days}d`;
-  return `${Math.round(days / 7)}w`;
 }
 
 /**
@@ -73,19 +67,14 @@ export default function RuneDeckPanel({
     () => cards.filter((c) => c.suspendedAt),
     [cards],
   );
-  const dueCount = useMemo(() => countDueCards(cards), [cards]);
-  const dueIds = useMemo(() => {
-    const now = new Date().getTime();
-    return new Set(
-      cards
-        .filter(
-          (c) =>
-            !c.suspendedAt &&
-            (!c.srs || new Date(c.srs.dueAt).getTime() <= now),
-        )
-        .map((c) => c.id),
-    );
-  }, [cards]);
+  // One clock snapshot + one predicate (isCardDue) drive the header count,
+  // the per-card DUE badges, and the interval chips — they can't disagree.
+  const nowMs = useMemo(() => new Date().getTime(), []);
+  const dueIds = useMemo(
+    () => new Set(cards.filter((c) => isCardDue(c, nowMs)).map((c) => c.id)),
+    [cards, nowMs],
+  );
+  const dueCount = dueIds.size;
   const forgedAt = useMemo(() => {
     const forged = cards.filter((c) => c.source === "forged");
     if (forged.length === 0) return null;
@@ -330,7 +319,11 @@ export default function RuneDeckPanel({
                 <span className="flex items-center gap-2 flex-shrink-0">
                   {card.srs && card.srs.reviewCount > 0 && !isDue && (
                     <span className="text-[9px] text-slate-500 font-medium">
-                      {intervalLabel(card.srs.dueAt)}
+                      {formatIntervalDays(
+                        Math.ceil(
+                          (new Date(card.srs.dueAt).getTime() - nowMs) / 86_400_000,
+                        ),
+                      )}
                     </span>
                   )}
                   {isDue && (
@@ -441,18 +434,21 @@ export default function RuneDeckPanel({
         </div>
       )}
 
-      <RuneEditorDialog
-        key={editor ? `${editor.mode}-${editor.card?.id ?? "new"}` : "closed"}
-        open={editor !== null}
-        onOpenChange={(open) => {
-          if (!open) setEditor(null);
-        }}
-        mode={editor?.mode ?? "add"}
-        topicId={topicId}
-        card={editor?.card ?? null}
-        dir={dir}
-        onSaved={handleSaved}
-      />
+      {/* Mounted only while open — state lifetime = dialog lifetime, so the
+          textareas always seed from the current target (no key choreography). */}
+      {editor && (
+        <RuneEditorDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setEditor(null);
+          }}
+          mode={editor.mode}
+          topicId={topicId}
+          card={editor.card}
+          dir={dir}
+          onSaved={handleSaved}
+        />
+      )}
     </section>
   );
 }

@@ -11,6 +11,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { MAX_BACK_CHARS, MAX_FRONT_CHARS } from "@/lib/rune-deck";
+import { getDbUserId, verifyCardOwned } from "@/lib/ownership";
 
 export async function PATCH(
   request: NextRequest,
@@ -40,30 +41,11 @@ export async function PATCH(
 
   const supabase = createServiceClient();
 
-  const { data: dbUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("clerk_id", userId)
-    .single();
-  if (!dbUser) {
+  const dbUserId = await getDbUserId(supabase, userId);
+  if (!dbUserId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const { data: card } = await supabase
-    .from("rune_cards")
-    .select(
-      "id, topic_id, topics!inner ( episodes!inner ( courses!inner ( user_id ) ) )",
-    )
-    .eq("id", cardId)
-    .single();
-  type TopicRow = { episodes?: unknown };
-  type EpRow = { courses?: unknown };
-  const topicRel = (Array.isArray(card?.topics) ? card?.topics[0] : card?.topics) as TopicRow | undefined;
-  const episode = (Array.isArray(topicRel?.episodes) ? topicRel?.episodes[0] : topicRel?.episodes) as EpRow | undefined;
-  const course = (Array.isArray(episode?.courses) ? episode?.courses[0] : episode?.courses) as
-    | { user_id?: string | null }
-    | undefined;
-  if (!card || !course || course.user_id !== dbUser.id) {
+  if (!(await verifyCardOwned(supabase, cardId, dbUserId))) {
     return NextResponse.json({ error: "Rune not found" }, { status: 404 });
   }
 

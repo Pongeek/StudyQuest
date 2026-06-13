@@ -14,11 +14,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { classifyAiError, classifiedErrorBody } from "@/lib/ai-error";
 import { generateRunes } from "@/lib/ai/generate-runes";
 import { awardAchievementIfNew } from "@/lib/achievements";
-import {
-  mapRuneCardRows,
-  RUNE_CARD_COLUMNS,
-  RUNE_SRS_COLUMNS,
-} from "@/lib/rune-deck";
+import { loadRuneDeck } from "@/lib/runes-queue";
 
 export const maxDuration = 60;
 
@@ -91,30 +87,6 @@ function ownershipErrorResponse(error: "auth" | "not_found" | "forbidden" | unde
   );
 }
 
-async function loadDeck(
-  supabase: ReturnType<typeof createServiceClient>,
-  topicId: string,
-  dbUserId: string,
-) {
-  const { data: cards } = await supabase
-    .from("rune_cards")
-    .select(RUNE_CARD_COLUMNS)
-    .eq("topic_id", topicId)
-    .order("created_at", { ascending: true });
-
-  const cardIds = (cards || []).map((c: { id: string }) => c.id);
-  const { data: srsRows } =
-    cardIds.length > 0
-      ? await supabase
-          .from("rune_card_srs")
-          .select(RUNE_SRS_COLUMNS)
-          .eq("user_id", dbUserId)
-          .in("card_id", cardIds)
-      : { data: [] };
-
-  return mapRuneCardRows(cards || [], srsRows || []);
-}
-
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ topicId: string }> },
@@ -132,7 +104,7 @@ export async function GET(
   const resolved = await resolveOwnedTopic(supabase, topicId, userId);
   if ("error" in resolved) return ownershipErrorResponse(resolved.error);
 
-  const cards = await loadDeck(supabase, topicId, resolved.dbUserId);
+  const cards = await loadRuneDeck(supabase, topicId, resolved.dbUserId);
   return NextResponse.json({ cards });
 }
 
@@ -246,7 +218,7 @@ export async function POST(
       }
       return ach;
     })(),
-    loadDeck(supabase, topicId, resolved.dbUserId),
+    loadRuneDeck(supabase, topicId, resolved.dbUserId),
   ]);
   const newAchievements = runesmith ? [runesmith] : [];
 

@@ -11,7 +11,8 @@ import type { DrillScope, RuneCompleteResponse } from "./RuneDrillEngine";
 
 interface RuneSummaryProps {
   data: RuneCompleteResponse;
-  totalCards: number;
+  /** Cards relearned via the Again-requeue loop — client-tracked; the server
+   *  only stores final ratings. */
   lapseCount: number;
   scope: DrillScope;
   onRestart?: () => void;
@@ -27,7 +28,6 @@ type Phase = "stats" | "level-up" | "achievements" | "done";
  */
 export default function RuneSummary({
   data,
-  totalCards,
   lapseCount,
   scope,
   onRestart,
@@ -91,7 +91,9 @@ export default function RuneSummary({
 
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
           <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-3">
-            <p className="text-xl font-extrabold text-white tabular-nums">{totalCards}</p>
+            <p className="text-xl font-extrabold text-white tabular-nums">
+              {data.ratedCount}
+            </p>
             <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">
               Runes
             </p>

@@ -5,13 +5,20 @@
 //       { scope: "course", courseId: string } → every deck in a course, due-first
 //
 // Cards are capped at RUNE_SESSION_CAP, most-overdue first. The session row
-// records card_ids so /rate can enforce membership.
+// records card_ids so /rate can enforce membership. Dueness is used for
+// ordering only — XP eligibility is decided server-side at rate time.
 
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { RUNE_SESSION_CAP } from "@/lib/spaced-repetition";
-import { getDueRuneCards, type DrillCard } from "@/lib/runes-queue";
+import {
+  embedOne,
+  getCourseTopicIds,
+  getDueRuneCards,
+  type DrillCard,
+} from "@/lib/runes-queue";
+import { getDbUserId, verifyTopicOwned } from "@/lib/ownership";
 
 type Scope = "due" | "topic" | "course";
 
@@ -23,9 +30,13 @@ interface CardRow {
   topics?: { title?: string | null } | { title?: string | null }[] | null;
 }
 
-function topicTitleOf(row: CardRow): string {
-  const t = Array.isArray(row.topics) ? row.topics[0] : row.topics;
-  return t?.title ?? "Unknown topic";
+function toDrillCard(row: CardRow): DrillCard {
+  return {
+    id: row.id,
+    front: row.front,
+    back: row.back,
+    topicTitle: embedOne(row.topics)?.title ?? "Unknown topic",
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -53,73 +64,40 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createServiceClient();
-  const { data: dbUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("clerk_id", userId)
-    .single();
-  if (!dbUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const dbUserId = await getDbUserId(supabase, userId);
+  if (!dbUserId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const nowIso = new Date().toISOString();
   let drillCards: DrillCard[] = [];
 
   if (scope === "due") {
-    const { data: dueRows } = await getDueRuneCards(supabase, dbUser.id, {
+    const { data: dueRows } = await getDueRuneCards(supabase, dbUserId, {
       limit: RUNE_SESSION_CAP,
       now: nowIso,
     });
     drillCards = ((dueRows as unknown[]) || []).map((row) => {
-      const r = row as { rune_cards?: unknown };
-      const card = (Array.isArray(r.rune_cards) ? r.rune_cards[0] : r.rune_cards) as CardRow;
-      return {
-        id: card.id,
-        front: card.front,
-        back: card.back,
-        topicTitle: topicTitleOf(card),
-        wasDue: true,
-      };
+      const card = embedOne((row as { rune_cards?: unknown }).rune_cards) as CardRow;
+      return toDrillCard(card);
     });
   } else {
     // topic / course scope — resolve the owned topic id set first.
     let topicIds: string[] = [];
     if (scope === "topic") {
-      const { data: topic } = await supabase
-        .from("topics")
-        .select("id, episodes!inner ( courses!inner ( user_id ) )")
-        .eq("id", topicId!)
-        .single();
-      type EpRow = { courses?: unknown };
-      const episode = (Array.isArray(topic?.episodes) ? topic?.episodes[0] : topic?.episodes) as EpRow | undefined;
-      const course = (Array.isArray(episode?.courses) ? episode?.courses[0] : episode?.courses) as
-        | { user_id?: string | null }
-        | undefined;
-      if (!topic || !course || course.user_id !== dbUser.id) {
+      if (!(await verifyTopicOwned(supabase, topicId!, dbUserId))) {
         return NextResponse.json({ error: "Topic not found" }, { status: 404 });
       }
-      topicIds = [topic.id as string];
+      topicIds = [topicId!];
     } else {
       const { data: course } = await supabase
         .from("courses")
         .select("id")
         .eq("id", courseId!)
-        .eq("user_id", dbUser.id)
+        .eq("user_id", dbUserId)
         .single();
       if (!course) {
         return NextResponse.json({ error: "Course not found" }, { status: 404 });
       }
-      // Two-step topic-id resolution (avoids 3-level nested PostgREST filters).
-      const { data: episodes } = await supabase
-        .from("episodes")
-        .select("id")
-        .eq("course_id", courseId!);
-      const episodeIds = (episodes || []).map((e: { id: string }) => e.id);
-      if (episodeIds.length > 0) {
-        const { data: topics } = await supabase
-          .from("topics")
-          .select("id")
-          .in("episode_id", episodeIds);
-        topicIds = (topics || []).map((t: { id: string }) => t.id);
-      }
+      topicIds = await getCourseTopicIds(supabase, courseId!);
     }
 
     if (topicIds.length === 0) {
@@ -137,11 +115,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No runes to drill" }, { status: 404 });
     }
 
-    // Dueness for ordering + display. Missing SRS rows count as due-now.
+    // Dueness for ordering. Missing SRS rows count as due-now (defensive —
+    // the seed is fatal, so this shouldn't occur). Epoch millis, not ISO
+    // strings: PostgREST emits "+00:00" offsets while nowIso uses "Z".
     const { data: srsRows } = await supabase
       .from("rune_card_srs")
       .select("card_id, due_at")
-      .eq("user_id", dbUser.id)
+      .eq("user_id", dbUserId)
       .in("card_id", cards.map((c) => c.id));
     const dueAtByCard = new Map(
       ((srsRows || []) as Array<{ card_id: string; due_at: string }>).map((s) => [
@@ -150,9 +130,6 @@ export async function POST(request: NextRequest) {
       ]),
     );
 
-    // Epoch millis, not ISO-string ordering — PostgREST timestamps use
-    // "+00:00" offsets while nowIso uses "Z"; lexicographic compare across
-    // the two spellings is not trustworthy.
     const nowMs = new Date(nowIso).getTime();
     const withDueness = cards.map((c) => {
       const dueAt = dueAtByCard.get(c.id);
@@ -165,13 +142,9 @@ export async function POST(request: NextRequest) {
       return a.dueMs - b.dueMs;
     });
 
-    drillCards = withDueness.slice(0, RUNE_SESSION_CAP).map(({ card, wasDue }) => ({
-      id: card.id,
-      front: card.front,
-      back: card.back,
-      topicTitle: topicTitleOf(card),
-      wasDue,
-    }));
+    drillCards = withDueness
+      .slice(0, RUNE_SESSION_CAP)
+      .map(({ card }) => toDrillCard(card));
   }
 
   if (drillCards.length === 0) {
@@ -181,7 +154,7 @@ export async function POST(request: NextRequest) {
   const { data: session, error: sessionError } = await supabase
     .from("rune_sessions")
     .insert({
-      user_id: dbUser.id,
+      user_id: dbUserId,
       scope,
       topic_id: scope === "topic" ? topicId : null,
       course_id: scope === "course" ? courseId : null,

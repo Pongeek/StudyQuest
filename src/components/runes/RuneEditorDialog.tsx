@@ -42,8 +42,8 @@ export default function RuneEditorDialog({
   dir = "auto",
   onSaved,
 }: RuneEditorDialogProps) {
-  // Seeded once per mount — the parent re-keys this component per target
-  // (`key={mode + cardId}`), so a different card or mode remounts fresh.
+  // Seeded once per mount — the parent renders this component only while
+  // open, so every open is a fresh mount seeded from the current target.
   const [front, setFront] = useState(() =>
     mode === "edit" ? (card?.front ?? "") : "",
   );
